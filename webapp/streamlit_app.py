@@ -14,6 +14,7 @@
 """
 
 import json
+from pathlib import Path
 from collections import Counter
 
 import streamlit as st
@@ -91,7 +92,8 @@ def diagnose(answers: dict) -> dict:
 # ============ 判定モジュール(Gemini Embedding) ============
 @st.cache_resource
 def load_training_data():
-    with open("training_examples.json", "r", encoding="utf-8") as f:
+    path = Path(__file__).parent / "training_examples.json"
+    with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
 
 
