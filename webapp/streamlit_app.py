@@ -125,7 +125,6 @@ def classify_comment(text: str) -> dict:
     training = load_training_data()
     category_vectors = build_category_vectors()
     comment_vector = embed_text(text)
-
     best_category, best_similarity, best_example = None, -1.0, None
     for category, vectors in category_vectors.items():
         sims = cosine_similarity([comment_vector], vectors)[0]
@@ -135,7 +134,7 @@ def classify_comment(text: str) -> dict:
             best_category = category
             best_example = training[category][idx]
 
-       if best_category == "非該当":
+    if best_category == "非該当":
         judgement = "非該当"
     elif best_similarity >= THRESHOLD_MATCH:
         judgement = "該当"
@@ -143,7 +142,6 @@ def classify_comment(text: str) -> dict:
         judgement = "グレー"
     else:
         judgement = "非該当"
-
     return {
         "category": best_category,
         "similarity": float(best_similarity),
