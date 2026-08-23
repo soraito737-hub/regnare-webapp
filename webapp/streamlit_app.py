@@ -135,7 +135,9 @@ def classify_comment(text: str) -> dict:
             best_category = category
             best_example = training[category][idx]
 
-    if best_similarity >= THRESHOLD_MATCH:
+       if best_category == "非該当":
+        judgement = "非該当"
+    elif best_similarity >= THRESHOLD_MATCH:
         judgement = "該当"
     elif best_similarity >= THRESHOLD_GRAY:
         judgement = "グレー"
