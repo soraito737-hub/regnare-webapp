@@ -160,7 +160,7 @@ def get_flow():
         }
     }
     return Flow.from_client_config(
-        client_config, scopes=SCOPES, redirect_uri=st.secrets["REDIRECT_URI"]
+        client_config, scopes=SCOPES, redirect_uri=st.secrets["REDIRECT_URI"], autogenerate_code_verifier=False
     )
 
 
@@ -196,7 +196,6 @@ query_params = st.query_params
 if "code" in query_params and st.session_state.credentials is None:
     flow = get_flow()
     flow.code_verifier = st.session_state.get("code_verifier")
-    st.write(f"DEBUG: code_verifier = {st.session_state.get('code_verifier')}")
     flow.fetch_token(code=query_params["code"])
     st.session_state.credentials = flow.credentials
     st.query_params.clear()
