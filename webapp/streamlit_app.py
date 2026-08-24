@@ -51,7 +51,6 @@ FACTOR_LABELS = {
     "change": "活動スタイルの変化がリスク要因になりやすい傾向です",
 }
 
-
 def diagnose(answers: dict) -> dict:
     exposure_score = (answers["face"] + answers["private"] + answers["area"]) / 3
     assertion_score = (answers["criticism"] + answers["harsh"] + answers["opinion"]) / 3
@@ -88,18 +87,14 @@ def diagnose(answers: dict) -> dict:
         "suggested_categories": CATEGORY_MAPPING[dominant],
     }
 
-
 # ============ 判定モジュール(Gemini Embedding) ============
-@st.cache_resource
 def load_training_data():
     path = Path(__file__).parent / "training_examples.json"
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
 
-
 def get_gemini_client():
     return genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
-
 
 @st.cache_data(show_spinner=False)
 def embed_text(text: str) -> list[float]:
@@ -111,15 +106,12 @@ def embed_text(text: str) -> list[float]:
     )
     return result.embeddings[0].values
 
-
-@st.cache_resource
 def build_category_vectors():
     training = load_training_data()
     vectors = {}
     for category, examples in training.items():
         vectors[category] = [embed_text(ex) for ex in examples]
     return vectors
-
 
 def classify_comment(text: str) -> dict:
     training = load_training_data()
@@ -149,7 +141,6 @@ def classify_comment(text: str) -> dict:
         "matched_example": best_example,
     }
 
-
 # ============ YouTube OAuth (Web版) ============
 def get_flow():
     client_config = {
@@ -165,7 +156,6 @@ def get_flow():
         client_config, scopes=SCOPES, redirect_uri=st.secrets["REDIRECT_URI"], autogenerate_code_verifier=False
     )
 
-
 def fetch_comments(credentials, video_id: str, max_results: int = 20) -> list[dict]:
     service = build("youtube", "v3", credentials=credentials)
     comments = []
@@ -180,7 +170,6 @@ def fetch_comments(credentials, video_id: str, max_results: int = 20) -> list[di
             "text": snippet["textDisplay"],
         })
     return comments[:max_results]
-
 
 # ============ セッション状態の初期化 ============
 if "step" not in st.session_state:
@@ -206,7 +195,7 @@ if "code" in query_params and st.session_state.credentials is None:
 
 # ============ STEP 1: 診断 ============
 if st.session_state.step == "diagnosis":
-    st.subheader("STEP 1 / 3　発信スタイル診断")
+    st.subheader("STEP 1 / 3  発信スタイル診断")
     st.write("7つの質問に、1(あてはまらない)〜5(よくあてはまる)で答えてください。")
 
     with st.form("diagnosis_form"):
@@ -234,7 +223,7 @@ if st.session_state.step == "diagnosis":
 
 # ============ STEP 2: カテゴリ提案 ============
 elif st.session_state.step == "category":
-    st.subheader("STEP 2 / 3　診断結果")
+    st.subheader("STEP 2 / 3  診断結果")
     result = st.session_state.diagnosis_result
 
     risk_colors = {"低": "green", "注意": "orange", "やや高め": "orange", "高": "red"}
@@ -249,7 +238,7 @@ elif st.session_state.step == "category":
     for cat in CATEGORIES:
         default = cat in result["suggested_categories"]
         checked = st.checkbox(
-            f"{cat}" + ("　🟢 おすすめ" if default else ""),
+            f"{cat}" + (" 🟢 おすすめ" if default else ""),
             value=default,
             key=f"cat_{cat}",
         )
@@ -263,7 +252,7 @@ elif st.session_state.step == "category":
 
 # ============ STEP 2.5: YouTube連携 ============
 elif st.session_state.step == "connect":
-    st.subheader("STEP 3 / 3　YouTubeと連携")
+    st.subheader("STEP 3 / 3  YouTubeと連携")
     st.write("下のボタンから、ご自身のYouTubeアカウントでログインしてください。")
     st.info("「このアプリはGoogleで確認されていません」という警告が出ますが、テスト段階のアプリのため正常な表示です。「続行」を押して進めてください。")
 
