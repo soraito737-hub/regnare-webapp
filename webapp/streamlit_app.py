@@ -303,7 +303,7 @@ elif st.session_state.step == "inbox":
 
     video_input = st.text_input("確認したい動画のURL(または動画ID)を入力してください")
     video_id = extract_video_id(video_input) if video_input else ""
-        if video_input and st.button("コメントを取得・判定する", use_container_width=True):
+    if video_input and st.button("コメントを取得・判定する", use_container_width=True):
         with st.spinner("コメントを取得し、判定しています..."):
             comments = fetch_comments(st.session_state.credentials, video_id, max_results=20)
             classified = []
