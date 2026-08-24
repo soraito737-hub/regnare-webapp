@@ -310,7 +310,7 @@ elif st.session_state.step == "inbox":
         hidden_ids = st.session_state.hidden_comment_ids
         ok_ids = st.session_state.ok_comment_ids
 
-        tabs = {"通常": [], "気になる": [], "確認待ち": [], "見たくない": []}
+        tabs = {"通常": [], "確認待ち": [], "見たくない": []}
         for c in classified:
             key = c["comment_key"]
             if key in hidden_ids:
@@ -319,19 +319,19 @@ elif st.session_state.step == "inbox":
                 tabs["通常"].append(c)
             elif c["judgement"] == "グレー":
                 tabs["確認待ち"].append(c)
+               tabs["見たくない"].append(c)
             elif c["judgement"] == "該当" and c["category"] in selected_categories:
-                tabs["気になる"].append(c)
+                                
             else:
                 tabs["通常"].append(c)
 
-        tab1, tab2, tab3, tab4 = st.tabs([
-            f"通常 ({len(tabs['通常'])})",
-            f"気になる ({len(tabs['気になる'])})",
-            f"確認待ち ({len(tabs['確認待ち'])})",
-            f"見たくない ({len(tabs['見たくない'])})",
-        ])
+        tab1, tab2, tab3 = st.tabs([
+           f"通常 ({len(tabs['通常'])})",
+           f"確認待ち ({len(tabs['確認待ち'])})",
+           f"見たくない ({len(tabs['見たくない'])})",
+               ])
 
-        for tab, key_name in zip([tab1, tab2, tab3, tab4], ["通常", "気になる", "確認待ち", "見たくない"]):
+            for tab, key_name in zip([tab1, tab2, tab3], ["通常", "確認待ち", "見たくない"]):
             with tab:
                 if not tabs[key_name]:
                     st.write("このタブにコメントはありません")
