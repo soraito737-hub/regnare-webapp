@@ -319,19 +319,18 @@ elif st.session_state.step == "inbox":
                 tabs["通常"].append(c)
             elif c["judgement"] == "グレー":
                 tabs["確認待ち"].append(c)
-                tabs["見たくない"].append(c)
             elif c["judgement"] == "該当" and c["category"] in selected_categories:
-                                
+                tabs["見たくない"].append(c)
             else:
                 tabs["通常"].append(c)
 
         tab1, tab2, tab3 = st.tabs([
-           f"通常 ({len(tabs['通常'])})",
-           f"確認待ち ({len(tabs['確認待ち'])})",
-           f"見たくない ({len(tabs['見たくない'])})",
-               ])
+            f"通常 ({len(tabs['通常'])})",
+            f"確認待ち ({len(tabs['確認待ち'])})",
+            f"見たくない ({len(tabs['見たくない'])})",
+        ])
 
-            for tab, key_name in zip([tab1, tab2, tab3], ["通常", "確認待ち", "見たくない"]):
+        for tab, key_name in zip([tab1, tab2, tab3], ["通常", "確認待ち", "見たくない"]):
             with tab:
                 if not tabs[key_name]:
                     st.write("このタブにコメントはありません")
