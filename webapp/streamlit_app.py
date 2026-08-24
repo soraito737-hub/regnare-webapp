@@ -319,7 +319,7 @@ elif st.session_state.step == "inbox":
                 tabs["通常"].append(c)
             elif c["judgement"] == "グレー":
                 tabs["確認待ち"].append(c)
-               tabs["見たくない"].append(c)
+                tabs["見たくない"].append(c)
             elif c["judgement"] == "該当" and c["category"] in selected_categories:
                                 
             else:
