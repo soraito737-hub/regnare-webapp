@@ -214,6 +214,13 @@ if "code" in query_params and st.session_state.credentials is None:
     flow.code_verifier = st.session_state.get("code_verifier")
     flow.fetch_token(code=query_params["code"])
     st.session_state.credentials = flow.credentials
+    if "state" in query_params:
+        try:
+            restored = json.loads(query_params["state"])
+            if isinstance(restored, list):
+                st.session_state.selected_categories = restored
+        except (json.JSONDecodeError, TypeError):
+            pass
     st.query_params.clear()
     st.session_state.step = "inbox"
     st.rerun()
@@ -282,13 +289,17 @@ elif st.session_state.step == "connect":
     st.info("「このアプリはGoogleで確認されていません」という警告が出ますが、テスト段階のアプリのため正常な表示です。「続行」を押して進めてください。")
 
     flow = get_flow()
-    auth_url, _ = flow.authorization_url(prompt="consent", access_type="offline")
+        auth_url, _ = flow.authorization_url(
+                   prompt="consent",
+                   access_type="offline",
+                   state=json.dumps(st.session_state.selected_categories),
+        )
     st.session_state.code_verifier = flow.code_verifier
     st.link_button("Googleでログインして連携する", auth_url, use_container_width=True)
-
 # ============ STEP 4: 安全受信トレイ ============
 elif st.session_state.step == "inbox":
     st.subheader("安全受信トレイ")
+    st.caption(f"見たくない設定中のカテゴリ: {', '.join(st.session_state.selected_categories) or '(未選択)'}")
 
     video_input = st.text_input("確認したい動画のURL(または動画ID)を入力してください")
     video_id = extract_video_id(video_input) if video_input else ""
