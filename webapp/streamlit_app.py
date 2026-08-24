@@ -192,6 +192,60 @@ def fetch_comments(credentials, video_id: str, max_results: int = 20) -> list[di
         })
     return comments[:max_results]
 
+# ============ 動画一覧取得(channels + playlistItems) ============
+def get_uploads_playlist_id(credentials) -> str:
+    service = build("youtube", "v3", credentials=credentials)
+    response = service.channels().list(part="contentDetails", mine=True).execute()
+    items = response.get("items", [])
+    if not items:
+        return ""
+    return items[0]["contentDetails"]["relatedPlaylists"]["uploads"]
+
+def fetch_video_list(credentials, playlist_id: str, page_token: str = None, max_results: int = 10) -> dict:
+    """アップロード済み動画一覧を取得(1クォータ/回、安価)。"""
+    service = build("youtube", "v3", credentials=credentials)
+    request = service.playlistItems().list(
+        part="snippet",
+        playlistId=playlist_id,
+        maxResults=max_results,
+        pageToken=page_token,
+    )
+    response = request.execute()
+    videos = []
+    for item in response.get("items", []):
+        snippet = item["snippet"]
+        videos.append({
+            "video_id": snippet["resourceId"]["videoId"],
+            "title": snippet["title"],
+            "thumbnail": snippet.get("thumbnails", {}).get("default", {}).get("url", ""),
+        })
+    return {
+        "videos": videos,
+        "next_page_token": response.get("nextPageToken"),
+    }
+
+def search_videos_by_title(credentials, query: str, max_results: int = 10) -> list[dict]:
+    """タイトル検索(100クォータ/回、高価)。明示的に検索したときのみ使用。"""
+    service = build("youtube", "v3", credentials=credentials)
+    request = service.search().list(
+        part="snippet",
+        forMine=True,
+        type="video",
+        q=query,
+        maxResults=max_results,
+    )
+    response = request.execute()
+    videos = []
+    for item in response.get("items", []):
+        snippet = item["snippet"]
+        videos.append({
+            "video_id": item["id"]["videoId"],
+            "title": snippet["title"],
+            "thumbnail": snippet.get("thumbnails", {}).get("default", {}).get("url", ""),
+        })
+    return videos
+
+
 # ============ セッション状態の初期化 ============
 if "step" not in st.session_state:
     st.session_state.step = "diagnosis"
@@ -227,7 +281,7 @@ if "code" in query_params and st.session_state.credentials is None:
 
 # ============ STEP 1: 診断 ============
 if st.session_state.step == "diagnosis":
-    st.subheader("STEP 1 / 3  発信スタイル診断")
+    st.subheader("STEP 1 / 3 発信スタイル診断")
     st.write("7つの質問に、1(あてはまらない)〜5(よくあてはまる)で答えてください。")
 
     with st.form("diagnosis_form"):
@@ -255,7 +309,7 @@ if st.session_state.step == "diagnosis":
 
 # ============ STEP 2: カテゴリ提案 ============
 elif st.session_state.step == "category":
-    st.subheader("STEP 2 / 3  診断結果")
+    st.subheader("STEP 2 / 3 診断結果")
     result = st.session_state.diagnosis_result
 
     risk_colors = {"低": "green", "注意": "orange", "やや高め": "orange", "高": "red"}
@@ -284,16 +338,16 @@ elif st.session_state.step == "category":
 
 # ============ STEP 2.5: YouTube連携 ============
 elif st.session_state.step == "connect":
-    st.subheader("STEP 3 / 3  YouTubeと連携")
+    st.subheader("STEP 3 / 3 YouTubeと連携")
     st.write("下のボタンから、ご自身のYouTubeアカウントでログインしてください。")
     st.info("「このアプリはGoogleで確認されていません」という警告が出ますが、テスト段階のアプリのため正常な表示です。「続行」を押して進めてください。")
 
     flow = get_flow()
     auth_url, _ = flow.authorization_url(
-                   prompt="consent",
-                   access_type="offline",
-                   state=json.dumps(st.session_state.selected_categories),
-        )
+        prompt="consent",
+        access_type="offline",
+        state=json.dumps(st.session_state.selected_categories),
+    )
     st.session_state.code_verifier = flow.code_verifier
     st.link_button("Googleでログインして連携する", auth_url, use_container_width=True)
 # ============ STEP 4: 安全受信トレイ ============
