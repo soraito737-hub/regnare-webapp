@@ -14,6 +14,7 @@
 """
 
 import json
+import re
 from pathlib import Path
 from collections import Counter
 
@@ -86,6 +87,26 @@ def diagnose(answers: dict) -> dict:
         "dominant_label": FACTOR_LABELS[dominant],
         "suggested_categories": CATEGORY_MAPPING[dominant],
     }
+
+# ============ 動画ID抽出 ============
+def extract_video_id(text: str) -> str:
+    text = text.strip()
+    if not text:
+        return ""
+
+    patterns = [
+        r"(?:v=|/videos/|embed/|youtu\.be/|/shorts/)([A-Za-z0-9_-]{11})",
+    ]
+    for pattern in patterns:
+        m = re.search(pattern, text)
+        if m:
+            return m.group(1)
+
+    candidate = text.split("&")[0].split("?")[0]
+    if re.fullmatch(r"[A-Za-z0-9_-]{11}", candidate):
+        return candidate
+
+    return text
 
 # ============ 判定モジュール(Gemini Embedding) ============
 def load_training_data():
@@ -178,6 +199,10 @@ if "selected_categories" not in st.session_state:
     st.session_state.selected_categories = []
 if "credentials" not in st.session_state:
     st.session_state.credentials = None
+if "hidden_comment_ids" not in st.session_state:
+    st.session_state.hidden_comment_ids = set()
+if "ok_comment_ids" not in st.session_state:
+    st.session_state.ok_comment_ids = set()
 
 st.title("🛡️ レグナレ")
 st.caption("安全な受信トレイ — Regnare")
@@ -265,47 +290,62 @@ elif st.session_state.step == "connect":
 elif st.session_state.step == "inbox":
     st.subheader("安全受信トレイ")
 
-    video_id = st.text_input("確認したい動画のID(またはURL末尾)を入力してください")
+    video_input = st.text_input("確認したい動画のURL(または動画ID)を入力してください")
+    video_id = extract_video_id(video_input) if video_input else ""
 
-    if video_id and st.button("コメントを取得・判定する", use_container_width=True):
+    if video_input and st.button("コメントを取得・判定する", use_container_width=True):
         with st.spinner("コメントを取得し、判定しています..."):
             comments = fetch_comments(st.session_state.credentials, video_id, max_results=20)
             classified = []
-            for c in comments:
+            for i, c in enumerate(comments):
                 result = classify_comment(c["text"])
-                classified.append({**c, **result})
+                classified.append({**c, **result, "comment_key": f"{i}_{c['text'][:30]}"})
             st.session_state.classified_comments = classified
+            st.session_state.hidden_comment_ids = set()
+            st.session_state.ok_comment_ids = set()
 
     if "classified_comments" in st.session_state:
         classified = st.session_state.classified_comments
         selected_categories = st.session_state.selected_categories
+        hidden_ids = st.session_state.hidden_comment_ids
+        ok_ids = st.session_state.ok_comment_ids
 
-        tabs = {"通常": [], "気になる": [], "確認待ち": []}
+        tabs = {"通常": [], "気になる": [], "確認待ち": [], "見たくない": []}
         for c in classified:
-            if c["judgement"] == "グレー":
+            key = c["comment_key"]
+            if key in hidden_ids:
+                tabs["見たくない"].append(c)
+            elif key in ok_ids:
+                tabs["通常"].append(c)
+            elif c["judgement"] == "グレー":
                 tabs["確認待ち"].append(c)
             elif c["judgement"] == "該当" and c["category"] in selected_categories:
                 tabs["気になる"].append(c)
             else:
                 tabs["通常"].append(c)
 
-        tab1, tab2, tab3 = st.tabs([
+        tab1, tab2, tab3, tab4 = st.tabs([
             f"通常 ({len(tabs['通常'])})",
             f"気になる ({len(tabs['気になる'])})",
             f"確認待ち ({len(tabs['確認待ち'])})",
+            f"見たくない ({len(tabs['見たくない'])})",
         ])
 
-        for tab, key in zip([tab1, tab2, tab3], ["通常", "気になる", "確認待ち"]):
+        for tab, key_name in zip([tab1, tab2, tab3, tab4], ["通常", "気になる", "確認待ち", "見たくない"]):
             with tab:
-                if not tabs[key]:
+                if not tabs[key_name]:
                     st.write("このタブにコメントはありません")
-                for c in tabs[key]:
+                for c in tabs[key_name]:
                     with st.container(border=True):
                         st.write(f"**{c['author']}**")
                         st.write(c["text"])
                         if c["category"]:
                             st.caption(f"カテゴリ: {c['category']} / 類似度: {c['similarity']:.2f}")
-                        if key == "確認待ち":
+                        if key_name == "確認待ち":
                             col1, col2 = st.columns(2)
-                            col1.button("見たくない", key=f"want_{c['text'][:20]}")
-                            col2.button("問題ない", key=f"ok_{c['text'][:20]}")
+                            if col1.button("見たくない", key=f"want_{c['comment_key']}"):
+                                st.session_state.hidden_comment_ids.add(c["comment_key"])
+                                st.rerun()
+                            if col2.button("問題ない", key=f"ok_{c['comment_key']}"):
+                                st.session_state.ok_comment_ids.add(c["comment_key"])
+                                st.rerun()
