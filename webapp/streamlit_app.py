@@ -289,7 +289,7 @@ elif st.session_state.step == "connect":
     st.info("「このアプリはGoogleで確認されていません」という警告が出ますが、テスト段階のアプリのため正常な表示です。「続行」を押して進めてください。")
 
     flow = get_flow()
-        auth_url, _ = flow.authorization_url(
+    auth_url, _ = flow.authorization_url(
                    prompt="consent",
                    access_type="offline",
                    state=json.dumps(st.session_state.selected_categories),
