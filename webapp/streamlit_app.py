@@ -839,11 +839,23 @@ elif st.session_state.step == "inbox":
             st.caption("コメント本文は表示しません。数字の傾向だけを確認できます。")
 
             st.markdown("#### ① 今回処理した動画のカテゴリ内訳(応援コメント含む)")
+            st.caption("選択した動画すべてを合算した内訳です")
             for b in ALL_BUCKETS:
                 pct = total_by_category[b] / total_classified * 100
                 label = "💬 応援コメント(非該当)" if b == "非該当" else b
                 st.write(f"{label}: {pct:.1f}%  ({total_by_category[b]}件)")
                 st.progress(min(pct / 100, 1.0))
+
+            if len(per_video_category_counts) >= 2:
+                st.markdown("##### 動画ごとに分けて見る")
+                for video_title, counts in per_video_category_counts.items():
+                    video_total = sum(counts.values()) or 1
+                    with st.expander(video_title):
+                        for b in ALL_BUCKETS:
+                            pct_v = counts[b] / video_total * 100
+                            label = "💬 応援コメント(非該当)" if b == "非該当" else b
+                            st.write(f"{label}: {pct_v:.1f}%  ({counts[b]}件)")
+                            st.progress(min(pct_v / 100, 1.0))
 
             st.markdown("#### ② 同規模クリエイターとの比較")
             st.caption(
@@ -904,3 +916,7 @@ elif st.session_state.step == "inbox":
                     label = "💬 応援コメント" if b == "非該当" else b
                     with st.expander(f"{label}({total_by_category.get(b, 0)}件)"):
                         st.info(st.session_state.category_summaries.get(b, "(未生成)"))
+                        if category_texts[b]:
+                            with st.expander("実際のコメントを見る"):
+                                for t in category_texts[b]:
+                                    st.write(f"- {t}")
