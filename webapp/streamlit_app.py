@@ -197,15 +197,33 @@ def fetch_comments(credentials, video_id: str, max_results: int = 20) -> list[di
         )
         response = request.execute()
         for item in response.get("items", []):
-            snippet = item["snippet"]["topLevelComment"]["snippet"]
+            top_comment = item["snippet"]["topLevelComment"]
+            snippet = top_comment["snippet"]
             comments.append({
                 "author": snippet["authorDisplayName"],
                 "text": snippet["textDisplay"],
+                "comment_id": top_comment["id"],
             })
         page_token = response.get("nextPageToken")
         if not page_token:
             break
     return comments[:max_results]
+
+
+def hide_comment_on_youtube(credentials, comment_id: str) -> None:
+    """指定コメントをYouTube上で保留(heldForReview)にする。
+    一般公開のコメント欄からは見えなくなるが、YouTube Studio上で本人がいつでも取り消せる。"""
+    service = build("youtube", "v3", credentials=credentials)
+    service.comments().setModerationStatus(id=comment_id, moderationStatus="heldForReview").execute()
+
+
+def reply_to_comment_on_youtube(credentials, comment_id: str, reply_text: str) -> None:
+    """指定コメントに返信を投稿する。"""
+    service = build("youtube", "v3", credentials=credentials)
+    service.comments().insert(
+        part="snippet",
+        body={"snippet": {"parentId": comment_id, "textOriginal": reply_text}},
+    ).execute()
 
 
 def get_channel_info(credentials) -> dict | None:
@@ -296,6 +314,10 @@ if "video_search_results" not in st.session_state:
     st.session_state.video_search_results = None
 if "results_by_video" not in st.session_state:
     st.session_state.results_by_video = {}
+if "youtube_hidden_comment_ids" not in st.session_state:
+    st.session_state.youtube_hidden_comment_ids = set()
+if "youtube_replied_comment_ids" not in st.session_state:
+    st.session_state.youtube_replied_comment_ids = set()
 
 st.title("🛡️ レグナレ")
 st.caption("安全な受信トレイ — Regnare")
@@ -601,3 +623,44 @@ elif st.session_state.step == "inbox":
                                     if col2.button("問題ない", key=f"ok_{c['comment_key']}"):
                                         st.session_state.ok_comment_ids.add(c["comment_key"])
                                         st.rerun()
+
+                                # --- YouTube上での操作(非表示・返信) すべてのコメントに表示 ---
+                                comment_id = c.get("comment_id")
+                                if comment_id:
+                                    yt_hidden = comment_id in st.session_state.youtube_hidden_comment_ids
+                                    yt_replied = comment_id in st.session_state.youtube_replied_comment_ids
+
+                                    hide_col, status_col = st.columns([1, 2])
+                                    if yt_hidden:
+                                        status_col.caption("✅ YouTube上で非表示済み(保留中・取消可)")
+                                    else:
+                                        if hide_col.button(
+                                            "YouTube上で非表示にする", key=f"ythide_{c['comment_key']}"
+                                        ):
+                                            try:
+                                                hide_comment_on_youtube(
+                                                    st.session_state.credentials, comment_id
+                                                )
+                                                st.session_state.youtube_hidden_comment_ids.add(comment_id)
+                                                st.success("YouTube上で非表示にしました")
+                                                st.rerun()
+                                            except Exception as e:
+                                                st.error(f"非表示にできませんでした: {e}")
+
+                                    with st.expander("返信する" + ("(返信済み)" if yt_replied else "")):
+                                        reply_text = st.text_area(
+                                            "返信内容", key=f"replytext_{c['comment_key']}"
+                                        )
+                                        if st.button("返信を投稿する", key=f"replybtn_{c['comment_key']}"):
+                                            if reply_text.strip():
+                                                try:
+                                                    reply_to_comment_on_youtube(
+                                                        st.session_state.credentials, comment_id, reply_text
+                                                    )
+                                                    st.session_state.youtube_replied_comment_ids.add(comment_id)
+                                                    st.success("返信を投稿しました")
+                                                    st.rerun()
+                                                except Exception as e:
+                                                    st.error(f"返信を投稿できませんでした: {e}")
+                                            else:
+                                                st.warning("返信内容を入力してください")
