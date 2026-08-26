@@ -21,6 +21,7 @@ from collections import Counter
 import streamlit as st
 from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 from google import genai
 from google.genai import types
 import numpy as np
@@ -532,12 +533,18 @@ elif st.session_state.step == "inbox":
         progress_bar = st.progress(0)
         status_text = st.empty()
         results_by_video = {}
+        skipped_videos = []
         total = len(target_videos)
         for idx, v in enumerate(target_videos, start=1):
             status_text.text(f"{idx}/{total} 本目の動画を処理中... 「{v['title']}」")
-            comments = fetch_comments(
-                st.session_state.credentials, v["video_id"], max_results=MAX_COMMENTS_PER_VIDEO
-            )
+            try:
+                comments = fetch_comments(
+                    st.session_state.credentials, v["video_id"], max_results=MAX_COMMENTS_PER_VIDEO
+                )
+            except HttpError as e:
+                skipped_videos.append(v["title"])
+                progress_bar.progress(idx / total)
+                continue
             classified = []
             for i, c in enumerate(comments):
                 result = classify_comment(c["text"])
@@ -549,7 +556,12 @@ elif st.session_state.step == "inbox":
                 })
             results_by_video[v["video_id"]] = {"title": v["title"], "classified": classified}
             progress_bar.progress(idx / total)
-        status_text.text(f"完了しました({total}本処理)")
+        status_text.text(f"完了しました({total}本中{len(results_by_video)}本処理)")
+        if skipped_videos:
+            st.warning(
+                "以下の動画はコメント欄が無効になっているか取得できなかったためスキップしました: "
+                + "、".join(skipped_videos)
+            )
         st.session_state.results_by_video = results_by_video
         st.session_state.hidden_comment_ids = set()
         st.session_state.ok_comment_ids = set()
