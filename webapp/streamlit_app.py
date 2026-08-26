@@ -124,6 +124,26 @@ def load_training_data():
 def get_gemini_client():
     return genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
 
+
+def summarize_for_growth(comments_texts: list[str]) -> str:
+    """「見たくない」に設定していないカテゴリのコメントから、
+    動画制作者が今後の活動に活かせる論点をAIが要約する。個々のコメント本文は表示しない。"""
+    if not comments_texts:
+        return "要約対象のコメントがありませんでした。"
+    client = get_gemini_client()
+    joined = "\n".join(f"- {t}" for t in comments_texts[:100])
+    prompt = (
+        "以下はYouTube動画に寄せられたコメントです。動画制作者が今後の活動に活かせるよう、"
+        "共通する論点や気づきを日本語で3〜5個の箇条書きで簡潔に要約してください。"
+        "個々のコメントをそのまま引用せず、あくまで傾向として要約してください。\n\n"
+        f"{joined}"
+    )
+    response = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=prompt,
+    )
+    return response.text
+
 @st.cache_data(show_spinner=False)
 def embed_text(text: str) -> list[float]:
     client = get_gemini_client()
@@ -567,6 +587,7 @@ elif st.session_state.step == "inbox":
         st.session_state.results_by_video = results_by_video
         st.session_state.hidden_comment_ids = set()
         st.session_state.ok_comment_ids = set()
+        st.session_state.pop("growth_summary", None)
 
     # --- 判定結果の表示 ---
     if st.session_state.results_by_video:
@@ -601,6 +622,37 @@ elif st.session_state.step == "inbox":
         s1.metric("通常", total_counts["通常"])
         s2.metric("確認待ち", total_counts["確認待ち"])
         s3.metric("見たくない", total_counts["見たくない"])
+
+        # --- 🌱 成長のヒント(AI要約) ---
+        # 「見たくない」として選ばなかったカテゴリのコメントから、AIが論点を要約する。
+        # 個々のコメント本文はここには表示しない。
+        st.markdown("### 🌱 成長のヒント(AI要約)")
+        st.caption(
+            "「見たくない」に設定していないカテゴリのコメントから、AIが共通する論点を要約します。"
+            "個別のコメント本文はここには表示されません。"
+        )
+        growth_texts = []
+        for vid, data in st.session_state.results_by_video.items():
+            for c in data["classified"]:
+                if (
+                    c["category"] in CATEGORIES
+                    and c["category"] not in selected_categories
+                    and c["judgement"] in ("該当", "グレー")
+                ):
+                    growth_texts.append(c["text"])
+
+        if growth_texts:
+            st.caption(f"要約対象: {len(growth_texts)}件のコメント")
+            if st.button("成長のヒントを生成する", key="gen_growth_summary"):
+                with st.spinner("AIが要約しています..."):
+                    try:
+                        st.session_state.growth_summary = summarize_for_growth(growth_texts)
+                    except Exception as e:
+                        st.error(f"要約に失敗しました: {e}")
+            if "growth_summary" in st.session_state:
+                st.info(st.session_state.growth_summary)
+        else:
+            st.caption("今回は要約対象となるコメントがありませんでした。")
 
         st.markdown("#### 動画ごとの件数内訳")
         for vid, data in st.session_state.results_by_video.items():
