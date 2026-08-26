@@ -624,7 +624,15 @@ elif st.session_state.step == "inbox":
                         for c in tabs[key_name]:
                             with st.container(border=True):
                                 st.write(f"**{c['author']}**")
-                                st.write(c["text"])
+                                if key_name == "見たくない":
+                                    with st.expander("▶ コメント本文を表示する"):
+                                        st.warning(
+                                            "本当に表示してよろしいでしょうか。"
+                                            "見ずに非表示にすることをおすすめします。"
+                                        )
+                                        st.write(c["text"])
+                                else:
+                                    st.write(c["text"])
                                 if c["category"]:
                                     st.caption(f"カテゴリ: {c['category']} / 類似度: {c['similarity']:.2f}")
                                 if key_name == "確認待ち":
