@@ -35,6 +35,12 @@ CATEGORIES = ["外見", "人間性", "活動クオリティ", "モラル・マ�
 THRESHOLD_MATCH = 0.60
 THRESHOLD_GRAY = 0.45
 
+# ============ 動画選択・APIクォータ設定 ============
+VIDEOS_PAGE_SIZE = 10          # 動画一覧の1ページあたり取得件数
+DEFAULT_SELECTED_VIDEOS = 5    # デフォルトでチェックを入れる最新動画数
+MAX_VIDEOS_PER_RUN = 5         # 一度に処理できる動画数の上限
+MAX_COMMENTS_PER_VIDEO = 200   # 1動画あたりのコメント取得上限
+
 # ============ 悪質被害スコア計算 ============
 INTERCEPT = -4.329
 BETA_EXPOSURE = 0.471
@@ -180,71 +186,88 @@ def get_flow():
 def fetch_comments(credentials, video_id: str, max_results: int = 20) -> list[dict]:
     service = build("youtube", "v3", credentials=credentials)
     comments = []
-    request = service.commentThreads().list(
-        part="snippet", videoId=video_id, maxResults=min(max_results, 100), textFormat="plainText"
-    )
-    response = request.execute()
-    for item in response.get("items", []):
-        snippet = item["snippet"]["topLevelComment"]["snippet"]
-        comments.append({
-            "author": snippet["authorDisplayName"],
-            "text": snippet["textDisplay"],
-        })
+    page_token = None
+    while len(comments) < max_results:
+        request = service.commentThreads().list(
+            part="snippet",
+            videoId=video_id,
+            maxResults=min(max_results - len(comments), 100),
+            textFormat="plainText",
+            pageToken=page_token,
+        )
+        response = request.execute()
+        for item in response.get("items", []):
+            snippet = item["snippet"]["topLevelComment"]["snippet"]
+            comments.append({
+                "author": snippet["authorDisplayName"],
+                "text": snippet["textDisplay"],
+            })
+        page_token = response.get("nextPageToken")
+        if not page_token:
+            break
     return comments[:max_results]
 
-# ============ 動画一覧取得(channels + playlistItems) ============
-def get_uploads_playlist_id(credentials) -> str:
-    service = build("youtube", "v3", credentials=credentials)
-    response = service.channels().list(part="contentDetails", mine=True).execute()
-    items = response.get("items", [])
-    if not items:
-        return ""
-    return items[0]["contentDetails"]["relatedPlaylists"]["uploads"]
 
-def fetch_video_list(credentials, playlist_id: str, page_token: str = None, max_results: int = 10) -> dict:
-    """アップロード済み動画一覧を取得(1クォータ/回、安価)。"""
+def get_channel_info(credentials) -> dict | None:
+    """ログインユーザー自身のチャンネルID・アップロード済み動画プレイリストIDを取得"""
     service = build("youtube", "v3", credentials=credentials)
-    request = service.playlistItems().list(
+    resp = service.channels().list(part="contentDetails", mine=True).execute()
+    items = resp.get("items", [])
+    if not items:
+        return None
+    return {
+        "channel_id": items[0]["id"],
+        "uploads_playlist_id": items[0]["contentDetails"]["relatedPlaylists"]["uploads"],
+    }
+
+
+def list_channel_videos(credentials, playlist_id: str, page_token: str | None = None,
+                         max_results: int = VIDEOS_PAGE_SIZE) -> tuple[list[dict], str | None]:
+    """アップロード済み動画一覧を新しい順に取得(低クォータ)"""
+    service = build("youtube", "v3", credentials=credentials)
+    resp = service.playlistItems().list(
         part="snippet",
         playlistId=playlist_id,
         maxResults=max_results,
         pageToken=page_token,
-    )
-    response = request.execute()
+    ).execute()
     videos = []
-    for item in response.get("items", []):
-        snippet = item["snippet"]
+    for item in resp.get("items", []):
+        sn = item["snippet"]
+        resource_id = sn.get("resourceId", {})
+        if resource_id.get("kind") != "youtube#video":
+            continue
         videos.append({
-            "video_id": snippet["resourceId"]["videoId"],
-            "title": snippet["title"],
-            "thumbnail": snippet.get("thumbnails", {}).get("default", {}).get("url", ""),
+            "video_id": resource_id["videoId"],
+            "title": sn.get("title", "(タイトル取得不可)"),
+            "thumbnail": sn.get("thumbnails", {}).get("default", {}).get("url", ""),
+            "published_at": sn.get("publishedAt", ""),
         })
-    return {
-        "videos": videos,
-        "next_page_token": response.get("nextPageToken"),
-    }
+    return videos, resp.get("nextPageToken")
 
-def search_videos_by_title(credentials, query: str, max_results: int = 10) -> list[dict]:
-    """タイトル検索(100クォータ/回、高価)。明示的に検索したときのみ使用。"""
+
+def search_channel_videos(credentials, channel_id: str, query: str,
+                           max_results: int = VIDEOS_PAGE_SIZE) -> list[dict]:
+    """タイトルキーワードで動画を検索(高クォータのため明示検索時のみ使用)"""
     service = build("youtube", "v3", credentials=credentials)
-    request = service.search().list(
+    resp = service.search().list(
         part="snippet",
-        forMine=True,
-        type="video",
+        channelId=channel_id,
         q=query,
+        type="video",
+        order="date",
         maxResults=max_results,
-    )
-    response = request.execute()
+    ).execute()
     videos = []
-    for item in response.get("items", []):
-        snippet = item["snippet"]
+    for item in resp.get("items", []):
+        sn = item["snippet"]
         videos.append({
             "video_id": item["id"]["videoId"],
-            "title": snippet["title"],
-            "thumbnail": snippet.get("thumbnails", {}).get("default", {}).get("url", ""),
+            "title": sn.get("title", "(タイトル取得不可)"),
+            "thumbnail": sn.get("thumbnails", {}).get("default", {}).get("url", ""),
+            "published_at": sn.get("publishedAt", ""),
         })
     return videos
-
 
 # ============ セッション状態の初期化 ============
 if "step" not in st.session_state:
@@ -257,6 +280,22 @@ if "hidden_comment_ids" not in st.session_state:
     st.session_state.hidden_comment_ids = set()
 if "ok_comment_ids" not in st.session_state:
     st.session_state.ok_comment_ids = set()
+if "channel_id" not in st.session_state:
+    st.session_state.channel_id = None
+if "uploads_playlist_id" not in st.session_state:
+    st.session_state.uploads_playlist_id = None
+if "videos" not in st.session_state:
+    st.session_state.videos = []
+if "videos_next_page_token" not in st.session_state:
+    st.session_state.videos_next_page_token = None
+if "selected_video_ids" not in st.session_state:
+    st.session_state.selected_video_ids = set()
+if "video_search_query" not in st.session_state:
+    st.session_state.video_search_query = ""
+if "video_search_results" not in st.session_state:
+    st.session_state.video_search_results = None
+if "results_by_video" not in st.session_state:
+    st.session_state.results_by_video = {}
 
 st.title("🛡️ レグナレ")
 st.caption("安全な受信トレイ — Regnare")
@@ -268,6 +307,9 @@ if "code" in query_params and st.session_state.credentials is None:
     flow.code_verifier = st.session_state.get("code_verifier")
     flow.fetch_token(code=query_params["code"])
     st.session_state.credentials = flow.credentials
+
+    # OAuthリダイレクトでsession_stateがリセットされるケースに備え、
+    # stateパラメータに乗せておいたselected_categoriesを復元する
     if "state" in query_params:
         try:
             restored = json.loads(query_params["state"])
@@ -275,13 +317,14 @@ if "code" in query_params and st.session_state.credentials is None:
                 st.session_state.selected_categories = restored
         except (json.JSONDecodeError, TypeError):
             pass
+
     st.query_params.clear()
     st.session_state.step = "inbox"
     st.rerun()
 
 # ============ STEP 1: 診断 ============
 if st.session_state.step == "diagnosis":
-    st.subheader("STEP 1 / 3 発信スタイル診断")
+    st.subheader("STEP 1 / 3  発信スタイル診断")
     st.write("7つの質問に、1(あてはまらない)〜5(よくあてはまる)で答えてください。")
 
     with st.form("diagnosis_form"):
@@ -309,7 +352,7 @@ if st.session_state.step == "diagnosis":
 
 # ============ STEP 2: カテゴリ提案 ============
 elif st.session_state.step == "category":
-    st.subheader("STEP 2 / 3 診断結果")
+    st.subheader("STEP 2 / 3  診断結果")
     result = st.session_state.diagnosis_result
 
     risk_colors = {"低": "green", "注意": "orange", "やや高め": "orange", "高": "red"}
@@ -338,7 +381,7 @@ elif st.session_state.step == "category":
 
 # ============ STEP 2.5: YouTube連携 ============
 elif st.session_state.step == "connect":
-    st.subheader("STEP 3 / 3 YouTubeと連携")
+    st.subheader("STEP 3 / 3  YouTubeと連携")
     st.write("下のボタンから、ご自身のYouTubeアカウントでログインしてください。")
     st.info("「このアプリはGoogleで確認されていません」という警告が出ますが、テスト段階のアプリのため正常な表示です。「続行」を押して進めてください。")
 
@@ -350,65 +393,211 @@ elif st.session_state.step == "connect":
     )
     st.session_state.code_verifier = flow.code_verifier
     st.link_button("Googleでログインして連携する", auth_url, use_container_width=True)
+
 # ============ STEP 4: 安全受信トレイ ============
 elif st.session_state.step == "inbox":
     st.subheader("安全受信トレイ")
     st.caption(f"見たくない設定中のカテゴリ: {', '.join(st.session_state.selected_categories) or '(未選択)'}")
 
-    video_input = st.text_input("確認したい動画のURL(または動画ID)を入力してください")
-    video_id = extract_video_id(video_input) if video_input else ""
-    if video_input and st.button("コメントを取得・判定する", use_container_width=True):
-        with st.spinner("コメントを取得し、判定しています..."):
-            comments = fetch_comments(st.session_state.credentials, video_id, max_results=20)
+    # --- チャンネル情報の初回取得 ---
+    if st.session_state.uploads_playlist_id is None:
+        with st.spinner("チャンネル情報を取得しています..."):
+            info = get_channel_info(st.session_state.credentials)
+            if info is None:
+                st.error("チャンネル情報を取得できませんでした。ログインしたアカウントにYouTubeチャンネルがあるか確認してください。")
+                st.stop()
+            st.session_state.channel_id = info["channel_id"]
+            st.session_state.uploads_playlist_id = info["uploads_playlist_id"]
+
+    # --- 動画一覧の初回取得(最新10件)。この時点でまだ取得済みかどうかを覚えておく ---
+    videos_already_loaded = bool(st.session_state.videos)
+    if not videos_already_loaded:
+        with st.spinner("動画一覧を取得しています..."):
+            videos, next_token = list_channel_videos(
+                st.session_state.credentials, st.session_state.uploads_playlist_id
+            )
+            st.session_state.videos = videos
+            st.session_state.videos_next_page_token = next_token
+            st.session_state.selected_video_ids = {
+                v["video_id"] for v in videos[:DEFAULT_SELECTED_VIDEOS]
+            }
+
+    # 初回(=まだ動画一覧を取得していなかった)かつ、まだ一度も判定していない場合は
+    # ボタンを押さずに自動でコメント取得・判定まで実行する
+    auto_run = (not videos_already_loaded) and not st.session_state.results_by_video
+
+    with st.expander("対象動画を変更する(検索・過去動画の読み込み・選び直し)", expanded=False):
+        search_query = st.text_input(
+            "動画タイトルで検索(キーワード絞り込み)", value=st.session_state.video_search_query
+        )
+        if search_query != st.session_state.video_search_query:
+            st.session_state.video_search_query = search_query
+            if search_query:
+                with st.spinner("検索しています..."):
+                    st.session_state.video_search_results = search_channel_videos(
+                        st.session_state.credentials, st.session_state.channel_id, search_query
+                    )
+            else:
+                st.session_state.video_search_results = None
+            st.rerun()
+
+        display_videos = (
+            st.session_state.video_search_results
+            if st.session_state.video_search_results is not None
+            else st.session_state.videos
+        )
+
+        col_a, col_b = st.columns(2)
+        if col_a.button("表示中をすべて選択", use_container_width=True):
+            for v in display_videos:
+                st.session_state.selected_video_ids.add(v["video_id"])
+            st.rerun()
+        if col_b.button("表示中の選択を解除", use_container_width=True):
+            for v in display_videos:
+                st.session_state.selected_video_ids.discard(v["video_id"])
+            st.rerun()
+
+        if not display_videos:
+            st.write("該当する動画が見つかりませんでした。")
+
+        for v in display_videos:
+            row = st.columns([1, 4])
+            with row[0]:
+                if v["thumbnail"]:
+                    st.image(v["thumbnail"])
+            with row[1]:
+                checked = st.checkbox(
+                    f"{v['title']}  \n:gray[{v['published_at'][:10]}]",
+                    value=v["video_id"] in st.session_state.selected_video_ids,
+                    key=f"vid_{v['video_id']}",
+                )
+                if checked:
+                    st.session_state.selected_video_ids.add(v["video_id"])
+                else:
+                    st.session_state.selected_video_ids.discard(v["video_id"])
+
+        if st.session_state.video_search_results is None and st.session_state.videos_next_page_token:
+            if st.button("過去の動画をさらに読み込む", use_container_width=True):
+                with st.spinner("読み込んでいます..."):
+                    more_videos, next_token = list_channel_videos(
+                        st.session_state.credentials,
+                        st.session_state.uploads_playlist_id,
+                        page_token=st.session_state.videos_next_page_token,
+                    )
+                    st.session_state.videos.extend(more_videos)
+                    st.session_state.videos_next_page_token = next_token
+                st.rerun()
+
+        selected_count = len(st.session_state.selected_video_ids)
+        st.caption(f"選択中: {selected_count} / 最大{MAX_VIDEOS_PER_RUN}本")
+        if selected_count > MAX_VIDEOS_PER_RUN:
+            st.warning(f"一度に処理できる動画は最大{MAX_VIDEOS_PER_RUN}本までです。選択を減らしてください。")
+
+        process_disabled = selected_count == 0 or selected_count > MAX_VIDEOS_PER_RUN
+        manual_trigger = st.button(
+            "この設定で再取得・判定する", use_container_width=True, disabled=process_disabled
+        )
+
+    if auto_run or manual_trigger:
+        loaded_by_id = {v["video_id"]: v for v in st.session_state.videos}
+        if st.session_state.video_search_results:
+            for v in st.session_state.video_search_results:
+                loaded_by_id.setdefault(v["video_id"], v)
+        target_videos = [
+            loaded_by_id[vid] for vid in st.session_state.selected_video_ids if vid in loaded_by_id
+        ]
+
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        results_by_video = {}
+        total = len(target_videos)
+        for idx, v in enumerate(target_videos, start=1):
+            status_text.text(f"{idx}/{total} 本目の動画を処理中... 「{v['title']}」")
+            comments = fetch_comments(
+                st.session_state.credentials, v["video_id"], max_results=MAX_COMMENTS_PER_VIDEO
+            )
             classified = []
             for i, c in enumerate(comments):
                 result = classify_comment(c["text"])
-                classified.append({**c, **result, "comment_key": f"{i}_{c['text'][:30]}"})
-            st.session_state.classified_comments = classified
-            st.session_state.hidden_comment_ids = set()
-            st.session_state.ok_comment_ids = set()
+                classified.append({
+                    **c, **result,
+                    "comment_key": f"{v['video_id']}_{i}_{c['text'][:30]}",
+                    "video_id": v["video_id"],
+                    "video_title": v["title"],
+                })
+            results_by_video[v["video_id"]] = {"title": v["title"], "classified": classified}
+            progress_bar.progress(idx / total)
+        status_text.text(f"完了しました({total}本処理)")
+        st.session_state.results_by_video = results_by_video
+        st.session_state.hidden_comment_ids = set()
+        st.session_state.ok_comment_ids = set()
 
-    if "classified_comments" in st.session_state:
-        classified = st.session_state.classified_comments
+    # --- 判定結果の表示 ---
+    if st.session_state.results_by_video:
         selected_categories = st.session_state.selected_categories
         hidden_ids = st.session_state.hidden_comment_ids
         ok_ids = st.session_state.ok_comment_ids
 
-        tabs = {"通常": [], "確認待ち": [], "見たくない": []}
-        for c in classified:
+        def route_comment(c):
             key = c["comment_key"]
             if key in hidden_ids:
-                tabs["見たくない"].append(c)
-            elif key in ok_ids:
-                tabs["通常"].append(c)
-            elif c["judgement"] == "グレー":
-                tabs["確認待ち"].append(c)
-            elif c["judgement"] == "該当" and c["category"] in selected_categories:
-                tabs["見たくない"].append(c)
-            else:
-                tabs["通常"].append(c)
+                return "見たくない"
+            if key in ok_ids:
+                return "通常"
+            if c["judgement"] == "グレー":
+                return "確認待ち"
+            if c["judgement"] == "該当" and c["category"] in selected_categories:
+                return "見たくない"
+            return "通常"
 
-        tab1, tab2, tab3 = st.tabs([
-            f"通常 ({len(tabs['通常'])})",
-            f"確認待ち ({len(tabs['確認待ち'])})",
-            f"見たくない ({len(tabs['見たくない'])})",
-        ])
+        total_counts = {"通常": 0, "確認待ち": 0, "見たくない": 0}
+        per_video_tabs = {}
+        for vid, data in st.session_state.results_by_video.items():
+            tabs = {"通常": [], "確認待ち": [], "見たくない": []}
+            for c in data["classified"]:
+                bucket = route_comment(c)
+                tabs[bucket].append(c)
+                total_counts[bucket] += 1
+            per_video_tabs[vid] = tabs
 
-        for tab, key_name in zip([tab1, tab2, tab3], ["通常", "確認待ち", "見たくない"]):
-            with tab:
-                if not tabs[key_name]:
-                    st.write("このタブにコメントはありません")
-                for c in tabs[key_name]:
-                    with st.container(border=True):
-                        st.write(f"**{c['author']}**")
-                        st.write(c["text"])
-                        if c["category"]:
-                            st.caption(f"カテゴリ: {c['category']} / 類似度: {c['similarity']:.2f}")
-                        if key_name == "確認待ち":
-                            col1, col2 = st.columns(2)
-                            if col1.button("見たくない", key=f"want_{c['comment_key']}"):
-                                st.session_state.hidden_comment_ids.add(c["comment_key"])
-                                st.rerun()
-                            if col2.button("問題ない", key=f"ok_{c['comment_key']}"):
-                                st.session_state.ok_comment_ids.add(c["comment_key"])
-                                st.rerun()
+        st.markdown("### 全体サマリー")
+        s1, s2, s3 = st.columns(3)
+        s1.metric("通常", total_counts["通常"])
+        s2.metric("確認待ち", total_counts["確認待ち"])
+        s3.metric("見たくない", total_counts["見たくない"])
+
+        st.markdown("#### 動画ごとの件数内訳")
+        for vid, data in st.session_state.results_by_video.items():
+            t = per_video_tabs[vid]
+            st.write(
+                f"**{data['title']}** — "
+                f"通常:{len(t['通常'])} / 確認待ち:{len(t['確認待ち'])} / 見たくない:{len(t['見たくない'])}"
+            )
+
+        st.markdown("### 動画ごとの詳細")
+        for vid, data in st.session_state.results_by_video.items():
+            tabs = per_video_tabs[vid]
+            with st.expander(data["title"]):
+                tab1, tab2, tab3 = st.tabs([
+                    f"通常 ({len(tabs['通常'])})",
+                    f"確認待ち ({len(tabs['確認待ち'])})",
+                    f"見たくない ({len(tabs['見たくない'])})",
+                ])
+                for tab, key_name in zip([tab1, tab2, tab3], ["通常", "確認待ち", "見たくない"]):
+                    with tab:
+                        if not tabs[key_name]:
+                            st.write("このタブにコメントはありません")
+                        for c in tabs[key_name]:
+                            with st.container(border=True):
+                                st.write(f"**{c['author']}**")
+                                st.write(c["text"])
+                                if c["category"]:
+                                    st.caption(f"カテゴリ: {c['category']} / 類似度: {c['similarity']:.2f}")
+                                if key_name == "確認待ち":
+                                    col1, col2 = st.columns(2)
+                                    if col1.button("見たくない", key=f"want_{c['comment_key']}"):
+                                        st.session_state.hidden_comment_ids.add(c["comment_key"])
+                                        st.rerun()
+                                    if col2.button("問題ない", key=f"ok_{c['comment_key']}"):
+                                        st.session_state.ok_comment_ids.add(c["comment_key"])
+                                        st.rerun()
