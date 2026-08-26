@@ -25,6 +25,7 @@ from googleapiclient.errors import HttpError
 from google import genai
 from google.genai import types
 import numpy as np
+import pandas as pd
 from sklearn.metrics.pairwise import cosine_similarity
 
 # ============ 設定 ============
@@ -813,31 +814,93 @@ elif st.session_state.step == "inbox":
             st.session_state.category_summaries = {}
 
         if st.session_state.analysis_results_by_video:
-            category_texts = {cat: [] for cat in CATEGORIES}
-            total_by_category = {cat: 0 for cat in CATEGORIES}
+            ALL_BUCKETS = CATEGORIES + ["非該当"]
+            category_texts = {b: [] for b in ALL_BUCKETS}
+            total_by_category = {b: 0 for b in ALL_BUCKETS}
+            per_video_category_counts = {}
             for vid, data in st.session_state.analysis_results_by_video.items():
+                counts_this_video = {b: 0 for b in ALL_BUCKETS}
                 for c in data["classified"]:
-                    if c["category"] in CATEGORIES and c["judgement"] in ("該当", "グレー"):
-                        category_texts[c["category"]].append(c["text"])
-                        total_by_category[c["category"]] += 1
+                    if c["judgement"] in ("該当", "グレー") and c["category"] in CATEGORIES:
+                        bucket = c["category"]
+                    elif c["judgement"] == "非該当":
+                        bucket = "非該当"
+                    else:
+                        continue
+                    category_texts[bucket].append(c["text"])
+                    total_by_category[bucket] += 1
+                    counts_this_video[bucket] += 1
+                per_video_category_counts[data["title"]] = counts_this_video
 
-            st.markdown("#### カテゴリ別の件数")
-            count_cols = st.columns(len(CATEGORIES))
-            for col, cat in zip(count_cols, CATEGORIES):
-                col.metric(cat, total_by_category[cat])
+            total_classified = sum(total_by_category.values()) or 1
 
-            if st.button("5分類のAI要約を生成する", key="gen_category_summaries"):
-                with st.spinner("AIが5分類それぞれを要約しています..."):
+            # --- 傾向レポート ---
+            st.markdown("### 📊 傾向レポート")
+            st.caption("コメント本文は表示しません。数字の傾向だけを確認できます。")
+
+            st.markdown("#### ① 今回処理した動画のカテゴリ内訳(応援コメント含む)")
+            for b in ALL_BUCKETS:
+                pct = total_by_category[b] / total_classified * 100
+                label = "💬 応援コメント(非該当)" if b == "非該当" else b
+                st.write(f"{label}: {pct:.1f}%  ({total_by_category[b]}件)")
+                st.progress(min(pct / 100, 1.0))
+
+            st.markdown("#### ② 同規模クリエイターとの比較")
+            st.caption(
+                "アンケート調査(n=213)における、5分類間の相対的な傾向との比較です。"
+                "調査は自己申告の被害頻度(5件法)を基にした相対シェアであり、"
+                "実際のコメント件数比率とは単位が異なる点にご留意ください。"
+            )
+            BENCHMARK_SHARE = {
+                "外見": 18.8,
+                "人間性": 20.0,
+                "活動クオリティ": 21.4,
+                "モラル・マナー説教": 19.3,
+                "嫉妬型": 20.4,
+            }
+            anti_total = sum(total_by_category[c] for c in CATEGORIES) or 1
+            for cat, bench in BENCHMARK_SHARE.items():
+                you_pct = total_by_category[cat] / anti_total * 100
+                st.write(f"**{cat}** — あなた: {you_pct:.1f}% / アンケート平均: {bench}%")
+                if you_pct > bench + 3:
+                    st.caption("⚠️ 平均より高めの傾向です")
+                elif you_pct < bench - 3:
+                    st.caption("✓ 平均より低めです")
+                else:
+                    st.caption("✓ 平均並みです")
+
+            st.markdown("#### ③ 動画ごとの推移")
+            if len(per_video_category_counts) >= 2:
+                trend_df = pd.DataFrame(per_video_category_counts).T[ALL_BUCKETS]
+                st.bar_chart(trend_df)
+            else:
+                st.caption("推移を見るには2本以上の動画を分析してください。")
+
+            # --- AI要約(見たくない設定のカテゴリは対象外) ---
+            st.markdown("### 🌱 AI要約")
+            selected_categories = st.session_state.selected_categories
+            visible_buckets = [
+                b for b in ALL_BUCKETS if b == "非該当" or b not in selected_categories
+            ]
+            hidden_buckets = [b for b in ALL_BUCKETS if b not in visible_buckets]
+            st.caption(
+                "「見たくない」に設定したカテゴリの要約は表示されません。"
+                + (f"(非表示中: {'、'.join(hidden_buckets)})" if hidden_buckets else "")
+            )
+
+            if st.button("AI要約を生成する", key="gen_category_summaries"):
+                with st.spinner("AIが要約しています..."):
                     summaries = {}
-                    for cat in CATEGORIES:
+                    for b in visible_buckets:
+                        label = "応援コメント" if b == "非該当" else b
                         try:
-                            summaries[cat] = summarize_category(cat, category_texts[cat])
+                            summaries[b] = summarize_category(label, category_texts[b])
                         except Exception as e:
-                            summaries[cat] = f"要約に失敗しました: {e}"
+                            summaries[b] = f"要約に失敗しました: {e}"
                     st.session_state.category_summaries = summaries
 
             if st.session_state.category_summaries:
-                st.markdown("#### 5分類ごとのAI要約")
-                for cat in CATEGORIES:
-                    with st.expander(f"{cat}({total_by_category.get(cat, 0)}件)"):
-                        st.info(st.session_state.category_summaries.get(cat, "(未生成)"))
+                for b in visible_buckets:
+                    label = "💬 応援コメント" if b == "非該当" else b
+                    with st.expander(f"{label}({total_by_category.get(b, 0)}件)"):
+                        st.info(st.session_state.category_summaries.get(b, "(未生成)"))
