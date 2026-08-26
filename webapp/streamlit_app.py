@@ -319,6 +319,8 @@ if "youtube_hidden_comment_ids" not in st.session_state:
     st.session_state.youtube_hidden_comment_ids = set()
 if "youtube_replied_comment_ids" not in st.session_state:
     st.session_state.youtube_replied_comment_ids = set()
+if "revealed_comment_keys" not in st.session_state:
+    st.session_state.revealed_comment_keys = set()
 
 st.title("🛡️ レグナレ")
 st.caption("安全な受信トレイ — Regnare")
@@ -625,12 +627,24 @@ elif st.session_state.step == "inbox":
                             with st.container(border=True):
                                 st.write(f"**{c['author']}**")
                                 if key_name == "見たくない":
-                                    with st.expander("▶ コメント本文を表示する"):
+                                    revealed = c["comment_key"] in st.session_state.revealed_comment_keys
+                                    if not revealed:
                                         st.warning(
                                             "本当に表示してよろしいでしょうか。"
                                             "見ずに非表示にすることをおすすめします。"
                                         )
+                                        if st.button(
+                                            "はい、本文を表示する", key=f"reveal_{c['comment_key']}"
+                                        ):
+                                            st.session_state.revealed_comment_keys.add(c["comment_key"])
+                                            st.rerun()
+                                    else:
                                         st.write(c["text"])
+                                        if st.button(
+                                            "本文を隠す", key=f"hide_reveal_{c['comment_key']}"
+                                        ):
+                                            st.session_state.revealed_comment_keys.discard(c["comment_key"])
+                                            st.rerun()
                                 else:
                                     st.write(c["text"])
                                 if c["category"]:
