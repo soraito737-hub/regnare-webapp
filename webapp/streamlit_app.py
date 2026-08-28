@@ -157,7 +157,7 @@ DIAGNOSIS_QUESTIONS = [
 
 PERSONA_PROFILES = {
     "private_fan": {
-        "name": "プライベート・ファン親密型",
+        "name": "プライベート発信型",
         "description": "生活環境やプライベートな情報を開示し、ファンと距離の近いコミュニケーションを取るスタイルです。",
         "centroid": {"exposure": 0.0, "private": 1.0, "assertion": -0.5},
         "risk_level": "やや高め",
@@ -170,7 +170,7 @@ PERSONA_PROFILES = {
         "categories": ["人間性", "嫉妬型"],
     },
     "light": {
-        "name": "ライト・控えめ型",
+        "name": "ナチュラル発信型",
         "description": "露出を最小限に抑え、過激な主張も控える安全第一の運用スタイルです。",
         "centroid": {"exposure": -1.0, "private": -0.6, "assertion": -0.3},
         "risk_level": "低",
@@ -179,7 +179,7 @@ PERSONA_PROFILES = {
         "categories": [],
     },
     "visual": {
-        "name": "ビジュアル・顔出し特化型",
+        "name": "ビジュアル発信型",
         "description": "見た目(ルックスや衣装)をメインコンテンツにしつつ、プライベート開示や過激な発言は控えるスタイルです。",
         "centroid": {"exposure": 0.85, "private": -0.1, "assertion": -0.5},
         "risk_level": "注意",
@@ -188,7 +188,7 @@ PERSONA_PROFILES = {
         "categories": ["外見"],
     },
     "assertive": {
-        "name": "物申す・毒舌・物議醸し型",
+        "name": "ストレート発信型",
         "description": "自分の主張や、特定の話題・人物への切り込みを武器にするスタイルです。",
         "centroid": {"exposure": 0.2, "private": -0.1, "assertion": 1.2},
         "risk_level": "高",
