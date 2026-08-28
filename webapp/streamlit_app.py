@@ -14,6 +14,7 @@
 """
 
 import json
+import math
 import re
 from pathlib import Path
 from collections import Counter
@@ -285,15 +286,22 @@ def render_persona_harm_detail(persona_key: str) -> None:
 
 
 def render_diagnosis_summary(result: dict) -> None:
-    """診断結果(タイプ名・リスクバッジ・被害傾向)をまとめて表示する(表示専用)。"""
+    """診断結果(タイプ名・リスクバッジ・被害確率・被害傾向)をまとめて表示する(表示専用)。"""
     st.markdown(f"### あなたのタイプ：{result['persona_name']}")
     st.markdown(f"リスクレベル: {render_risk_badge(result['risk_level'])}", unsafe_allow_html=True)
     st.write(result["persona_description"])
 
+    st.metric("悪質被害リスク(統計モデルによる推定確率)", f"{result['severe_harm_probability'] * 100:.1f}%")
+    st.caption(
+        "※ アンケート調査(n=213)の2項ロジスティック回帰分析モデルによる推定値です。"
+        "「活動スタイルの変化」は現在の質問に含まれないため、変化なし(最も安全な状態)と仮定して計算しています。"
+        "大きな路線変更を予定している場合、実際のリスクはこれより高い可能性があります。"
+    )
+
     with st.container(border=True):
         render_persona_harm_detail(result["persona_key"])
 
-    st.caption("※ 本結果は独自アンケート調査(n=213)のクラスター分析に基づく傾向の目安であり、将来を確定的に予測するものではありません。")
+    st.caption("※ タイプ分類は独自アンケート調査(n=213)のクラスター分析に基づく傾向の目安であり、将来を確定的に予測するものではありません。")
 
 
 def _normalize_answer(value: int, max_value: int) -> float:
@@ -301,8 +309,44 @@ def _normalize_answer(value: int, max_value: int) -> float:
     return (value - 1) / (max_value - 1) * 2 - 1
 
 
-def build_diagnosis_result(persona_key: str) -> dict:
-    """persona_keyから診断結果の辞書を組み立てる(OAuthリダイレクト後の復元にも使う)。"""
+def _rescale_to_4(value: int, max_value: int) -> float:
+    """1〜max_valueの回答を、回帰モデルが前提とする1〜4のスケールに線形換算する。"""
+    if max_value == 4:
+        return float(value)
+    return 1 + (value - 1) / (max_value - 1) * 3
+
+
+# ============ 悪質被害スコア(2項ロジスティック回帰モデル) ============
+# アンケート分析(n=213)の2項ロジスティック回帰分析(目的変数: Severe_Damage_Dummy)による実測モデル。
+SEVERE_HARM_INTERCEPT = -4.329
+SEVERE_HARM_BETA_EXPOSURE = 0.471
+SEVERE_HARM_BETA_ASSERTION = 1.216
+SEVERE_HARM_BETA_CHANGE = 0.436
+# 「活動スタイルの変化」は現在の質問セットに含まれないため、最も安全な値(変化なし)で固定する
+SEVERE_HARM_CHANGE_BASELINE = 1
+
+
+def compute_severe_harm_probability(answers: dict) -> float:
+    """2項ロジスティック回帰モデルにより、深刻な被害を受ける確率を推定する。
+    Exposure_Score/Assertion_Scoreは4段階評価を前提とした係数のため、
+    3択の質問(opinion/criticism/harsh)は1〜4相当に線形換算して用いる。"""
+    exposure_score = (answers["exposure"] + answers["private"]) / 2
+    assertion_score = (
+        _rescale_to_4(answers["opinion"], 3)
+        + _rescale_to_4(answers["criticism"], 3)
+        + _rescale_to_4(answers["harsh"], 3)
+    ) / 3
+    logit = (
+        SEVERE_HARM_INTERCEPT
+        + SEVERE_HARM_BETA_EXPOSURE * exposure_score
+        + SEVERE_HARM_BETA_ASSERTION * assertion_score
+        + SEVERE_HARM_BETA_CHANGE * SEVERE_HARM_CHANGE_BASELINE
+    )
+    return 1 / (1 + math.exp(-logit))
+
+
+def build_diagnosis_result(persona_key: str, severe_harm_probability: float) -> dict:
+    """persona_keyと被害確率から診断結果の辞書を組み立てる(OAuthリダイレクト後の復元にも使う)。"""
     persona = PERSONA_PROFILES[persona_key]
     return {
         "persona_key": persona_key,
@@ -310,6 +354,7 @@ def build_diagnosis_result(persona_key: str) -> dict:
         "persona_description": persona["description"],
         "risk_level": persona["risk_level"],
         "suggested_categories": persona["categories"],
+        "severe_harm_probability": severe_harm_probability,
     }
 
 
@@ -328,7 +373,8 @@ def diagnose(answers: dict) -> dict:
         return sum((scores[dim] - val) ** 2 for dim, val in centroid.items()) ** 0.5
 
     persona_key = min(PERSONA_PROFILES, key=lambda k: distance(PERSONA_PROFILES[k]["centroid"]))
-    return build_diagnosis_result(persona_key)
+    severe_harm_probability = compute_severe_harm_probability(answers)
+    return build_diagnosis_result(persona_key, severe_harm_probability)
 
 # ============ 動画ID抽出 ============
 def extract_video_id(text: str) -> str:
@@ -607,8 +653,9 @@ if "code" in query_params and st.session_state.credentials is None:
                 if isinstance(restored.get("selected_categories"), list):
                     st.session_state.selected_categories = restored["selected_categories"]
                 persona_key = restored.get("persona_key")
-                if persona_key in PERSONA_PROFILES:
-                    st.session_state.diagnosis_result = build_diagnosis_result(persona_key)
+                probability = restored.get("severe_harm_probability")
+                if persona_key in PERSONA_PROFILES and isinstance(probability, (int, float)):
+                    st.session_state.diagnosis_result = build_diagnosis_result(persona_key, probability)
         except (json.JSONDecodeError, TypeError):
             pass
 
@@ -697,6 +744,7 @@ elif st.session_state.step == "connect":
         state=json.dumps({
             "selected_categories": st.session_state.selected_categories,
             "persona_key": st.session_state.diagnosis_result["persona_key"],
+            "severe_harm_probability": st.session_state.diagnosis_result["severe_harm_probability"],
         }),
     )
     st.session_state.code_verifier = flow.code_verifier
