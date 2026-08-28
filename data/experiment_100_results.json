@@ -1,0 +1,1054 @@
+{
+  "n": 100,
+  "current_thresholds": {
+    "match": 0.6,
+    "gray": 0.45
+  },
+  "current_scores": {
+    "threshold_match": 0.6,
+    "threshold_gray": 0.45,
+    "precision": 0.5,
+    "recall": 1.0,
+    "f1": 0.667,
+    "accuracy": 0.5,
+    "category_accuracy": 0.88,
+    "tp": 50,
+    "fp": 50,
+    "tn": 0,
+    "fn": 0
+  },
+  "grid_search_top10": [
+    {
+      "threshold_match": 0.6,
+      "threshold_gray": 0.45,
+      "precision": 0.5,
+      "recall": 1.0,
+      "f1": 0.667,
+      "accuracy": 0.5,
+      "category_accuracy": 0.88,
+      "tp": 50,
+      "fp": 50,
+      "tn": 0,
+      "fn": 0
+    },
+    {
+      "threshold_match": 0.6,
+      "threshold_gray": 0.5,
+      "precision": 0.5,
+      "recall": 1.0,
+      "f1": 0.667,
+      "accuracy": 0.5,
+      "category_accuracy": 0.88,
+      "tp": 50,
+      "fp": 50,
+      "tn": 0,
+      "fn": 0
+    },
+    {
+      "threshold_match": 0.6,
+      "threshold_gray": 0.55,
+      "precision": 0.5,
+      "recall": 1.0,
+      "f1": 0.667,
+      "accuracy": 0.5,
+      "category_accuracy": 0.88,
+      "tp": 50,
+      "fp": 50,
+      "tn": 0,
+      "fn": 0
+    },
+    {
+      "threshold_match": 0.65,
+      "threshold_gray": 0.45,
+      "precision": 0.5,
+      "recall": 1.0,
+      "f1": 0.667,
+      "accuracy": 0.5,
+      "category_accuracy": 0.88,
+      "tp": 50,
+      "fp": 50,
+      "tn": 0,
+      "fn": 0
+    },
+    {
+      "threshold_match": 0.65,
+      "threshold_gray": 0.5,
+      "precision": 0.5,
+      "recall": 1.0,
+      "f1": 0.667,
+      "accuracy": 0.5,
+      "category_accuracy": 0.88,
+      "tp": 50,
+      "fp": 50,
+      "tn": 0,
+      "fn": 0
+    },
+    {
+      "threshold_match": 0.65,
+      "threshold_gray": 0.55,
+      "precision": 0.5,
+      "recall": 1.0,
+      "f1": 0.667,
+      "accuracy": 0.5,
+      "category_accuracy": 0.88,
+      "tp": 50,
+      "fp": 50,
+      "tn": 0,
+      "fn": 0
+    },
+    {
+      "threshold_match": 0.65,
+      "threshold_gray": 0.6,
+      "precision": 0.5,
+      "recall": 1.0,
+      "f1": 0.667,
+      "accuracy": 0.5,
+      "category_accuracy": 0.88,
+      "tp": 50,
+      "fp": 50,
+      "tn": 0,
+      "fn": 0
+    },
+    {
+      "threshold_match": 0.7,
+      "threshold_gray": 0.45,
+      "precision": 0.5,
+      "recall": 1.0,
+      "f1": 0.667,
+      "accuracy": 0.5,
+      "category_accuracy": 0.88,
+      "tp": 50,
+      "fp": 50,
+      "tn": 0,
+      "fn": 0
+    },
+    {
+      "threshold_match": 0.7,
+      "threshold_gray": 0.5,
+      "precision": 0.5,
+      "recall": 1.0,
+      "f1": 0.667,
+      "accuracy": 0.5,
+      "category_accuracy": 0.88,
+      "tp": 50,
+      "fp": 50,
+      "tn": 0,
+      "fn": 0
+    },
+    {
+      "threshold_match": 0.7,
+      "threshold_gray": 0.55,
+      "precision": 0.5,
+      "recall": 1.0,
+      "f1": 0.667,
+      "accuracy": 0.5,
+      "category_accuracy": 0.88,
+      "tp": 50,
+      "fp": 50,
+      "tn": 0,
+      "fn": 0
+    }
+  ],
+  "per_comment": [
+    {
+      "comment": "その髪色似合ってなさすぎて見てられない",
+      "true_category": "外見",
+      "true_judgement": "該当",
+      "predicted_category": "外見",
+      "predicted_judgement": "該当",
+      "similarity": 0.9213,
+      "matched_example": "髪型似合ってなさすぎ。"
+    },
+    {
+      "comment": "最近顔つき変わったよね、老けた感じがする",
+      "true_category": "外見",
+      "true_judgement": "該当",
+      "predicted_category": "外見",
+      "predicted_judgement": "該当",
+      "similarity": 0.9336,
+      "matched_example": "髪型変えてから一気に老けたように見える。"
+    },
+    {
+      "comment": "服のセンスマジで終わってる、誰か止めて",
+      "true_category": "外見",
+      "true_judgement": "該当",
+      "predicted_category": "外見",
+      "predicted_judgement": "該当",
+      "similarity": 0.8568,
+      "matched_example": "髪型似合ってなさすぎ。"
+    },
+    {
+      "comment": "メイク濃すぎて別人みたいで怖い",
+      "true_category": "外見",
+      "true_judgement": "該当",
+      "predicted_category": "外見",
+      "predicted_judgement": "該当",
+      "similarity": 0.8692,
+      "matched_example": "顔ちょっと変じゃない？"
+    },
+    {
+      "comment": "体型崩れてきてるの隠せてないよ",
+      "true_category": "外見",
+      "true_judgement": "該当",
+      "predicted_category": "外見",
+      "predicted_judgement": "該当",
+      "similarity": 0.8833,
+      "matched_example": "体型やばくない？"
+    },
+    {
+      "comment": "その眉毛の形、正直微妙だと思う",
+      "true_category": "外見",
+      "true_judgement": "該当",
+      "predicted_category": "外見",
+      "predicted_judgement": "該当",
+      "similarity": 0.8743,
+      "matched_example": "目の形が気になる。"
+    },
+    {
+      "comment": "今日はちょっと元気なさそうな顔してますね",
+      "true_category": "外見",
+      "true_judgement": "グレー",
+      "predicted_category": "外見",
+      "predicted_judgement": "該当",
+      "similarity": 0.9341,
+      "matched_example": "なんか今日全体的に疲れ切った顔してて清潔感ない。"
+    },
+    {
+      "comment": "髪型イメチェンしたんですね、新鮮です",
+      "true_category": "外見",
+      "true_judgement": "グレー",
+      "predicted_category": "外見",
+      "predicted_judgement": "該当",
+      "similarity": 0.8575,
+      "matched_example": "髪型変えてから一気に老けたように見える。"
+    },
+    {
+      "comment": "衣装のコーディネート今回は少し個性的でしたね",
+      "true_category": "外見",
+      "true_judgement": "グレー",
+      "predicted_category": "外見",
+      "predicted_judgement": "該当",
+      "similarity": 0.8639,
+      "matched_example": "服のセンスが独特すぎて動画内容に集中できない笑"
+    },
+    {
+      "comment": "画質のせいか肌の質感が気になりました",
+      "true_category": "外見",
+      "true_judgement": "グレー",
+      "predicted_category": "外見",
+      "predicted_judgement": "該当",
+      "similarity": 0.89,
+      "matched_example": "肌荒れ酷いけど体調悪いの？画面越しでも気になるレベル。"
+    },
+    {
+      "comment": "陰で悪口言ってそうな性格の悪さがにじみ出てる",
+      "true_category": "人間性",
+      "true_judgement": "該当",
+      "predicted_category": "人間性",
+      "predicted_judgement": "該当",
+      "similarity": 0.903,
+      "matched_example": "友達少なそうな性格の歪みが発言の節々に出てるよ。"
+    },
+    {
+      "comment": "自分の非は絶対認めないタイプで見苦しい",
+      "true_category": "人間性",
+      "true_judgement": "該当",
+      "predicted_category": "人間性",
+      "predicted_judgement": "該当",
+      "similarity": 0.8994,
+      "matched_example": "人の意見を絶対に認めない頑固さに人間としての底が見えた。"
+    },
+    {
+      "comment": "ファンを金づるとしか思ってない態度が透けてる",
+      "true_category": "人間性",
+      "true_judgement": "該当",
+      "predicted_category": "人間性",
+      "predicted_judgement": "該当",
+      "similarity": 0.9326,
+      "matched_example": "視聴者をただの集金ツールとしか思ってなさそうな態度。"
+    },
+    {
+      "comment": "口だけ優しいふりして実際は冷たい人間だよね",
+      "true_category": "人間性",
+      "true_judgement": "該当",
+      "predicted_category": "人間性",
+      "predicted_judgement": "該当",
+      "similarity": 0.8999,
+      "matched_example": "表面上は良い人ぶってるけど、裏で人を裏切りそうなタイプ。"
+    },
+    {
+      "comment": "都合悪くなるとすぐ話をすり替える卑怯な性格",
+      "true_category": "人間性",
+      "true_judgement": "該当",
+      "predicted_category": "人間性",
+      "predicted_judgement": "該当",
+      "similarity": 0.8552,
+      "matched_example": "表面上は良い人ぶってるけど、裏で人を裏切りそうなタイプ。"
+    },
+    {
+      "comment": "裏表激しすぎて信用できない人間性だと思う",
+      "true_category": "人間性",
+      "true_judgement": "該当",
+      "predicted_category": "人間性",
+      "predicted_judgement": "該当",
+      "similarity": 0.8773,
+      "matched_example": "前の動画と言ってること真反対だし、本当に誠実さがない。"
+    },
+    {
+      "comment": "対応がちょっと素っ気ないように感じることがある",
+      "true_category": "人間性",
+      "true_judgement": "グレー",
+      "predicted_category": "人間性",
+      "predicted_judgement": "該当",
+      "similarity": 0.8612,
+      "matched_example": "友達少なそうな性格の歪みが発言の節々に出てるよ。"
+    },
+    {
+      "comment": "たまに言葉選びがきつく感じる時がある",
+      "true_category": "人間性",
+      "true_judgement": "グレー",
+      "predicted_category": "外見",
+      "predicted_judgement": "該当",
+      "similarity": 0.8447,
+      "matched_example": "口元が変に歪んで喋るのがずっと気になっちゃう。"
+    },
+    {
+      "comment": "本音が見えにくいタイプなのかなと思った",
+      "true_category": "人間性",
+      "true_judgement": "グレー",
+      "predicted_category": "人間性",
+      "predicted_judgement": "該当",
+      "similarity": 0.8717,
+      "matched_example": "表面上は良い人ぶってるけど、裏で人を裏切りそうなタイプ。"
+    },
+    {
+      "comment": "コメント返信の温度差が気になることがある",
+      "true_category": "人間性",
+      "true_judgement": "グレー",
+      "predicted_category": "外見",
+      "predicted_judgement": "該当",
+      "similarity": 0.8331,
+      "matched_example": "目の形が気になる。"
+    },
+    {
+      "comment": "編集雑すぎて集中して見れたもんじゃない",
+      "true_category": "活動クオリティ",
+      "true_judgement": "該当",
+      "predicted_category": "活動クオリティ",
+      "predicted_judgement": "該当",
+      "similarity": 0.9019,
+      "matched_example": "編集のテンポが悪すぎて途中で見るのやめた。時間の無駄。"
+    },
+    {
+      "comment": "ネタが完全に枯渇してて毎回同じ内容",
+      "true_category": "活動クオリティ",
+      "true_judgement": "該当",
+      "predicted_category": "活動クオリティ",
+      "predicted_judgement": "該当",
+      "similarity": 0.9045,
+      "matched_example": "最近ネタ切れ感がすごくて、どの動画も退屈すぎる。"
+    },
+    {
+      "comment": "音質最悪すぎてこれはもう作業レベルじゃない",
+      "true_category": "活動クオリティ",
+      "true_judgement": "該当",
+      "predicted_category": "活動クオリティ",
+      "predicted_judgement": "該当",
+      "similarity": 0.8693,
+      "matched_example": "音声のバランス悪すぎ。マイクくらいまともなやつ買いなよ。"
+    },
+    {
+      "comment": "企画倒れで中身が全然ついてきてない",
+      "true_category": "活動クオリティ",
+      "true_judgement": "該当",
+      "predicted_category": "活動クオリティ",
+      "predicted_judgement": "該当",
+      "similarity": 0.9008,
+      "matched_example": "サムネで釣る割に、中身スカスカでガッカリした。"
+    },
+    {
+      "comment": "サムネ詐欺がひどすぎてもう信用できない",
+      "true_category": "活動クオリティ",
+      "true_judgement": "該当",
+      "predicted_category": "人間性",
+      "predicted_judgement": "該当",
+      "similarity": 0.8838,
+      "matched_example": "前の動画と言ってること真反対だし、本当に誠実さがない。"
+    },
+    {
+      "comment": "テンポ悪すぎて10分の動画が異常に長く感じる",
+      "true_category": "活動クオリティ",
+      "true_judgement": "該当",
+      "predicted_category": "活動クオリティ",
+      "predicted_judgement": "該当",
+      "similarity": 0.905,
+      "matched_example": "動画のクオリティに対して、無駄に尺が冗長すぎる。"
+    },
+    {
+      "comment": "最近ちょっとマンネリ気味かもと感じることがある",
+      "true_category": "活動クオリティ",
+      "true_judgement": "グレー",
+      "predicted_category": "活動クオリティ",
+      "predicted_judgement": "該当",
+      "similarity": 0.85,
+      "matched_example": "最近ネタ切れ感がすごくて、どの動画も退屈すぎる。"
+    },
+    {
+      "comment": "構成がやや単調に感じる回もありました",
+      "true_category": "活動クオリティ",
+      "true_judgement": "グレー",
+      "predicted_category": "活動クオリティ",
+      "predicted_judgement": "該当",
+      "similarity": 0.8179,
+      "matched_example": "企画自体は面白そうなのに、話術がなさすぎて台無し。"
+    },
+    {
+      "comment": "もう少し編集にメリハリがあると見やすいかも",
+      "true_category": "活動クオリティ",
+      "true_judgement": "グレー",
+      "predicted_category": "モラル・マナー説教",
+      "predicted_judgement": "該当",
+      "similarity": 0.7946,
+      "matched_example": "影響力のある立場なんですから、もっと自覚を持って発言すべき。"
+    },
+    {
+      "comment": "話のオチが弱いと感じる時がたまにある",
+      "true_category": "活動クオリティ",
+      "true_judgement": "グレー",
+      "predicted_category": "活動クオリティ",
+      "predicted_judgement": "該当",
+      "similarity": 0.8371,
+      "matched_example": "企画自体は面白そうなのに、話術がなさすぎて台無し。"
+    },
+    {
+      "comment": "その発言は今の時代アウトだと思いますよ、反省すべき",
+      "true_category": "モラル・マナー説教",
+      "true_judgement": "該当",
+      "predicted_category": "モラル・マナー説教",
+      "predicted_judgement": "該当",
+      "similarity": 0.8597,
+      "matched_example": "冗談のつもりでも、今の時代その発言はリスク高すぎる。"
+    },
+    {
+      "comment": "許可なく人を映すのはマナー違反では？直した方がいい",
+      "true_category": "モラル・マナー説教",
+      "true_judgement": "該当",
+      "predicted_category": "モラル・マナー説教",
+      "predicted_judgement": "該当",
+      "similarity": 0.9231,
+      "matched_example": "撮影許可ちゃんと取った？一般人が映り込んでてマナー違反だよ。"
+    },
+    {
+      "comment": "案件なのに表記しないのは視聴者への裏切りだと思う",
+      "true_category": "モラル・マナー説教",
+      "true_judgement": "該当",
+      "predicted_category": "嫉妬型",
+      "predicted_judgement": "該当",
+      "similarity": 0.8559,
+      "matched_example": "案件でいい思いばっかりして、視聴者を舐めてるんじゃない？"
+    },
+    {
+      "comment": "公共の場でその態度は社会人としてどうかと思います",
+      "true_category": "モラル・マナー説教",
+      "true_judgement": "該当",
+      "predicted_category": "モラル・マナー説教",
+      "predicted_judgement": "該当",
+      "similarity": 0.9217,
+      "matched_example": "公共の場でのモラルを軽視した行動に見えました。"
+    },
+    {
+      "comment": "その言い方は誰かを傷つける可能性があると自覚すべき",
+      "true_category": "モラル・マナー説教",
+      "true_judgement": "該当",
+      "predicted_category": "モラル・マナー説教",
+      "predicted_judgement": "該当",
+      "similarity": 0.8708,
+      "matched_example": "影響力のある立場なんですから、もっと自覚を持って発言すべき。"
+    },
+    {
+      "comment": "影響力があるんだから発言にもっと責任持ってください",
+      "true_category": "モラル・マナー説教",
+      "true_judgement": "該当",
+      "predicted_category": "モラル・マナー説教",
+      "predicted_judgement": "該当",
+      "similarity": 0.9662,
+      "matched_example": "影響力のある立場なんですから、もっと自覚を持って発言すべき。"
+    },
+    {
+      "comment": "少し言葉が強めに聞こえる場面もありました",
+      "true_category": "モラル・マナー説教",
+      "true_judgement": "グレー",
+      "predicted_category": "モラル・マナー説教",
+      "predicted_judgement": "該当",
+      "similarity": 0.8444,
+      "matched_example": "大人としてその言葉遣いは社会通念上どうかと思います。"
+    },
+    {
+      "comment": "撮影場所の許可周りが気になるコメントがありました",
+      "true_category": "モラル・マナー説教",
+      "true_judgement": "グレー",
+      "predicted_category": "モラル・マナー説教",
+      "predicted_judgement": "該当",
+      "similarity": 0.8745,
+      "matched_example": "撮影許可ちゃんと取った？一般人が映り込んでてマナー違反だよ。"
+    },
+    {
+      "comment": "表現の仕方は人によって受け取り方が分かれそうです",
+      "true_category": "モラル・マナー説教",
+      "true_judgement": "グレー",
+      "predicted_category": "モラル・マナー説教",
+      "predicted_judgement": "該当",
+      "similarity": 0.8491,
+      "matched_example": "案件表記が分かりにくいです。ステマを疑われますよ。"
+    },
+    {
+      "comment": "もう少し配慮があってもいいかなと感じました",
+      "true_category": "モラル・マナー説教",
+      "true_judgement": "グレー",
+      "predicted_category": "モラル・マナー説教",
+      "predicted_judgement": "該当",
+      "similarity": 0.8387,
+      "matched_example": "影響力のある立場なんですから、もっと自覚を持って発言すべき。"
+    },
+    {
+      "comment": "楽して稼いでるだけなのに調子乗りすぎでしょ",
+      "true_category": "嫉妬型",
+      "true_judgement": "該当",
+      "predicted_category": "嫉妬型",
+      "predicted_judgement": "該当",
+      "similarity": 0.9209,
+      "matched_example": "大したスキルもないのに時勢に乗れただけで調子に乗ってる。"
+    },
+    {
+      "comment": "実力じゃなくて運だけで売れたタイプだよね",
+      "true_category": "嫉妬型",
+      "true_judgement": "該当",
+      "predicted_category": "嫉妬型",
+      "predicted_judgement": "該当",
+      "similarity": 0.8997,
+      "matched_example": "成功者気取りで語ってるけど、運が良かっただけだろ。"
+    },
+    {
+      "comment": "スパチャで贅沢三昧、視聴者舐めてるでしょ",
+      "true_category": "嫉妬型",
+      "true_judgement": "該当",
+      "predicted_category": "嫉妬型",
+      "predicted_judgement": "該当",
+      "similarity": 0.9147,
+      "matched_example": "案件でいい思いばっかりして、視聴者を舐めてるんじゃない？"
+    },
+    {
+      "comment": "所属先の力でゴリ押しされてるだけじゃない?",
+      "true_category": "嫉妬型",
+      "true_judgement": "該当",
+      "predicted_category": "嫉妬型",
+      "predicted_judgement": "該当",
+      "similarity": 0.8657,
+      "matched_example": "どうせ裏で事務所の手厚いバックアップがあるからウケてるだけ。"
+    },
+    {
+      "comment": "大した才能もないのに持ち上げられすぎ",
+      "true_category": "嫉妬型",
+      "true_judgement": "該当",
+      "predicted_category": "嫉妬型",
+      "predicted_judgement": "該当",
+      "similarity": 0.9073,
+      "matched_example": "大したスキルもないのに時勢に乗れただけで調子に乗ってる。"
+    },
+    {
+      "comment": "調子いいのも今だけ、そのうち化けの皮剥がれるよ",
+      "true_category": "嫉妬型",
+      "true_judgement": "該当",
+      "predicted_category": "嫉妬型",
+      "predicted_judgement": "該当",
+      "similarity": 0.8805,
+      "matched_example": "チヤホヤされて天狗になってるけど、落ち目になったら一瞬だよ。"
+    },
+    {
+      "comment": "恵まれた環境で活動できてるのは羨ましいなと思う",
+      "true_category": "嫉妬型",
+      "true_judgement": "グレー",
+      "predicted_category": "嫉妬型",
+      "predicted_judgement": "該当",
+      "similarity": 0.8667,
+      "matched_example": "視聴者のスパチャで旅行行って美味しいもの食べて羨ましいわ。"
+    },
+    {
+      "comment": "順調そうに見えて少し出来過ぎな気もします",
+      "true_category": "嫉妬型",
+      "true_judgement": "グレー",
+      "predicted_category": "モラル・マナー説教",
+      "predicted_judgement": "該当",
+      "similarity": 0.8471,
+      "matched_example": "案件表記が分かりにくいです。ステマを疑われますよ。"
+    },
+    {
+      "comment": "サポート体制が手厚そうで羨ましく感じました",
+      "true_category": "嫉妬型",
+      "true_judgement": "グレー",
+      "predicted_category": "嫉妬型",
+      "predicted_judgement": "該当",
+      "similarity": 0.8488,
+      "matched_example": "視聴者のスパチャで旅行行って美味しいもの食べて羨ましいわ。"
+    },
+    {
+      "comment": "人気の理由が運の要素も大きい気がします",
+      "true_category": "嫉妬型",
+      "true_judgement": "グレー",
+      "predicted_category": "嫉妬型",
+      "predicted_judgement": "該当",
+      "similarity": 0.8574,
+      "matched_example": "どうせ裏で事務所の手厚いバックアップがあるからウケてるだけ。"
+    },
+    {
+      "comment": "今日の配信も最高に楽しかったです！",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": "非該当",
+      "predicted_judgement": "非該当",
+      "similarity": 0.9093,
+      "matched_example": "今日の動画も最高でした！"
+    },
+    {
+      "comment": "この企画シリーズ好きなのでまたやってほしいです",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": "非該当",
+      "predicted_judgement": "非該当",
+      "similarity": 0.8694,
+      "matched_example": "続編待ってます！"
+    },
+    {
+      "comment": "声のトーンが落ち着いてて聞きやすいです",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": "嫉妬型",
+      "predicted_judgement": "該当",
+      "similarity": 0.8162,
+      "matched_example": "楽して動画撮って、リスナーから投げ銭集めていいご身分ですね。"
+    },
+    {
+      "comment": "編集のテンポがすごく好きです",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": "非該当",
+      "predicted_judgement": "非該当",
+      "similarity": 0.8366,
+      "matched_example": "毎日見てます、大好きです。"
+    },
+    {
+      "comment": "いつも元気をもらってます、ありがとうございます",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": "非該当",
+      "predicted_judgement": "非該当",
+      "similarity": 0.8543,
+      "matched_example": "いつも楽しみに見てます！"
+    },
+    {
+      "comment": "次回のコラボ相手が気になります！",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": "非該当",
+      "predicted_judgement": "非該当",
+      "similarity": 0.8553,
+      "matched_example": "続編待ってます！"
+    },
+    {
+      "comment": "BGMのセンスが毎回良くて好きです",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": "非該当",
+      "predicted_judgement": "非該当",
+      "similarity": 0.8576,
+      "matched_example": "いつも楽しみに見てます！"
+    },
+    {
+      "comment": "初めて見ましたが面白くて一気見しました",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": "非該当",
+      "predicted_judgement": "非該当",
+      "similarity": 0.8519,
+      "matched_example": "笑った、めっちゃ面白い！"
+    },
+    {
+      "comment": "この前のアドバイス実際に試してみました！",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": "非該当",
+      "predicted_judgement": "非該当",
+      "similarity": 0.7847,
+      "matched_example": "これからも頑張ってください！"
+    },
+    {
+      "comment": "配信時間の変更了解しました、楽しみにしてます",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": "非該当",
+      "predicted_judgement": "非該当",
+      "similarity": 0.8538,
+      "matched_example": "いつも楽しみに見てます！"
+    },
+    {
+      "comment": "サムネのデザインがいつもおしゃれですね",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": "非該当",
+      "predicted_judgement": "非該当",
+      "similarity": 0.8394,
+      "matched_example": "いつも楽しみに見てます！"
+    },
+    {
+      "comment": "今日の話、共感するところが多かったです",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": "非該当",
+      "predicted_judgement": "非該当",
+      "similarity": 0.8267,
+      "matched_example": "涙出た、感動しました。"
+    },
+    {
+      "comment": "コメント欄の雰囲気がいつも温かくていいですね",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": "非該当",
+      "predicted_judgement": "非該当",
+      "similarity": 0.8424,
+      "matched_example": "いつも楽しみに見てます！"
+    },
+    {
+      "comment": "新しい機材の音質すごく良くなりましたね",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": "非該当",
+      "predicted_judgement": "非該当",
+      "similarity": 0.8429,
+      "matched_example": "今回の企画すごく良かったです。"
+    },
+    {
+      "comment": "この企画は今までで一番面白かったです",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": "非該当",
+      "predicted_judgement": "非該当",
+      "similarity": 0.91,
+      "matched_example": "今回の企画すごく良かったです。"
+    },
+    {
+      "comment": "応援してます、これからも頑張ってください",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": "非該当",
+      "predicted_judgement": "非該当",
+      "similarity": 0.9697,
+      "matched_example": "これからも頑張ってください！"
+    },
+    {
+      "comment": "今日のゲストさんとの相性が良くて見やすかったです",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": "非該当",
+      "predicted_judgement": "非該当",
+      "similarity": 0.8286,
+      "matched_example": "今回の企画すごく良かったです。"
+    },
+    {
+      "comment": "字幕がついて見やすくなりました、助かります",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": "非該当",
+      "predicted_judgement": "非該当",
+      "similarity": 0.7959,
+      "matched_example": "いつも楽しみに見てます！"
+    },
+    {
+      "comment": "この歌ってみた、何度も聞いてます",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": "非該当",
+      "predicted_judgement": "非該当",
+      "similarity": 0.8216,
+      "matched_example": "毎日見てます、大好きです。"
+    },
+    {
+      "comment": "旅行企画楽しかったです、続編希望です",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": "非該当",
+      "predicted_judgement": "非該当",
+      "similarity": 0.8709,
+      "matched_example": "今回の企画すごく良かったです。"
+    },
+    {
+      "comment": "質問なんですが、使ってるカメラは何ですか？",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": "モラル・マナー説教",
+      "predicted_judgement": "該当",
+      "similarity": 0.8187,
+      "matched_example": "撮影許可ちゃんと取った？一般人が映り込んでてマナー違反だよ。"
+    },
+    {
+      "comment": "グッズ販売はまた再開する予定ありますか？",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": "非該当",
+      "predicted_judgement": "非該当",
+      "similarity": 0.8157,
+      "matched_example": "続編待ってます！"
+    },
+    {
+      "comment": "今日は久しぶりの投稿で嬉しかったです",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": "非該当",
+      "predicted_judgement": "非該当",
+      "similarity": 0.8205,
+      "matched_example": "今日の動画も最高でした！"
+    },
+    {
+      "comment": "誕生日企画おめでとうございます！",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": "非該当",
+      "predicted_judgement": "非該当",
+      "similarity": 0.8499,
+      "matched_example": "今回の企画すごく良かったです。"
+    },
+    {
+      "comment": "この曲のアレンジすごく好みです",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": "非該当",
+      "predicted_judgement": "非該当",
+      "similarity": 0.8208,
+      "matched_example": "今回の企画すごく良かったです。"
+    },
+    {
+      "comment": "料理企画、レシピ助かりました作ってみます",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": "非該当",
+      "predicted_judgement": "非該当",
+      "similarity": 0.7974,
+      "matched_example": "今回の企画すごく良かったです。"
+    },
+    {
+      "comment": "ゲーム実況、リアクションが面白くて笑いました",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": "非該当",
+      "predicted_judgement": "非該当",
+      "similarity": 0.9135,
+      "matched_example": "笑った、めっちゃ面白い！"
+    },
+    {
+      "comment": "毎週楽しみにこのチャンネル見てます",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": "非該当",
+      "predicted_judgement": "非該当",
+      "similarity": 0.944,
+      "matched_example": "いつも楽しみに見てます！"
+    },
+    {
+      "comment": "画質が上がってすごく見やすくなりました",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": "非該当",
+      "predicted_judgement": "非該当",
+      "similarity": 0.8336,
+      "matched_example": "今回の企画すごく良かったです。"
+    },
+    {
+      "comment": "今回の衣装かわいくて似合ってました",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": "非該当",
+      "predicted_judgement": "非該当",
+      "similarity": 0.8415,
+      "matched_example": "今回の企画すごく良かったです。"
+    },
+    {
+      "comment": "その考え方、すごく参考になりました",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": "非該当",
+      "predicted_judgement": "非該当",
+      "similarity": 0.8572,
+      "matched_example": "今回の企画すごく良かったです。"
+    },
+    {
+      "comment": "配信中の雑談パートが好きです",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": "非該当",
+      "predicted_judgement": "非該当",
+      "similarity": 0.8609,
+      "matched_example": "いつも楽しみに見てます！"
+    },
+    {
+      "comment": "新しいオープニング映像かっこいいですね",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": "非該当",
+      "predicted_judgement": "非該当",
+      "similarity": 0.8424,
+      "matched_example": "今日の動画も最高でした！"
+    },
+    {
+      "comment": "リスナーの質問に丁寧に答えてくれて嬉しいです",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": "非該当",
+      "predicted_judgement": "非該当",
+      "similarity": 0.8171,
+      "matched_example": "今回の企画すごく良かったです。"
+    },
+    {
+      "comment": "この動画で元気出ました、ありがとう",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": "非該当",
+      "predicted_judgement": "非該当",
+      "similarity": 0.8654,
+      "matched_example": "今日の動画も最高でした！"
+    },
+    {
+      "comment": "次はどんな企画をするのか楽しみにしてます",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": "非該当",
+      "predicted_judgement": "非該当",
+      "similarity": 0.8878,
+      "matched_example": "続編待ってます！"
+    },
+    {
+      "comment": "ライブ配信のアーカイブいつも見てます",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": "非該当",
+      "predicted_judgement": "非該当",
+      "similarity": 0.89,
+      "matched_example": "いつも楽しみに見てます！"
+    },
+    {
+      "comment": "他の人とのコラボもっと見たいです",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": "非該当",
+      "predicted_judgement": "非該当",
+      "similarity": 0.8346,
+      "matched_example": "続編待ってます！"
+    },
+    {
+      "comment": "今日の内容すごくためになりました",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": "非該当",
+      "predicted_judgement": "非該当",
+      "similarity": 0.8608,
+      "matched_example": "今回の企画すごく良かったです。"
+    },
+    {
+      "comment": "この場所での撮影、景色が綺麗でした",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": "非該当",
+      "predicted_judgement": "非該当",
+      "similarity": 0.8009,
+      "matched_example": "今回の企画すごく良かったです。"
+    },
+    {
+      "comment": "ファンアート描いたので見てもらえたら嬉しいです",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": "非該当",
+      "predicted_judgement": "非該当",
+      "similarity": 0.8259,
+      "matched_example": "続編待ってます！"
+    },
+    {
+      "comment": "登録者数増えてきてますね、おめでとうございます",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": "非該当",
+      "predicted_judgement": "非該当",
+      "similarity": 0.8399,
+      "matched_example": "これからも頑張ってください！"
+    },
+    {
+      "comment": "今回のオチ、予想外で笑いました",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": "非該当",
+      "predicted_judgement": "非該当",
+      "similarity": 0.8898,
+      "matched_example": "笑った、めっちゃ面白い！"
+    },
+    {
+      "comment": "配信環境整ってきましたね、快適に見れます",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": "嫉妬型",
+      "predicted_judgement": "該当",
+      "similarity": 0.8482,
+      "matched_example": "楽して動画撮って、リスナーから投げ銭集めていいご身分ですね。"
+    },
+    {
+      "comment": "このシリーズ、毎回楽しみにしてます",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": "非該当",
+      "predicted_judgement": "非該当",
+      "similarity": 0.9342,
+      "matched_example": "いつも楽しみに見てます！"
+    },
+    {
+      "comment": "今日も安定した面白さでした",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": "非該当",
+      "predicted_judgement": "非該当",
+      "similarity": 0.8547,
+      "matched_example": "今日の動画も最高でした！"
+    },
+    {
+      "comment": "新しいサムネのデザイン気に入りました",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": "非該当",
+      "predicted_judgement": "非該当",
+      "similarity": 0.8385,
+      "matched_example": "今回の企画すごく良かったです。"
+    },
+    {
+      "comment": "この話、続きが気になります次回教えてください",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": "非該当",
+      "predicted_judgement": "非該当",
+      "similarity": 0.9022,
+      "matched_example": "続編待ってます！"
+    },
+    {
+      "comment": "配信お疲れ様でした、ゆっくり休んでください",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": "非該当",
+      "predicted_judgement": "非該当",
+      "similarity": 0.8173,
+      "matched_example": "これからも頑張ってください！"
+    },
+    {
+      "comment": "この企画をきっかけにチャンネル登録しました",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": "非該当",
+      "predicted_judgement": "非該当",
+      "similarity": 0.8301,
+      "matched_example": "今回の企画すごく良かったです。"
+    }
+  ]
+}

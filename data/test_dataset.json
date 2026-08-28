@@ -1,0 +1,47 @@
+[
+  {"comment": "太った？前より顔まるくなった気がする", "true_category": "外見", "true_judgement": "該当"},
+  {"comment": "そのメイク、正直似合ってないと思う", "true_category": "外見", "true_judgement": "該当"},
+  {"comment": "髪型変えてから雰囲気だいぶ変わったね、微妙かも", "true_category": "外見", "true_judgement": "該当"},
+  {"comment": "画面越しでも肌の調子悪いのわかるよ、大丈夫？", "true_category": "外見", "true_judgement": "グレー"},
+  {"comment": "今日の服装センスがちょっと独特すぎない?", "true_category": "外見", "true_judgement": "グレー"},
+
+  {"comment": "コラボでの態度見てて本性出てたよね、性格悪そう", "true_category": "人間性", "true_judgement": "該当"},
+  {"comment": "口では良い事言うけど結局自分本位だよね", "true_category": "人間性", "true_judgement": "該当"},
+  {"comment": "視聴者のこと軽く見てそうな発言多いよね", "true_category": "人間性", "true_judgement": "該当"},
+  {"comment": "謝罪の仕方があっさりしすぎてて誠意感じなかった", "true_category": "人間性", "true_judgement": "グレー"},
+  {"comment": "承認欲求強めだなってたまに感じる", "true_category": "人間性", "true_judgement": "グレー"},
+
+  {"comment": "最近マンネリ化してて内容につまらなさを感じる", "true_category": "活動クオリティ", "true_judgement": "該当"},
+  {"comment": "編集が雑になってきてる、テンポ悪い", "true_category": "活動クオリティ", "true_judgement": "該当"},
+  {"comment": "サムネと中身が全然違ってがっかりした", "true_category": "活動クオリティ", "true_judgement": "該当"},
+  {"comment": "話す内容がちょっと薄いかなと思う時がある", "true_category": "活動クオリティ", "true_judgement": "グレー"},
+  {"comment": "もう少しテンポよく編集した方が見やすいかも", "true_category": "活動クオリティ", "true_judgement": "グレー"},
+
+  {"comment": "その発言は今の時代ちょっと配慮が足りないのでは", "true_category": "モラル・マナー説教", "true_judgement": "該当"},
+  {"comment": "許可取ってるのか気になる撮影内容だった", "true_category": "モラル・マナー説教", "true_judgement": "該当"},
+  {"comment": "案件だってもっとはっきり書くべきだと思う", "true_category": "モラル・マナー説教", "true_judgement": "該当"},
+  {"comment": "影響力あるんだからもう少し発言気をつけた方がいいのでは", "true_category": "モラル・マナー説教", "true_judgement": "グレー"},
+  {"comment": "その言葉遣いは人によっては気になると思う", "true_category": "モラル・マナー説教", "true_judgement": "グレー"},
+
+  {"comment": "楽して稼いでるだけでしょ、羨ましいご身分だね", "true_category": "嫉妬型", "true_judgement": "該当"},
+  {"comment": "運が良かっただけで実力とは思えないな", "true_category": "嫉妬型", "true_judgement": "該当"},
+  {"comment": "調子乗ってるように見えるけどそのうち落ちるよ", "true_category": "嫉妬型", "true_judgement": "該当"},
+  {"comment": "スパチャで生活できていいなと思う", "true_category": "嫉妬型", "true_judgement": "グレー"},
+  {"comment": "事務所のバックアップがあるから伸びてるだけじゃない?", "true_category": "嫉妬型", "true_judgement": "グレー"},
+
+  {"comment": "今日の動画も最高でした、癒されました", "true_category": null, "true_judgement": "非該当"},
+  {"comment": "声が本当に好き、ずっと聞いていられる", "true_category": null, "true_judgement": "非該当"},
+  {"comment": "編集が丁寧でいつも見やすいです", "true_category": null, "true_judgement": "非該当"},
+  {"comment": "企画のアイデアがいつも面白いです", "true_category": null, "true_judgement": "非該当"},
+  {"comment": "元気もらえました、ありがとうございます", "true_category": null, "true_judgement": "非該当"},
+  {"comment": "次の動画も楽しみにしています", "true_category": null, "true_judgement": "非該当"},
+  {"comment": "顔出しでの活動、応援してます", "true_category": null, "true_judgement": "非該当"},
+  {"comment": "率直な意見を言うところが好きです", "true_category": null, "true_judgement": "非該当"},
+  {"comment": "他の人と違う切り口が新鮮で好き", "true_category": null, "true_judgement": "非該当"},
+  {"comment": "毎回テンション高くて元気もらえます", "true_category": null, "true_judgement": "非該当"},
+  {"comment": "初めて見ましたが登録しました", "true_category": null, "true_judgement": "非該当"},
+  {"comment": "配信時間変わったんですね、了解です", "true_category": null, "true_judgement": "非該当"},
+  {"comment": "この企画シリーズ化してほしいです", "true_category": null, "true_judgement": "非該当"},
+  {"comment": "音質すごく良くなりましたね", "true_category": null, "true_judgement": "非該当"},
+  {"comment": "コラボ回もっと見たいです", "true_category": null, "true_judgement": "非該当"}
+]

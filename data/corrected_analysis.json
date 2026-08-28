@@ -1,0 +1,165 @@
+{
+  "current_corrected": {
+    "match": 0.6,
+    "gray": 0.45,
+    "precision": 0.943,
+    "recall": 1.0,
+    "f1": 0.971,
+    "accuracy": 0.97,
+    "tp": 50,
+    "fp": 3,
+    "tn": 47,
+    "fn": 0,
+    "gray_predicted": 0
+  },
+  "grid_search_top10": [
+    {
+      "match": 0.6,
+      "gray": 0.45,
+      "precision": 0.943,
+      "recall": 1.0,
+      "f1": 0.971,
+      "accuracy": 0.97,
+      "tp": 50,
+      "fp": 3,
+      "tn": 47,
+      "fn": 0,
+      "gray_predicted": 0
+    },
+    {
+      "match": 0.6,
+      "gray": 0.5,
+      "precision": 0.943,
+      "recall": 1.0,
+      "f1": 0.971,
+      "accuracy": 0.97,
+      "tp": 50,
+      "fp": 3,
+      "tn": 47,
+      "fn": 0,
+      "gray_predicted": 0
+    },
+    {
+      "match": 0.6,
+      "gray": 0.55,
+      "precision": 0.943,
+      "recall": 1.0,
+      "f1": 0.971,
+      "accuracy": 0.97,
+      "tp": 50,
+      "fp": 3,
+      "tn": 47,
+      "fn": 0,
+      "gray_predicted": 0
+    },
+    {
+      "match": 0.65,
+      "gray": 0.45,
+      "precision": 0.943,
+      "recall": 1.0,
+      "f1": 0.971,
+      "accuracy": 0.97,
+      "tp": 50,
+      "fp": 3,
+      "tn": 47,
+      "fn": 0,
+      "gray_predicted": 0
+    },
+    {
+      "match": 0.65,
+      "gray": 0.5,
+      "precision": 0.943,
+      "recall": 1.0,
+      "f1": 0.971,
+      "accuracy": 0.97,
+      "tp": 50,
+      "fp": 3,
+      "tn": 47,
+      "fn": 0,
+      "gray_predicted": 0
+    },
+    {
+      "match": 0.65,
+      "gray": 0.55,
+      "precision": 0.943,
+      "recall": 1.0,
+      "f1": 0.971,
+      "accuracy": 0.97,
+      "tp": 50,
+      "fp": 3,
+      "tn": 47,
+      "fn": 0,
+      "gray_predicted": 0
+    },
+    {
+      "match": 0.65,
+      "gray": 0.6,
+      "precision": 0.943,
+      "recall": 1.0,
+      "f1": 0.971,
+      "accuracy": 0.97,
+      "tp": 50,
+      "fp": 3,
+      "tn": 47,
+      "fn": 0,
+      "gray_predicted": 0
+    },
+    {
+      "match": 0.7,
+      "gray": 0.45,
+      "precision": 0.943,
+      "recall": 1.0,
+      "f1": 0.971,
+      "accuracy": 0.97,
+      "tp": 50,
+      "fp": 3,
+      "tn": 47,
+      "fn": 0,
+      "gray_predicted": 0
+    },
+    {
+      "match": 0.7,
+      "gray": 0.5,
+      "precision": 0.943,
+      "recall": 1.0,
+      "f1": 0.971,
+      "accuracy": 0.97,
+      "tp": 50,
+      "fp": 3,
+      "tn": 47,
+      "fn": 0,
+      "gray_predicted": 0
+    },
+    {
+      "match": 0.7,
+      "gray": 0.55,
+      "precision": 0.943,
+      "recall": 1.0,
+      "f1": 0.971,
+      "accuracy": 0.97,
+      "tp": 50,
+      "fp": 3,
+      "tn": 47,
+      "fn": 0,
+      "gray_predicted": 0
+    }
+  ],
+  "category_confusions": {
+    "人間性 -> 外見": [
+      "たまに言葉選びがきつく感じる時がある",
+      "コメント返信の温度差が気になることがある"
+    ],
+    "活動クオリティ -> 人間性": [
+      "サムネ詐欺がひどすぎてもう信用できない"
+    ],
+    "活動クオリティ -> モラル・マナー説教": [
+      "もう少し編集にメリハリがあると見やすいかも"
+    ],
+    "モラル・マナー説教 -> 嫉妬型": [
+      "案件なのに表記しないのは視聴者への裏切りだと思う"
+    ],
+    "嫉妬型 -> モラル・マナー説教": [
+      "順調そうに見えて少し出来過ぎな気もします"
+    ]
+  }
+}
