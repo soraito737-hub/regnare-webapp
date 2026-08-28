@@ -301,6 +301,18 @@ def _normalize_answer(value: int, max_value: int) -> float:
     return (value - 1) / (max_value - 1) * 2 - 1
 
 
+def build_diagnosis_result(persona_key: str) -> dict:
+    """persona_keyから診断結果の辞書を組み立てる(OAuthリダイレクト後の復元にも使う)。"""
+    persona = PERSONA_PROFILES[persona_key]
+    return {
+        "persona_key": persona_key,
+        "persona_name": persona["name"],
+        "persona_description": persona["description"],
+        "risk_level": persona["risk_level"],
+        "suggested_categories": persona["categories"],
+    }
+
+
 def diagnose(answers: dict) -> dict:
     scores = {
         "exposure": _normalize_answer(answers["exposure"], 4),
@@ -316,15 +328,7 @@ def diagnose(answers: dict) -> dict:
         return sum((scores[dim] - val) ** 2 for dim, val in centroid.items()) ** 0.5
 
     persona_key = min(PERSONA_PROFILES, key=lambda k: distance(PERSONA_PROFILES[k]["centroid"]))
-    persona = PERSONA_PROFILES[persona_key]
-
-    return {
-        "persona_key": persona_key,
-        "persona_name": persona["name"],
-        "persona_description": persona["description"],
-        "risk_level": persona["risk_level"],
-        "suggested_categories": persona["categories"],
-    }
+    return build_diagnosis_result(persona_key)
 
 # ============ 動画ID抽出 ============
 def extract_video_id(text: str) -> str:
@@ -595,12 +599,16 @@ if "code" in query_params and st.session_state.credentials is None:
     st.session_state.credentials = flow.credentials
 
     # OAuthリダイレクトでsession_stateがリセットされるケースに備え、
-    # stateパラメータに乗せておいたselected_categoriesを復元する
+    # stateパラメータに乗せておいたselected_categories/診断結果を復元する
     if "state" in query_params:
         try:
             restored = json.loads(query_params["state"])
-            if isinstance(restored, list):
-                st.session_state.selected_categories = restored
+            if isinstance(restored, dict):
+                if isinstance(restored.get("selected_categories"), list):
+                    st.session_state.selected_categories = restored["selected_categories"]
+                persona_key = restored.get("persona_key")
+                if persona_key in PERSONA_PROFILES:
+                    st.session_state.diagnosis_result = build_diagnosis_result(persona_key)
         except (json.JSONDecodeError, TypeError):
             pass
 
@@ -686,7 +694,10 @@ elif st.session_state.step == "connect":
     auth_url, _ = flow.authorization_url(
         prompt="consent",
         access_type="offline",
-        state=json.dumps(st.session_state.selected_categories),
+        state=json.dumps({
+            "selected_categories": st.session_state.selected_categories,
+            "persona_key": st.session_state.diagnosis_result["persona_key"],
+        }),
     )
     st.session_state.code_verifier = flow.code_verifier
     st.link_button("Googleでログインして連携する", auth_url, use_container_width=True, type="primary")
