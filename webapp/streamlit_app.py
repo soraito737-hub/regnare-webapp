@@ -161,12 +161,17 @@ PERSONA_PROFILES = {
         "description": "生活環境やプライベートな情報を開示し、ファンと距離の近いコミュニケーションを取るスタイルです。",
         "centroid": {"exposure": 0.0, "private": 1.0, "assertion": -0.5},
         "risk_level": "やや高め",
+        "cluster_id": 1,
         # 調査の解釈: 執着・ガチ恋・実害ハラスメント(文脈の歪曲/反応を面白がられる/
         # 暴力的コメント/まとめサイト晒し/妨害行為)のリスクが最も懸念されるタイプ
-        "harm_highlights": [
-            "距離の近さにつけこんだ、しつこい絡み・つきまとい的な言動",
-            "「ガチ恋」的な感情のもつれから実害(妨害行為など)につながるリスク",
-        ],
+        "harm_top3_keys": ["curated_site", "distortion", "sabotage"],
+        "tendency_text": (
+            "「距離の近さ」があなたの発信の魅力である一方、私生活の領域まで踏み込まれやすい傾向があります。"
+        ),
+        "phase_note": (
+            "単発の批判コメントよりも、つきまとい的な言動や実害化といった"
+            "「二次被害」へ発展しやすいタイプです。早めの対策をおすすめします。"
+        ),
         "categories": ["人間性", "嫉妬型"],
     },
     "light": {
@@ -174,8 +179,13 @@ PERSONA_PROFILES = {
         "description": "露出を最小限に抑え、過激な主張も控える安全第一の運用スタイルです。",
         "centroid": {"exposure": -1.0, "private": -0.6, "assertion": -0.3},
         "risk_level": "低",
+        "cluster_id": 2,
         # 調査の解釈: 最もアンチ攻撃に遭いにくいタイプ
-        "harm_highlights": [],
+        "reassurance_text": "アンケート調査の中でも、被害の水準がもっとも低いグループです。",
+        "simulation_text": (
+            "もし今後、顔出しや容姿の露出を増やしていくと「ビジュアル発信型」の傾向に近づく可能性があります。"
+        ),
+        "caution_text": "「被害が少ない」だけで「被害がゼロ」というわけではない点にはご注意ください。",
         "categories": [],
     },
     "visual": {
@@ -183,8 +193,14 @@ PERSONA_PROFILES = {
         "description": "見た目(ルックスや衣装)をメインコンテンツにしつつ、プライベート開示や過激な発言は控えるスタイルです。",
         "centroid": {"exposure": 0.85, "private": -0.1, "assertion": -0.5},
         "risk_level": "注意",
+        "cluster_id": 3,
         # 調査の解釈: 外見批判に集中的に狙われやすいタイプ
-        "harm_highlights": ["外見(容姿・服装など)に関する批判コメント"],
+        "harm_top3_keys": ["appearance"],
+        "tendency_text": "見た目をコンテンツの核にしているからこそ、そこが攻撃対象になりやすい構造です。",
+        "distinction_text": (
+            "このタイプで多いのは「見た目」への言及であり、「人格」そのものを否定されているわけではありません。"
+            "混同せず切り分けて受け止めることも大切です。"
+        ),
         "categories": ["外見"],
     },
     "assertive": {
@@ -192,11 +208,75 @@ PERSONA_PROFILES = {
         "description": "自分の主張や、特定の話題・人物への切り込みを武器にするスタイルです。",
         "centroid": {"exposure": 0.2, "private": -0.1, "assertion": 1.2},
         "risk_level": "高",
+        "cluster_id": 4,
         # 調査の解釈: 人格否定コメントや炎上・集団叩きのリスクが最も高いタイプ
-        "harm_highlights": ["人格を否定するようなコメント", "炎上・集団での叩き"],
+        "harm_top3_keys": ["humanity", "violent", "enjoying"],
+        "tendency_text": (
+            "意見表明を武器にしている分、意見そのものより「あなた自身」への攻撃に転化しやすい傾向があります。"
+        ),
+        "severity_text": "4タイプの中で、被害の深刻度がもっとも高い傾向にあります。事前に心の準備をしておくと安心です。",
         "categories": ["活動クオリティ", "モラル・マナー説教"],
     },
 }
+
+PERSONA_ORDER = ["private_fan", "light", "visual", "assertive"]
+
+# 被害タイプ別のクラスター平均値(アンケート「グループ統計量」より、n=213)
+HARM_ITEM_STATS = {
+    "appearance": {"label": "外見に関する批判コメント", "means": {1: 2.00, 2: 1.22, 3: 2.03, 4: 2.43}},
+    "humanity": {"label": "人格を否定するようなコメント", "means": {1: 1.78, 2: 1.69, 3: 1.83, 4: 2.71}},
+    "distortion": {"label": "発言の文脈を歪められる", "means": {1: 1.31, 2: 1.24, 3: 1.31, 4: 1.88}},
+    "enjoying": {"label": "炎上・反応を面白がられる", "means": {1: 1.42, 2: 1.28, 3: 1.41, 4: 2.12}},
+    "violent": {"label": "暴力的・攻撃的なコメント", "means": {1: 1.69, 2: 1.57, 3: 1.56, 4: 2.16}},
+    "curated_site": {"label": "まとめサイト等への晒し", "means": {1: 1.42, 2: 1.22, 3: 1.42, 4: 1.94}},
+    "sabotage": {"label": "活動の妨害行為", "means": {1: 1.19, 2: 1.06, 3: 1.25, 4: 1.63}},
+}
+
+
+def render_harm_comparison_chart(item_keys: list[str]) -> None:
+    """指定した被害項目について、4タイプの平均値を並べた棒グラフを表示する(表示専用)。"""
+    rows = {}
+    for key in item_keys:
+        item = HARM_ITEM_STATS[key]
+        rows[item["label"]] = {
+            PERSONA_PROFILES[p]["name"]: item["means"][PERSONA_PROFILES[p]["cluster_id"]]
+            for p in PERSONA_ORDER
+        }
+    st.bar_chart(pd.DataFrame(rows).T, stack=False)
+    st.caption("数値はアンケート回答の平均スコアで、高いほど該当する被害が多い傾向を示します。")
+
+
+def render_persona_harm_detail(persona_key: str) -> None:
+    """診断結果のタイプごとに、想定される被害の傾向を詳しく表示する(表示専用)。"""
+    persona = PERSONA_PROFILES[persona_key]
+
+    if persona_key == "light":
+        st.write(persona["reassurance_text"])
+        st.info(persona["simulation_text"])
+        st.caption(persona["caution_text"])
+        return
+
+    if persona_key == "visual":
+        item = HARM_ITEM_STATS["appearance"]
+        score = item["means"][persona["cluster_id"]]
+        baseline = item["means"][PERSONA_PROFILES["light"]["cluster_id"]]
+        ratio = score / baseline
+        st.metric(item["label"], f"{score:.1f} / 4点中", f"控えめ層の約{ratio:.1f}倍", delta_color="off")
+        st.caption("その他の項目は、他タイプと比べて平均的〜低めの水準です。")
+        st.write(persona["tendency_text"])
+        st.info(persona["distinction_text"])
+        return
+
+    st.write("来やすい被害の傾向トップ3")
+    for key in persona["harm_top3_keys"]:
+        st.write(f"- {HARM_ITEM_STATS[key]['label']}")
+    render_harm_comparison_chart(persona["harm_top3_keys"])
+    st.write(persona["tendency_text"])
+
+    if persona_key == "private_fan":
+        st.warning(persona["phase_note"])
+    elif persona_key == "assertive":
+        st.warning(persona["severity_text"])
 
 
 def _normalize_answer(value: int, max_value: int) -> float:
@@ -226,7 +306,6 @@ def diagnose(answers: dict) -> dict:
         "persona_name": persona["name"],
         "persona_description": persona["description"],
         "risk_level": persona["risk_level"],
-        "harm_highlights": persona["harm_highlights"],
         "suggested_categories": persona["categories"],
     }
 
@@ -554,12 +633,10 @@ elif st.session_state.step == "category":
     st.markdown(f"### あなたのタイプ：{result['persona_name']}")
     st.markdown(f"リスクレベル: {render_risk_badge(result['risk_level'])}", unsafe_allow_html=True)
     st.write(result["persona_description"])
-    if result["harm_highlights"]:
-        st.write("同じ傾向を持つ配信者では、特に次のような被害が比較的多く報告されています。")
-        for h in result["harm_highlights"]:
-            st.write(f"- {h}")
-    else:
-        st.write("アンケート調査上、同じ傾向の配信者は比較的被害の少ない層です。")
+
+    with st.container(border=True):
+        render_persona_harm_detail(result["persona_key"])
+
     st.caption("※ 本結果は独自アンケート調査(n=213)のクラスター分析に基づく傾向の目安であり、将来を確定的に予測するものではありません。")
 
     st.divider()
