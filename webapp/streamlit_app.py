@@ -58,7 +58,12 @@ div[data-testid="stVerticalBlockBorderWrapper"] {
 </style>
 """, unsafe_allow_html=True)
 
-_STEP_ORDER = [("diagnosis", "① 診断"), ("category", "② カテゴリ選択"), ("connect", "③ 連携")]
+_STEP_ORDER = [
+    ("diagnosis", "① 診断"),
+    ("result", "② 診断結果"),
+    ("category", "③ カテゴリ選択"),
+    ("connect", "④ 連携"),
+]
 
 
 def render_step_indicator(current_step: str) -> None:
@@ -594,7 +599,7 @@ if "code" in query_params and st.session_state.credentials is None:
 # ============ STEP 1: 診断 ============
 if st.session_state.step == "diagnosis":
     render_step_indicator("diagnosis")
-    st.subheader("STEP 1 / 3  発信スタイル診断")
+    st.subheader("STEP 1 / 4  発信スタイル診断")
     st.write("5つの質問にお答えください。所要時間は1分ほどです。")
 
     with st.form("diagnosis_form"):
@@ -621,13 +626,13 @@ if st.session_state.step == "diagnosis":
         st.session_state.selected_categories = list(
             st.session_state.diagnosis_result["suggested_categories"]
         )
-        st.session_state.step = "category"
+        st.session_state.step = "result"
         st.rerun()
 
-# ============ STEP 2: カテゴリ提案 ============
-elif st.session_state.step == "category":
-    render_step_indicator("category")
-    st.subheader("STEP 2 / 3  診断結果")
+# ============ STEP 2: 診断結果 ============
+elif st.session_state.step == "result":
+    render_step_indicator("result")
+    st.subheader("STEP 2 / 4  診断結果")
     result = st.session_state.diagnosis_result
 
     st.markdown(f"### あなたのタイプ：{result['persona_name']}")
@@ -639,8 +644,16 @@ elif st.session_state.step == "category":
 
     st.caption("※ 本結果は独自アンケート調査(n=213)のクラスター分析に基づく傾向の目安であり、将来を確定的に予測するものではありません。")
 
-    st.divider()
-    st.subheader("見たくないカテゴリを選ぶ")
+    if st.button("次へ：見たくないカテゴリを選ぶ →", use_container_width=True, type="primary"):
+        st.session_state.step = "category"
+        st.rerun()
+
+# ============ STEP 3: カテゴリ提案 ============
+elif st.session_state.step == "category":
+    render_step_indicator("category")
+    st.subheader("STEP 3 / 4  見たくないカテゴリを選ぶ")
+    result = st.session_state.diagnosis_result
+
     st.write("診断結果をもとに、見たくないカテゴリの候補にチェックを入れています。内容を確認し、必要に応じて調整してください。")
 
     selected = []
@@ -659,10 +672,10 @@ elif st.session_state.step == "category":
         st.session_state.step = "connect"
         st.rerun()
 
-# ============ STEP 2.5: YouTube連携 ============
+# ============ STEP 4: YouTube連携 ============
 elif st.session_state.step == "connect":
     render_step_indicator("connect")
-    st.subheader("STEP 3 / 3  YouTubeと連携")
+    st.subheader("STEP 4 / 4  YouTubeと連携")
     st.write("下のボタンから、ご自身のYouTubeアカウントでログインしてください。")
 
     flow = get_flow()
