@@ -85,12 +85,13 @@ def diagnose(answers: SurveyAnswers) -> DiagnosisResult:
     )
 
     suggested_categories: list[str] = []
-    if answers.face_exposure >= 4 or answers.private_disclosure >= 4:
+    if answers.face_exposure >= 4:
         suggested_categories.append("外見")
         suggested_categories.append("人間性")
+    if answers.private_disclosure >= 4 or answers.living_area >= 4:
+        suggested_categories.append("プライバシー")
     if answers.harsh_language >= 4 or answers.strong_opinion >= 4:
         suggested_categories.append("モラル・マナー説教")
-        suggested_categories.append("嫉妬型")
     if answers.style_change >= 4:
         suggested_categories.append("活動クオリティ")
 
@@ -100,7 +101,7 @@ def diagnose(answers: SurveyAnswers) -> DiagnosisResult:
         if c not in seen:
             deduped.append(c)
             seen.add(c)
-    suggested_categories = deduped or ["外見", "人間性", "活動クオリティ", "モラル・マナー説教", "嫉妬型"]
+    suggested_categories = deduped or ["外見", "人間性", "活動クオリティ", "モラル・マナー説教", "プライバシー"]
 
     return DiagnosisResult(
         risk_level=risk_level,

@@ -21,7 +21,7 @@ from google.genai import types
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 
-CATEGORIES = ["外見", "人間性", "活動クオリティ", "モラル・マナー説教", "嫉妬型"]
+CATEGORIES = ["外見", "人間性", "活動クオリティ", "モラル・マナー説教", "プライバシー"]
 Judgement = Literal["該当", "グレー", "非該当"]
 
 # 類似度の閾値(初期値。検証データで要調整。要件定義 3-2参照)

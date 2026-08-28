@@ -23,11 +23,11 @@
   {"comment": "影響力あるんだからもう少し発言気をつけた方がいいのでは", "true_category": "モラル・マナー説教", "true_judgement": "グレー"},
   {"comment": "その言葉遣いは人によっては気になると思う", "true_category": "モラル・マナー説教", "true_judgement": "グレー"},
 
-  {"comment": "楽して稼いでるだけでしょ、羨ましいご身分だね", "true_category": "嫉妬型", "true_judgement": "該当"},
-  {"comment": "運が良かっただけで実力とは思えないな", "true_category": "嫉妬型", "true_judgement": "該当"},
-  {"comment": "調子乗ってるように見えるけどそのうち落ちるよ", "true_category": "嫉妬型", "true_judgement": "該当"},
-  {"comment": "スパチャで生活できていいなと思う", "true_category": "嫉妬型", "true_judgement": "グレー"},
-  {"comment": "事務所のバックアップがあるから伸びてるだけじゃない?", "true_category": "嫉妬型", "true_judgement": "グレー"},
+  {"comment": "本名たしか○○だったよね、前にどこかで見た気がする", "true_category": "プライバシー", "true_judgement": "該当"},
+  {"comment": "この間の配信の背景、住んでる場所だいたい特定できたわ", "true_category": "プライバシー", "true_judgement": "該当"},
+  {"comment": "家族の顔まで映すのはさすがにやりすぎでは", "true_category": "プライバシー", "true_judgement": "該当"},
+  {"comment": "話し方の訛りからして出身地なんとなく分かるね", "true_category": "プライバシー", "true_judgement": "グレー"},
+  {"comment": "前に職業の話ちらっとしてたの覚えてます", "true_category": "プライバシー", "true_judgement": "グレー"},
 
   {"comment": "今日の動画も最高でした、癒されました", "true_category": null, "true_judgement": "非該当"},
   {"comment": "声が本当に好き、ずっと聞いていられる", "true_category": null, "true_judgement": "非該当"},
