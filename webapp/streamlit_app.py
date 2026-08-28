@@ -429,6 +429,43 @@ def summarize_category(category: str, comments_texts: list[str]) -> str:
     )
     return response.text
 
+
+ACTION_SUGGESTIONS_PROMPT = """\
+以下はYouTube動画に寄せられたコメント群です。
+この中から、動画制作者にとって参考になる次の2種類の情報だけを抽出してください。
+
+1. 次に見たい・作ってほしい企画やコンテンツのリクエスト
+2. 攻撃的でない、建設的な改善提案(編集・構成・音質など)
+
+個人攻撃・誹謗中傷・単なる感想やあいさつは無視してください。
+該当する内容がなければ、その見出しの下に「特にありませんでした」と書いてください。
+個々のコメントをそのまま引用せず、傾向として日本語で簡潔にまとめてください。
+
+必ず次の見出し構成で出力してください:
+【次にしてほしいこと】
+(箇条書き)
+
+【改善提案】
+(箇条書き)
+
+コメント一覧:
+{comments}"""
+
+
+def extract_action_suggestions(comments_texts: list[str]) -> str:
+    """コメント群から「次にしてほしい企画」「建設的な改善提案」だけをAIに抽出させる。
+    個人攻撃や単なる感想は除外する。"""
+    if not comments_texts:
+        return "コメントがありませんでした。"
+    client = get_gemini_client()
+    joined = "\n".join(f"- {t}" for t in comments_texts[:200])
+    prompt = ACTION_SUGGESTIONS_PROMPT.format(comments=joined)
+    response = client.models.generate_content(
+        model=GENERATION_MODEL,
+        contents=prompt,
+    )
+    return response.text
+
 @st.cache_data(show_spinner=False)
 def embed_text(text: str) -> list[float]:
     client = get_gemini_client()
@@ -726,6 +763,8 @@ if "analysis_results_by_video" not in st.session_state:
     st.session_state.analysis_results_by_video = {}
 if "category_summaries" not in st.session_state:
     st.session_state.category_summaries = {}
+if "action_suggestions" not in st.session_state:
+    st.session_state.action_suggestions = None
 
 st.title("🛡️ レグナレ")
 st.caption("安全な受信トレイ — Regnare")
@@ -1169,6 +1208,7 @@ elif st.session_state.step == "inbox":
                 )
             st.session_state.analysis_results_by_video = analysis_results
             st.session_state.category_summaries = {}
+            st.session_state.action_suggestions = None
 
         if st.session_state.analysis_results_by_video:
             ALL_BUCKETS = CATEGORIES + ["非該当"]
@@ -1281,6 +1321,23 @@ elif st.session_state.step == "inbox":
                             with st.expander("実際のコメントを見る"):
                                 for t in category_texts[b]:
                                     st.write(f"- {t}")
+
+            # --- 次のアクション(リクエスト・改善提案の抽出) ---
+            st.divider()
+            st.markdown("### 💡 次のアクション")
+            st.caption("コメントの中から「次にしてほしい企画」「建設的な改善提案」だけをAIが抽出します。個人攻撃や単なる感想は無視されます。")
+
+            all_comment_texts = [t for texts in category_texts.values() for t in texts]
+
+            if st.button("次のアクションを抽出する", key="gen_action_suggestions", type="primary"):
+                with st.spinner("AIがコメントからリクエスト・改善提案を探しています…"):
+                    try:
+                        st.session_state.action_suggestions = extract_action_suggestions(all_comment_texts)
+                    except Exception as e:
+                        st.session_state.action_suggestions = f"抽出に失敗しました: {e}"
+
+            if st.session_state.action_suggestions:
+                st.info(st.session_state.action_suggestions)
 
     with main_tab3:
         result = st.session_state.get("diagnosis_result")
