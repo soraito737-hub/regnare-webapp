@@ -13,3 +13,6 @@ __pycache__/
 
 # Claude Code local runtime state
 .claude/
+
+# 実行時に蓄積されるユーザーフィードバックデータ(コードではなく運用データ)
+data/user_feedback.json
