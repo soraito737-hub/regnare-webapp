@@ -284,6 +284,18 @@ def render_persona_harm_detail(persona_key: str) -> None:
         st.warning(persona["severity_text"])
 
 
+def render_diagnosis_summary(result: dict) -> None:
+    """診断結果(タイプ名・リスクバッジ・被害傾向)をまとめて表示する(表示専用)。"""
+    st.markdown(f"### あなたのタイプ：{result['persona_name']}")
+    st.markdown(f"リスクレベル: {render_risk_badge(result['risk_level'])}", unsafe_allow_html=True)
+    st.write(result["persona_description"])
+
+    with st.container(border=True):
+        render_persona_harm_detail(result["persona_key"])
+
+    st.caption("※ 本結果は独自アンケート調査(n=213)のクラスター分析に基づく傾向の目安であり、将来を確定的に予測するものではありません。")
+
+
 def _normalize_answer(value: int, max_value: int) -> float:
     """1〜max_valueの回答を-1〜+1のスケールに変換する。"""
     return (value - 1) / (max_value - 1) * 2 - 1
@@ -634,15 +646,7 @@ elif st.session_state.step == "result":
     render_step_indicator("result")
     st.subheader("STEP 2 / 4  診断結果")
     result = st.session_state.diagnosis_result
-
-    st.markdown(f"### あなたのタイプ：{result['persona_name']}")
-    st.markdown(f"リスクレベル: {render_risk_badge(result['risk_level'])}", unsafe_allow_html=True)
-    st.write(result["persona_description"])
-
-    with st.container(border=True):
-        render_persona_harm_detail(result["persona_key"])
-
-    st.caption("※ 本結果は独自アンケート調査(n=213)のクラスター分析に基づく傾向の目安であり、将来を確定的に予測するものではありません。")
+    render_diagnosis_summary(result)
 
     if st.button("次へ：見たくないカテゴリを選ぶ →", use_container_width=True, type="primary"):
         st.session_state.step = "category"
@@ -726,7 +730,9 @@ elif st.session_state.step == "inbox":
     # ボタンを押さずに自動でコメント取得・判定まで実行する
     auto_run = (not videos_already_loaded) and not st.session_state.results_by_video
 
-    main_tab1, main_tab2 = st.tabs(["📥 安全受信トレイ(振り分け)", "📊 動画分析(カテゴリ別AI要約)"])
+    main_tab1, main_tab2, main_tab3 = st.tabs(
+        ["📥 安全受信トレイ(振り分け)", "📊 動画分析(カテゴリ別AI要約)", "🧭 診断結果"]
+    )
 
     with main_tab1:
 
@@ -1172,3 +1178,10 @@ elif st.session_state.step == "inbox":
                             with st.expander("実際のコメントを見る"):
                                 for t in category_texts[b]:
                                     st.write(f"- {t}")
+
+    with main_tab3:
+        result = st.session_state.get("diagnosis_result")
+        if result:
+            render_diagnosis_summary(result)
+        else:
+            st.info("診断結果が見つかりませんでした。お手数ですが、最初から診断をやり直してください。")
