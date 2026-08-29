@@ -26,6 +26,7 @@ from googleapiclient.errors import HttpError
 from google import genai
 from google.genai import types
 import pandas as pd
+import altair as alt
 from sklearn.metrics.pairwise import cosine_similarity
 
 # ============ 設定 ============
@@ -99,6 +100,42 @@ def render_risk_badge(level: str) -> str:
 CATEGORIES = ["外見", "人間性", "活動クオリティ", "モラル・マナー説教", "プライバシー"]
 THRESHOLD_MATCH = 0.60
 THRESHOLD_GRAY = 0.45
+
+CATEGORY_COLORS = {
+    "外見": "#e07a5f",
+    "人間性": "#f2994a",
+    "活動クオリティ": "#e0b243",
+    "モラル・マナー説教": "#9b6b9e",
+    "プライバシー": "#c1443c",
+    "非該当": "#3d8361",
+}
+
+
+def render_category_bar_chart(counts: dict, buckets: list[str]) -> None:
+    """カテゴリ別件数を、色分けした横棒グラフで表示する(表示専用)。"""
+    total = sum(counts.values()) or 1
+    df = pd.DataFrame([
+        {
+            "カテゴリ": "応援コメント(非該当)" if b == "非該当" else b,
+            "件数": counts[b],
+            "割合": counts[b] / total * 100,
+            "color_key": b,
+            "ラベル": f"{counts[b] / total * 100:.1f}%({counts[b]}件)",
+        }
+        for b in buckets
+    ])
+    bars = alt.Chart(df).mark_bar(cornerRadiusEnd=4).encode(
+        x=alt.X("割合:Q", title="割合(%)", scale=alt.Scale(domain=[0, 100])),
+        y=alt.Y("カテゴリ:N", sort="-x", title=None),
+        color=alt.Color(
+            "color_key:N",
+            scale=alt.Scale(domain=list(CATEGORY_COLORS.keys()), range=list(CATEGORY_COLORS.values())),
+            legend=None,
+        ),
+        tooltip=[alt.Tooltip("カテゴリ:N"), alt.Tooltip("件数:Q"), alt.Tooltip("割合:Q", format=".1f")],
+    )
+    text = bars.mark_text(align="left", dx=5, color="#666").encode(text="ラベル:N")
+    st.altair_chart((bars + text).properties(height=34 * len(df)), use_container_width=True)
 
 # ============ 動画選択・APIクォータ設定 ============
 VIDEOS_PAGE_SIZE = 10          # 動画一覧の1ページあたり取得件数
@@ -1120,10 +1157,7 @@ elif st.session_state.step == "inbox":
                             render_grouped_comments(tabs[key_name], key_name, key_prefix=vid)
 
     with main_tab2:
-        st.info(
-            "こちらは判定・振り分けとは完全に独立した分析専用のコメント取得です。"
-            "選んだ動画のコメントを、5分類ごとにAIが要約します。個別のコメント本文は表示されません。"
-        )
+        st.info("こちらは判定・振り分けとは完全に独立した分析専用のコメント取得です。選んだ動画のコメントを分析します。")
 
         analysis_display_videos = st.session_state.videos
         col_aa, col_bb = st.columns(2)
@@ -1216,8 +1250,6 @@ elif st.session_state.step == "inbox":
                     counts_this_video[bucket] += 1
                 per_video_category_counts[data["title"]] = counts_this_video
 
-            total_classified = sum(total_by_category.values()) or 1
-
             # --- 傾向レポート ---
             st.divider()
             st.markdown("### 📊 傾向レポート")
@@ -1225,22 +1257,13 @@ elif st.session_state.step == "inbox":
 
             st.markdown("#### ① 今回処理した動画のカテゴリ内訳(応援コメント含む)")
             st.caption("選択した動画すべてを合算した内訳です")
-            for b in ALL_BUCKETS:
-                pct = total_by_category[b] / total_classified * 100
-                label = "💬 応援コメント(非該当)" if b == "非該当" else b
-                st.write(f"{label}: {pct:.1f}%  ({total_by_category[b]}件)")
-                st.progress(min(pct / 100, 1.0))
+            render_category_bar_chart(total_by_category, ALL_BUCKETS)
 
             if len(per_video_category_counts) >= 2:
                 st.markdown("##### 動画ごとに分けて見る")
                 for video_title, counts in per_video_category_counts.items():
-                    video_total = sum(counts.values()) or 1
                     with st.expander(video_title):
-                        for b in ALL_BUCKETS:
-                            pct_v = counts[b] / video_total * 100
-                            label = "💬 応援コメント(非該当)" if b == "非該当" else b
-                            st.write(f"{label}: {pct_v:.1f}%  ({counts[b]}件)")
-                            st.progress(min(pct_v / 100, 1.0))
+                        render_category_bar_chart(counts, ALL_BUCKETS)
 
             st.divider()
             st.markdown("#### ② 同規模クリエイターとの比較")
