@@ -458,6 +458,11 @@ ACTION_SUGGESTIONS_PROMPT = """\
 該当する内容がなければ、その見出しの下に「特にありませんでした」と書いてください。
 個々のコメントをそのまま引用せず、傾向として日本語で簡潔にまとめてください。
 
+文体について: 事務的な報告書のような硬い言葉遣いではなく、
+仲の良いスタッフや友人が気さくに、時々ユーモアを交えながら
+話しかけてくるような温かいトーンで書いてください。絵文字を1〜2個使ってもかまいません。
+ただし内容の実用性・具体性は損なわないでください。
+
 必ず次の見出し構成で出力してください:
 【次にしてほしいこと】
 (箇条書き)
@@ -1312,8 +1317,32 @@ elif st.session_state.step == "inbox":
             st.divider()
             st.markdown("#### ③ 動画ごとの推移")
             if len(per_video_category_counts) >= 2:
-                trend_df = pd.DataFrame(per_video_category_counts).T[ALL_BUCKETS]
-                st.bar_chart(trend_df)
+                video_order = []
+                trend_rows = []
+                for video_title, counts in per_video_category_counts.items():
+                    short_title = video_title if len(video_title) <= 18 else video_title[:18] + "…"
+                    video_order.append(short_title)
+                    for b in ALL_BUCKETS:
+                        trend_rows.append({
+                            "動画": short_title,
+                            "full_title": video_title,
+                            "カテゴリ": "応援コメント(非該当)" if b == "非該当" else b,
+                            "color_key": b,
+                            "件数": counts[b],
+                        })
+                trend_df = pd.DataFrame(trend_rows)
+                trend_chart = alt.Chart(trend_df).mark_bar().encode(
+                    x=alt.X("動画:N", title=None, sort=video_order, axis=alt.Axis(labelAngle=-30)),
+                    y=alt.Y("件数:Q", title="件数"),
+                    color=alt.Color(
+                        "color_key:N",
+                        scale=alt.Scale(domain=list(CATEGORY_COLORS.keys()), range=list(CATEGORY_COLORS.values())),
+                        legend=alt.Legend(title=None),
+                    ),
+                    order=alt.Order("color_key:N"),
+                    tooltip=[alt.Tooltip("full_title:N", title="動画"), alt.Tooltip("カテゴリ:N"), alt.Tooltip("件数:Q")],
+                ).properties(height=320)
+                st.altair_chart(trend_chart, use_container_width=True)
             else:
                 st.caption("推移を見るには2本以上の動画を分析してください。")
 
