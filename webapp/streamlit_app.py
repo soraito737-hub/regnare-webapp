@@ -13,6 +13,7 @@
    REDIRECT_URI / GEMINI_API_KEY を設定
 """
 
+import html
 import json
 import math
 import re
@@ -57,6 +58,30 @@ div[data-testid="stVerticalBlockBorderWrapper"] {
     font-weight: 500;
 }
 .stTabs [data-baseweb="tab-list"] { gap: 4px; }
+.speech-bubble-wrap {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin: 4px 0 8px;
+}
+.speech-avatar {
+    font-size: 30px;
+    line-height: 1;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+.speech-bubble {
+    position: relative;
+    background: #FFF6DA;
+    border: 1px solid #F0DFA0;
+    border-radius: 18px;
+    border-top-left-radius: 4px;
+    padding: 16px 20px;
+    font-size: 0.95rem;
+    line-height: 1.8;
+    color: #4a4020;
+}
+.speech-bubble b { color: #2F6F62; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -136,6 +161,21 @@ def render_category_bar_chart(counts: dict, buckets: list[str]) -> None:
     )
     text = bars.mark_text(align="left", dx=5, color="#666").encode(text="ラベル:N")
     st.altair_chart((bars + text).properties(height=34 * len(df)), use_container_width=True)
+
+
+def render_speech_bubble(text: str, avatar: str = "🛡️") -> None:
+    """AIからのメッセージを、吹き出し風のHTMLで表示する(表示専用)。
+    テキストはHTMLエスケープしたうえで整形するため、任意のHTMLは注入されない。"""
+    escaped = html.escape(text)
+    escaped = re.sub(r"【(.+?)】", r"<b>【\1】</b>", escaped)
+    escaped = escaped.replace("\n", "<br>")
+    st.markdown(
+        f'<div class="speech-bubble-wrap">'
+        f'<div class="speech-avatar">{avatar}</div>'
+        f'<div class="speech-bubble">{escaped}</div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
 
 # ============ 動画選択・APIクォータ設定 ============
 VIDEOS_PAGE_SIZE = 10          # 動画一覧の1ページあたり取得件数
@@ -1361,7 +1401,7 @@ elif st.session_state.step == "inbox":
                         st.session_state.action_suggestions = f"抽出に失敗しました: {e}"
 
             if st.session_state.action_suggestions:
-                st.info(st.session_state.action_suggestions)
+                render_speech_bubble(st.session_state.action_suggestions, avatar="💡")
 
     with main_tab3:
         result = st.session_state.get("diagnosis_result")
