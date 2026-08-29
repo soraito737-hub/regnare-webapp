@@ -1280,15 +1280,34 @@ elif st.session_state.step == "inbox":
                 "プライバシー": 20.4,
             }
             anti_total = sum(total_by_category[c] for c in CATEGORIES) or 1
+            compare_rows = []
             for cat, bench in BENCHMARK_SHARE.items():
                 you_pct = total_by_category[cat] / anti_total * 100
-                st.write(f"**{cat}** — あなた: {you_pct:.1f}% / アンケート平均: {bench}%")
+                compare_rows.append({"カテゴリ": cat, "対象": "あなた", "割合": you_pct})
+                compare_rows.append({"カテゴリ": cat, "対象": "アンケート平均", "割合": bench})
+            compare_df = pd.DataFrame(compare_rows)
+
+            compare_chart = alt.Chart(compare_df).mark_bar(cornerRadiusEnd=3).encode(
+                y=alt.Y("カテゴリ:N", title=None, sort=list(BENCHMARK_SHARE.keys())),
+                x=alt.X("割合:Q", title="割合(%)"),
+                yOffset=alt.YOffset("対象:N", sort=["あなた", "アンケート平均"]),
+                color=alt.Color(
+                    "対象:N",
+                    scale=alt.Scale(domain=["あなた", "アンケート平均"], range=["#c1443c", "#b7bcc4"]),
+                    legend=alt.Legend(title=None, orient="top"),
+                ),
+                tooltip=[alt.Tooltip("カテゴリ:N"), alt.Tooltip("対象:N"), alt.Tooltip("割合:Q", format=".1f")],
+            ).properties(height=34 * len(BENCHMARK_SHARE))
+            st.altair_chart(compare_chart, use_container_width=True)
+
+            for cat, bench in BENCHMARK_SHARE.items():
+                you_pct = total_by_category[cat] / anti_total * 100
                 if you_pct > bench + 3:
-                    st.caption("⚠️ 平均より高めの傾向です")
+                    st.caption(f"⚠️ {cat}: 平均より高めの傾向です(あなた {you_pct:.1f}% / 平均 {bench}%)")
                 elif you_pct < bench - 3:
-                    st.caption("✓ 平均より低めです")
+                    st.caption(f"✓ {cat}: 平均より低めです(あなた {you_pct:.1f}% / 平均 {bench}%)")
                 else:
-                    st.caption("✓ 平均並みです")
+                    st.caption(f"✓ {cat}: 平均並みです(あなた {you_pct:.1f}% / 平均 {bench}%)")
 
             st.divider()
             st.markdown("#### ③ 動画ごとの推移")
