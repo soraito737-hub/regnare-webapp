@@ -755,7 +755,7 @@ if "action_suggestions" not in st.session_state:
     st.session_state.action_suggestions = None
 
 st.title("🛡️ レグナレ")
-st.caption("安全なコメント欄 — Regnare")
+st.caption("コメント欄 — Regnare")
 
 # ============ OAuthコールバック処理 ============
 query_params = st.query_params
@@ -885,9 +885,9 @@ elif st.session_state.step == "connect":
             "ご安心のうえ「詳細」→「(アプリ名)に移動」と進んでください。"
         )
 
-# ============ STEP 4: 安全コメント欄 ============
+# ============ STEP 4: コメント欄 ============
 elif st.session_state.step == "inbox":
-    st.subheader("安全コメント欄")
+    st.subheader("コメント欄")
 
     # --- チャンネル情報の初回取得 ---
     if st.session_state.uploads_playlist_id is None:
@@ -916,8 +916,8 @@ elif st.session_state.step == "inbox":
     # ボタンを押さずに自動でコメント取得・判定まで実行する
     auto_run = (not videos_already_loaded) and not st.session_state.results_by_video
 
-    main_tab1, main_tab2, main_tab3 = st.tabs(
-        ["📥 安全コメント欄(振り分け)", "📊 動画分析", "🧭 診断結果"]
+    main_tab3, main_tab2, main_tab1 = st.tabs(
+        ["🧭 診断結果", "📊 動画分析", "📥 コメント欄(振り分け)"]
     )
 
     with main_tab1:
