@@ -26,6 +26,7 @@ from googleapiclient.errors import HttpError
 from google import genai
 from google.genai import types
 import pandas as pd
+import altair as alt
 from sklearn.metrics.pairwise import cosine_similarity
 
 # ============ 設定 ============
@@ -99,6 +100,42 @@ def render_risk_badge(level: str) -> str:
 CATEGORIES = ["外見", "人間性", "活動クオリティ", "モラル・マナー説教", "プライバシー"]
 THRESHOLD_MATCH = 0.60
 THRESHOLD_GRAY = 0.45
+
+CATEGORY_COLORS = {
+    "外見": "#e07a5f",
+    "人間性": "#f2994a",
+    "活動クオリティ": "#e0b243",
+    "モラル・マナー説教": "#9b6b9e",
+    "プライバシー": "#c1443c",
+    "非該当": "#3d8361",
+}
+
+
+def render_category_bar_chart(counts: dict, buckets: list[str]) -> None:
+    """カテゴリ別件数を、色分けした横棒グラフで表示する(表示専用)。"""
+    total = sum(counts.values()) or 1
+    df = pd.DataFrame([
+        {
+            "カテゴリ": "応援コメント(非該当)" if b == "非該当" else b,
+            "件数": counts[b],
+            "割合": counts[b] / total * 100,
+            "color_key": b,
+            "ラベル": f"{counts[b] / total * 100:.1f}%({counts[b]}件)",
+        }
+        for b in buckets
+    ])
+    bars = alt.Chart(df).mark_bar(cornerRadiusEnd=4).encode(
+        x=alt.X("割合:Q", title="割合(%)", scale=alt.Scale(domain=[0, 100])),
+        y=alt.Y("カテゴリ:N", sort="-x", title=None),
+        color=alt.Color(
+            "color_key:N",
+            scale=alt.Scale(domain=list(CATEGORY_COLORS.keys()), range=list(CATEGORY_COLORS.values())),
+            legend=None,
+        ),
+        tooltip=[alt.Tooltip("カテゴリ:N"), alt.Tooltip("件数:Q"), alt.Tooltip("割合:Q", format=".1f")],
+    )
+    text = bars.mark_text(align="left", dx=5, color="#666").encode(text="ラベル:N")
+    st.altair_chart((bars + text).properties(height=34 * len(df)), use_container_width=True)
 
 # ============ 動画選択・APIクォータ設定 ============
 VIDEOS_PAGE_SIZE = 10          # 動画一覧の1ページあたり取得件数
@@ -755,7 +792,7 @@ if "action_suggestions" not in st.session_state:
     st.session_state.action_suggestions = None
 
 st.title("🛡️ レグナレ")
-st.caption("安全なコメント欄 — Regnare")
+st.caption("コメント欄 — Regnare")
 
 # ============ OAuthコールバック処理 ============
 query_params = st.query_params
@@ -885,9 +922,9 @@ elif st.session_state.step == "connect":
             "ご安心のうえ「詳細」→「(アプリ名)に移動」と進んでください。"
         )
 
-# ============ STEP 4: 安全コメント欄 ============
+# ============ STEP 4: コメント欄 ============
 elif st.session_state.step == "inbox":
-    st.subheader("安全コメント欄")
+    st.subheader("コメント欄")
 
     # --- チャンネル情報の初回取得 ---
     if st.session_state.uploads_playlist_id is None:
@@ -916,8 +953,8 @@ elif st.session_state.step == "inbox":
     # ボタンを押さずに自動でコメント取得・判定まで実行する
     auto_run = (not videos_already_loaded) and not st.session_state.results_by_video
 
-    main_tab1, main_tab2, main_tab3 = st.tabs(
-        ["📥 安全コメント欄(振り分け)", "📊 動画分析", "🧭 診断結果"]
+    main_tab3, main_tab2, main_tab1 = st.tabs(
+        ["🧭 診断結果", "📊 動画分析", "📥 コメント欄(振り分け)"]
     )
 
     with main_tab1:
@@ -1120,10 +1157,7 @@ elif st.session_state.step == "inbox":
                             render_grouped_comments(tabs[key_name], key_name, key_prefix=vid)
 
     with main_tab2:
-        st.info(
-            "こちらは判定・振り分けとは完全に独立した分析専用のコメント取得です。"
-            "選んだ動画のコメントを、5分類ごとにAIが要約します。個別のコメント本文は表示されません。"
-        )
+        st.info("こちらは判定・振り分けとは完全に独立した分析専用のコメント取得です。選んだ動画のコメントを分析します。")
 
         analysis_display_videos = st.session_state.videos
         col_aa, col_bb = st.columns(2)
@@ -1216,8 +1250,6 @@ elif st.session_state.step == "inbox":
                     counts_this_video[bucket] += 1
                 per_video_category_counts[data["title"]] = counts_this_video
 
-            total_classified = sum(total_by_category.values()) or 1
-
             # --- 傾向レポート ---
             st.divider()
             st.markdown("### 📊 傾向レポート")
@@ -1225,22 +1257,13 @@ elif st.session_state.step == "inbox":
 
             st.markdown("#### ① 今回処理した動画のカテゴリ内訳(応援コメント含む)")
             st.caption("選択した動画すべてを合算した内訳です")
-            for b in ALL_BUCKETS:
-                pct = total_by_category[b] / total_classified * 100
-                label = "💬 応援コメント(非該当)" if b == "非該当" else b
-                st.write(f"{label}: {pct:.1f}%  ({total_by_category[b]}件)")
-                st.progress(min(pct / 100, 1.0))
+            render_category_bar_chart(total_by_category, ALL_BUCKETS)
 
             if len(per_video_category_counts) >= 2:
                 st.markdown("##### 動画ごとに分けて見る")
                 for video_title, counts in per_video_category_counts.items():
-                    video_total = sum(counts.values()) or 1
                     with st.expander(video_title):
-                        for b in ALL_BUCKETS:
-                            pct_v = counts[b] / video_total * 100
-                            label = "💬 応援コメント(非該当)" if b == "非該当" else b
-                            st.write(f"{label}: {pct_v:.1f}%  ({counts[b]}件)")
-                            st.progress(min(pct_v / 100, 1.0))
+                        render_category_bar_chart(counts, ALL_BUCKETS)
 
             st.divider()
             st.markdown("#### ② 同規模クリエイターとの比較")
@@ -1257,15 +1280,34 @@ elif st.session_state.step == "inbox":
                 "プライバシー": 20.4,
             }
             anti_total = sum(total_by_category[c] for c in CATEGORIES) or 1
+            compare_rows = []
             for cat, bench in BENCHMARK_SHARE.items():
                 you_pct = total_by_category[cat] / anti_total * 100
-                st.write(f"**{cat}** — あなた: {you_pct:.1f}% / アンケート平均: {bench}%")
+                compare_rows.append({"カテゴリ": cat, "対象": "あなた", "割合": you_pct})
+                compare_rows.append({"カテゴリ": cat, "対象": "アンケート平均", "割合": bench})
+            compare_df = pd.DataFrame(compare_rows)
+
+            compare_chart = alt.Chart(compare_df).mark_bar(cornerRadiusEnd=3).encode(
+                y=alt.Y("カテゴリ:N", title=None, sort=list(BENCHMARK_SHARE.keys())),
+                x=alt.X("割合:Q", title="割合(%)"),
+                yOffset=alt.YOffset("対象:N", sort=["あなた", "アンケート平均"]),
+                color=alt.Color(
+                    "対象:N",
+                    scale=alt.Scale(domain=["あなた", "アンケート平均"], range=["#c1443c", "#b7bcc4"]),
+                    legend=alt.Legend(title=None, orient="top"),
+                ),
+                tooltip=[alt.Tooltip("カテゴリ:N"), alt.Tooltip("対象:N"), alt.Tooltip("割合:Q", format=".1f")],
+            ).properties(height=34 * len(BENCHMARK_SHARE))
+            st.altair_chart(compare_chart, use_container_width=True)
+
+            for cat, bench in BENCHMARK_SHARE.items():
+                you_pct = total_by_category[cat] / anti_total * 100
                 if you_pct > bench + 3:
-                    st.caption("⚠️ 平均より高めの傾向です")
+                    st.caption(f"⚠️ {cat}: 平均より高めの傾向です(あなた {you_pct:.1f}% / 平均 {bench}%)")
                 elif you_pct < bench - 3:
-                    st.caption("✓ 平均より低めです")
+                    st.caption(f"✓ {cat}: 平均より低めです(あなた {you_pct:.1f}% / 平均 {bench}%)")
                 else:
-                    st.caption("✓ 平均並みです")
+                    st.caption(f"✓ {cat}: 平均並みです(あなた {you_pct:.1f}% / 平均 {bench}%)")
 
             st.divider()
             st.markdown("#### ③ 動画ごとの推移")
