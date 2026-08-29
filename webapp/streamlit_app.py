@@ -409,26 +409,6 @@ def get_gemini_client():
 GENERATION_MODEL = "gemini-3.6-flash"
 
 
-def summarize_category(category: str, comments_texts: list[str]) -> str:
-    """指定カテゴリのコメント群から、動画制作者向けにAIが共通する論点を要約する。
-    個々のコメント本文はここでは表示しない(要約結果のみを返す)。"""
-    if not comments_texts:
-        return "該当するコメントがありませんでした。"
-    client = get_gemini_client()
-    joined = "\n".join(f"- {t}" for t in comments_texts[:100])
-    prompt = (
-        f"以下はYouTube動画に寄せられた「{category}」に分類されたコメントです。"
-        "動画制作者が状況を把握し、今後の活動に活かせるよう、"
-        "共通する論点や傾向を日本語で2〜4個の箇条書きで簡潔に要約してください。"
-        "個々のコメントをそのまま引用せず、あくまで傾向として要約してください。\n\n"
-        f"{joined}"
-    )
-    response = client.models.generate_content(
-        model=GENERATION_MODEL,
-        contents=prompt,
-    )
-    return response.text
-
 
 ACTION_SUGGESTIONS_PROMPT = """\
 以下はYouTube動画に寄せられたコメント群です。
@@ -697,8 +677,8 @@ def render_comment_card(c: dict, key_name: str) -> None:
                         st.warning("返信内容を入力してください")
 
 
-def render_grouped_comments(items: list[dict], key_name: str) -> None:
-    """コメント一覧を、カテゴリ(5分類＋非該当)ごとに小見出しで分けて表示する。"""
+def render_grouped_comments(items: list[dict], key_name: str, key_prefix: str) -> None:
+    """コメント一覧を、カテゴリ(5分類＋非該当)のピル型フィルターで絞り込んで表示する。"""
     if not items:
         st.write("このタブにコメントはありません")
         return
@@ -715,7 +695,17 @@ def render_grouped_comments(items: list[dict], key_name: str) -> None:
         if label not in ordered_labels:
             ordered_labels.append(label)
 
-    for label in ordered_labels:
+    pill_options = ["すべて"] + ordered_labels
+    selected_label = st.pills(
+        "カテゴリ", pill_options, default="すべて",
+        key=f"catfilter_{key_prefix}_{key_name}",
+    )
+    if selected_label is None:
+        selected_label = "すべて"
+
+    labels_to_show = ordered_labels if selected_label == "すべて" else [selected_label]
+
+    for label in labels_to_show:
         group = buckets[label]
         heading = "💬 応援コメント(非該当)" if label == "非該当" else label
         st.markdown(f"**{heading}**（{len(group)}件）")
@@ -761,13 +751,11 @@ if "analysis_selected_video_ids" not in st.session_state:
     st.session_state.analysis_selected_video_ids = set()
 if "analysis_results_by_video" not in st.session_state:
     st.session_state.analysis_results_by_video = {}
-if "category_summaries" not in st.session_state:
-    st.session_state.category_summaries = {}
 if "action_suggestions" not in st.session_state:
     st.session_state.action_suggestions = None
 
 st.title("🛡️ レグナレ")
-st.caption("安全な受信トレイ — Regnare")
+st.caption("安全なコメント欄 — Regnare")
 
 # ============ OAuthコールバック処理 ============
 query_params = st.query_params
@@ -897,9 +885,9 @@ elif st.session_state.step == "connect":
             "ご安心のうえ「詳細」→「(アプリ名)に移動」と進んでください。"
         )
 
-# ============ STEP 4: 安全受信トレイ ============
+# ============ STEP 4: 安全コメント欄 ============
 elif st.session_state.step == "inbox":
-    st.subheader("安全受信トレイ")
+    st.subheader("安全コメント欄")
 
     # --- チャンネル情報の初回取得 ---
     if st.session_state.uploads_playlist_id is None:
@@ -929,7 +917,7 @@ elif st.session_state.step == "inbox":
     auto_run = (not videos_already_loaded) and not st.session_state.results_by_video
 
     main_tab1, main_tab2, main_tab3 = st.tabs(
-        ["📥 安全受信トレイ(振り分け)", "📊 動画分析(カテゴリ別AI要約)", "🧭 診断結果"]
+        ["📥 安全コメント欄(振り分け)", "📊 動画分析", "🧭 診断結果"]
     )
 
     with main_tab1:
@@ -1129,7 +1117,7 @@ elif st.session_state.step == "inbox":
                     ])
                     for tab, key_name in zip([tab1, tab2, tab3], ["通常", "確認待ち", "見たくない"]):
                         with tab:
-                            render_grouped_comments(tabs[key_name], key_name)
+                            render_grouped_comments(tabs[key_name], key_name, key_prefix=vid)
 
     with main_tab2:
         st.info(
@@ -1207,7 +1195,6 @@ elif st.session_state.step == "inbox":
                     + "、".join(analysis_skipped)
                 )
             st.session_state.analysis_results_by_video = analysis_results
-            st.session_state.category_summaries = {}
             st.session_state.action_suggestions = None
 
         if st.session_state.analysis_results_by_video:
@@ -1287,40 +1274,6 @@ elif st.session_state.step == "inbox":
                 st.bar_chart(trend_df)
             else:
                 st.caption("推移を見るには2本以上の動画を分析してください。")
-
-            # --- AI要約(見たくない設定のカテゴリは対象外) ---
-            st.divider()
-            st.markdown("### 🌱 AI要約")
-            selected_categories = st.session_state.selected_categories
-            visible_buckets = [
-                b for b in ALL_BUCKETS if b == "非該当" or b not in selected_categories
-            ]
-            hidden_buckets = [b for b in ALL_BUCKETS if b not in visible_buckets]
-            st.caption(
-                "「見たくない」に設定したカテゴリの要約は表示されません。"
-                + (f"(非表示中: {'、'.join(hidden_buckets)})" if hidden_buckets else "")
-            )
-
-            if st.button("AI要約を生成する", key="gen_category_summaries", type="primary"):
-                with st.spinner("AIがコメントの傾向を要約しています…"):
-                    summaries = {}
-                    for b in visible_buckets:
-                        label = "応援コメント" if b == "非該当" else b
-                        try:
-                            summaries[b] = summarize_category(label, category_texts[b])
-                        except Exception as e:
-                            summaries[b] = f"要約に失敗しました: {e}"
-                    st.session_state.category_summaries = summaries
-
-            if st.session_state.category_summaries:
-                for b in visible_buckets:
-                    label = "💬 応援コメント" if b == "非該当" else b
-                    with st.expander(f"{label}({total_by_category.get(b, 0)}件)"):
-                        st.info(st.session_state.category_summaries.get(b, "(未生成)"))
-                        if category_texts[b]:
-                            with st.expander("実際のコメントを見る"):
-                                for t in category_texts[b]:
-                                    st.write(f"- {t}")
 
             # --- 次のアクション(リクエスト・改善提案の抽出) ---
             st.divider()
