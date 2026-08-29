@@ -96,7 +96,7 @@ def render_risk_badge(level: str) -> str:
     )
 
 
-CATEGORIES = ["外見", "人間性", "活動クオリティ", "モラル・マナー説教", "嫉妬型"]
+CATEGORIES = ["外見", "人間性", "活動クオリティ", "モラル・マナー説教", "プライバシー"]
 THRESHOLD_MATCH = 0.60
 THRESHOLD_GRAY = 0.45
 
@@ -178,7 +178,7 @@ PERSONA_PROFILES = {
             "単発の批判コメントよりも、つきまとい的な言動や実害化といった"
             "「二次被害」へ発展しやすいタイプです。早めの対策をおすすめします。"
         ),
-        "categories": ["人間性", "嫉妬型"],
+        "categories": ["人間性", "プライバシー"],
     },
     "light": {
         "name": "ナチュラル発信型",
@@ -429,6 +429,43 @@ def summarize_category(category: str, comments_texts: list[str]) -> str:
     )
     return response.text
 
+
+ACTION_SUGGESTIONS_PROMPT = """\
+以下はYouTube動画に寄せられたコメント群です。
+この中から、動画制作者にとって参考になる次の2種類の情報だけを抽出してください。
+
+1. 次に見たい・作ってほしい企画やコンテンツのリクエスト
+2. 攻撃的でない、建設的な改善提案(編集・構成・音質など)
+
+個人攻撃・誹謗中傷・単なる感想やあいさつは無視してください。
+該当する内容がなければ、その見出しの下に「特にありませんでした」と書いてください。
+個々のコメントをそのまま引用せず、傾向として日本語で簡潔にまとめてください。
+
+必ず次の見出し構成で出力してください:
+【次にしてほしいこと】
+(箇条書き)
+
+【改善提案】
+(箇条書き)
+
+コメント一覧:
+{comments}"""
+
+
+def extract_action_suggestions(comments_texts: list[str]) -> str:
+    """コメント群から「次にしてほしい企画」「建設的な改善提案」だけをAIに抽出させる。
+    個人攻撃や単なる感想は除外する。"""
+    if not comments_texts:
+        return "コメントがありませんでした。"
+    client = get_gemini_client()
+    joined = "\n".join(f"- {t}" for t in comments_texts[:200])
+    prompt = ACTION_SUGGESTIONS_PROMPT.format(comments=joined)
+    response = client.models.generate_content(
+        model=GENERATION_MODEL,
+        contents=prompt,
+    )
+    return response.text
+
 @st.cache_data(show_spinner=False)
 def embed_text(text: str) -> list[float]:
     client = get_gemini_client()
@@ -593,6 +630,100 @@ def search_channel_videos(credentials, channel_id: str, query: str,
         })
     return videos
 
+def render_comment_card(c: dict, key_name: str) -> None:
+    """コメント1件をカードとして表示する(見たくないタブの伏せ字表示、確認待ちの判断ボタン、
+    YouTube上での非表示・返信操作を含む)。"""
+    with st.container(border=True):
+        st.write(f"**{c['author']}**")
+        if key_name == "見たくない":
+            revealed = c["comment_key"] in st.session_state.revealed_comment_keys
+            if not revealed:
+                st.warning("内容を確認しますか？見ずに非表示にすることもできます。")
+                if st.button(
+                    "👁 はい、本文を表示する", key=f"reveal_{c['comment_key']}",
+                    type="primary",
+                ):
+                    st.session_state.revealed_comment_keys.add(c["comment_key"])
+                    st.rerun()
+            else:
+                st.write(c["text"])
+                if st.button("🙈 本文を隠す", key=f"hide_reveal_{c['comment_key']}"):
+                    st.session_state.revealed_comment_keys.discard(c["comment_key"])
+                    st.rerun()
+        else:
+            st.write(c["text"])
+        if c["category"]:
+            st.caption(f"カテゴリ: {c['category']} / 類似度: {c['similarity']:.2f}")
+        if key_name == "確認待ち":
+            col1, col2 = st.columns(2)
+            if col1.button("🙅 見たくない", key=f"want_{c['comment_key']}"):
+                st.session_state.hidden_comment_ids.add(c["comment_key"])
+                st.rerun()
+            if col2.button("✅ 問題ない", key=f"ok_{c['comment_key']}", type="primary"):
+                st.session_state.ok_comment_ids.add(c["comment_key"])
+                st.rerun()
+
+        # --- YouTube上での操作(非表示・返信) すべてのコメントに表示 ---
+        comment_id = c.get("comment_id")
+        if comment_id:
+            yt_hidden = comment_id in st.session_state.youtube_hidden_comment_ids
+            yt_replied = comment_id in st.session_state.youtube_replied_comment_ids
+
+            hide_col, status_col = st.columns([1, 2])
+            if yt_hidden:
+                status_col.caption("✅ YouTube上で非表示済み(保留中・取消可)")
+            else:
+                if hide_col.button("🚫 YouTube上で非表示にする", key=f"ythide_{c['comment_key']}"):
+                    try:
+                        hide_comment_on_youtube(st.session_state.credentials, comment_id)
+                        st.session_state.youtube_hidden_comment_ids.add(comment_id)
+                        st.success("YouTube上で非表示にしました")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"非表示にできませんでした: {e}")
+
+            with st.expander("💬 返信する" + ("(返信済み)" if yt_replied else "")):
+                reply_text = st.text_area("返信内容", key=f"replytext_{c['comment_key']}")
+                if st.button("返信を投稿する", key=f"replybtn_{c['comment_key']}", type="primary"):
+                    if reply_text.strip():
+                        try:
+                            reply_to_comment_on_youtube(st.session_state.credentials, comment_id, reply_text)
+                            st.session_state.youtube_replied_comment_ids.add(comment_id)
+                            st.success("返信を投稿しました")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"返信を投稿できませんでした: {e}")
+                    else:
+                        st.warning("返信内容を入力してください")
+
+
+def render_grouped_comments(items: list[dict], key_name: str) -> None:
+    """コメント一覧を、カテゴリ(5分類＋非該当)ごとに小見出しで分けて表示する。"""
+    if not items:
+        st.write("このタブにコメントはありません")
+        return
+
+    buckets: dict[str, list] = {}
+    for c in items:
+        label = c["category"] if c.get("category") else "非該当"
+        buckets.setdefault(label, []).append(c)
+
+    ordered_labels = [cat for cat in CATEGORIES if cat in buckets]
+    if "非該当" in buckets:
+        ordered_labels.append("非該当")
+    for label in buckets:
+        if label not in ordered_labels:
+            ordered_labels.append(label)
+
+    for label in ordered_labels:
+        group = buckets[label]
+        heading = "💬 応援コメント(非該当)" if label == "非該当" else label
+        st.markdown(f"**{heading}**（{len(group)}件）")
+        for c in group:
+            render_comment_card(c, key_name)
+        st.write("")
+
+
 # ============ セッション状態の初期化 ============
 if "step" not in st.session_state:
     st.session_state.step = "diagnosis"
@@ -632,6 +763,8 @@ if "analysis_results_by_video" not in st.session_state:
     st.session_state.analysis_results_by_video = {}
 if "category_summaries" not in st.session_state:
     st.session_state.category_summaries = {}
+if "action_suggestions" not in st.session_state:
+    st.session_state.action_suggestions = None
 
 st.title("🛡️ レグナレ")
 st.caption("安全な受信トレイ — Regnare")
@@ -715,16 +848,23 @@ elif st.session_state.step == "category":
 
     st.write("診断結果をもとに、見たくないカテゴリの候補にチェックを入れています。内容を確認し、必要に応じて調整してください。")
 
+    none_selected = st.checkbox(
+        "見たくないカテゴリは設定しない(すべて通常タブに表示する)",
+        value=False,
+        key="cat_none",
+    )
+
     selected = []
-    for cat in CATEGORIES:
-        default = cat in result["suggested_categories"]
-        checked = st.checkbox(
-            f"{cat}" + (" 🟢 おすすめ" if default else ""),
-            value=default,
-            key=f"cat_{cat}",
-        )
-        if checked:
-            selected.append(cat)
+    if not none_selected:
+        for cat in CATEGORIES:
+            default = cat in result["suggested_categories"]
+            checked = st.checkbox(
+                f"{cat}" + (" 🟢 おすすめ" if default else ""),
+                value=default,
+                key=f"cat_{cat}",
+            )
+            if checked:
+                selected.append(cat)
     st.session_state.selected_categories = selected
 
     if st.button("この設定で連携する →", use_container_width=True, type="primary"):
@@ -760,7 +900,6 @@ elif st.session_state.step == "connect":
 # ============ STEP 4: 安全受信トレイ ============
 elif st.session_state.step == "inbox":
     st.subheader("安全受信トレイ")
-    st.caption(f"見たくない設定中のカテゴリ: {', '.join(st.session_state.selected_categories) or '(未選択)'}")
 
     # --- チャンネル情報の初回取得 ---
     if st.session_state.uploads_playlist_id is None:
@@ -794,6 +933,26 @@ elif st.session_state.step == "inbox":
     )
 
     with main_tab1:
+
+        with st.expander("🙅 見たくないカテゴリを変更する", expanded=False):
+            none_selected_inbox = st.checkbox(
+                "見たくないカテゴリは設定しない(すべて通常タブに表示する)",
+                value=not st.session_state.selected_categories,
+                key="inbox_cat_none",
+            )
+            new_selected_categories: list[str] = []
+            if not none_selected_inbox:
+                for cat in CATEGORIES:
+                    checked = st.checkbox(
+                        cat,
+                        value=cat in st.session_state.selected_categories,
+                        key=f"inbox_cat_{cat}",
+                    )
+                    if checked:
+                        new_selected_categories.append(cat)
+            st.session_state.selected_categories = new_selected_categories
+
+        st.caption(f"見たくない設定中のカテゴリ: {', '.join(st.session_state.selected_categories) or '(なし)'}")
 
         with st.expander("🔍 対象動画を変更する", expanded=False):
             st.caption("検索・過去動画の読み込み・選び直しができます。")
@@ -970,83 +1129,7 @@ elif st.session_state.step == "inbox":
                     ])
                     for tab, key_name in zip([tab1, tab2, tab3], ["通常", "確認待ち", "見たくない"]):
                         with tab:
-                            if not tabs[key_name]:
-                                st.write("このタブにコメントはありません")
-                            for c in tabs[key_name]:
-                                with st.container(border=True):
-                                    st.write(f"**{c['author']}**")
-                                    if key_name == "見たくない":
-                                        revealed = c["comment_key"] in st.session_state.revealed_comment_keys
-                                        if not revealed:
-                                            st.warning(
-                                                "内容を確認しますか？見ずに非表示にすることもできます。"
-                                            )
-                                            if st.button(
-                                                "👁 はい、本文を表示する", key=f"reveal_{c['comment_key']}",
-                                                type="primary",
-                                            ):
-                                                st.session_state.revealed_comment_keys.add(c["comment_key"])
-                                                st.rerun()
-                                        else:
-                                            st.write(c["text"])
-                                            if st.button(
-                                                "🙈 本文を隠す", key=f"hide_reveal_{c['comment_key']}"
-                                            ):
-                                                st.session_state.revealed_comment_keys.discard(c["comment_key"])
-                                                st.rerun()
-                                    else:
-                                        st.write(c["text"])
-                                    if c["category"]:
-                                        st.caption(f"カテゴリ: {c['category']} / 類似度: {c['similarity']:.2f}")
-                                    if key_name == "確認待ち":
-                                        col1, col2 = st.columns(2)
-                                        if col1.button("🙅 見たくない", key=f"want_{c['comment_key']}"):
-                                            st.session_state.hidden_comment_ids.add(c["comment_key"])
-                                            st.rerun()
-                                        if col2.button("✅ 問題ない", key=f"ok_{c['comment_key']}", type="primary"):
-                                            st.session_state.ok_comment_ids.add(c["comment_key"])
-                                            st.rerun()
-
-                                    # --- YouTube上での操作(非表示・返信) すべてのコメントに表示 ---
-                                    comment_id = c.get("comment_id")
-                                    if comment_id:
-                                        yt_hidden = comment_id in st.session_state.youtube_hidden_comment_ids
-                                        yt_replied = comment_id in st.session_state.youtube_replied_comment_ids
-
-                                        hide_col, status_col = st.columns([1, 2])
-                                        if yt_hidden:
-                                            status_col.caption("✅ YouTube上で非表示済み(保留中・取消可)")
-                                        else:
-                                            if hide_col.button(
-                                                "🚫 YouTube上で非表示にする", key=f"ythide_{c['comment_key']}"
-                                            ):
-                                                try:
-                                                    hide_comment_on_youtube(
-                                                        st.session_state.credentials, comment_id
-                                                    )
-                                                    st.session_state.youtube_hidden_comment_ids.add(comment_id)
-                                                    st.success("YouTube上で非表示にしました")
-                                                    st.rerun()
-                                                except Exception as e:
-                                                    st.error(f"非表示にできませんでした: {e}")
-
-                                        with st.expander("💬 返信する" + ("(返信済み)" if yt_replied else "")):
-                                            reply_text = st.text_area(
-                                                "返信内容", key=f"replytext_{c['comment_key']}"
-                                            )
-                                            if st.button("返信を投稿する", key=f"replybtn_{c['comment_key']}", type="primary"):
-                                                if reply_text.strip():
-                                                    try:
-                                                        reply_to_comment_on_youtube(
-                                                            st.session_state.credentials, comment_id, reply_text
-                                                        )
-                                                        st.session_state.youtube_replied_comment_ids.add(comment_id)
-                                                        st.success("返信を投稿しました")
-                                                        st.rerun()
-                                                    except Exception as e:
-                                                        st.error(f"返信を投稿できませんでした: {e}")
-                                                else:
-                                                    st.warning("返信内容を入力してください")
+                            render_grouped_comments(tabs[key_name], key_name)
 
     with main_tab2:
         st.info(
@@ -1125,6 +1208,7 @@ elif st.session_state.step == "inbox":
                 )
             st.session_state.analysis_results_by_video = analysis_results
             st.session_state.category_summaries = {}
+            st.session_state.action_suggestions = None
 
         if st.session_state.analysis_results_by_video:
             ALL_BUCKETS = CATEGORIES + ["非該当"]
@@ -1183,7 +1267,7 @@ elif st.session_state.step == "inbox":
                 "人間性": 20.0,
                 "活動クオリティ": 21.4,
                 "モラル・マナー説教": 19.3,
-                "嫉妬型": 20.4,
+                "プライバシー": 20.4,
             }
             anti_total = sum(total_by_category[c] for c in CATEGORIES) or 1
             for cat, bench in BENCHMARK_SHARE.items():
@@ -1237,6 +1321,23 @@ elif st.session_state.step == "inbox":
                             with st.expander("実際のコメントを見る"):
                                 for t in category_texts[b]:
                                     st.write(f"- {t}")
+
+            # --- 次のアクション(リクエスト・改善提案の抽出) ---
+            st.divider()
+            st.markdown("### 💡 次のアクション")
+            st.caption("コメントの中から「次にしてほしい企画」「建設的な改善提案」だけをAIが抽出します。個人攻撃や単なる感想は無視されます。")
+
+            all_comment_texts = [t for texts in category_texts.values() for t in texts]
+
+            if st.button("次のアクションを抽出する", key="gen_action_suggestions", type="primary"):
+                with st.spinner("AIがコメントからリクエスト・改善提案を探しています…"):
+                    try:
+                        st.session_state.action_suggestions = extract_action_suggestions(all_comment_texts)
+                    except Exception as e:
+                        st.session_state.action_suggestions = f"抽出に失敗しました: {e}"
+
+            if st.session_state.action_suggestions:
+                st.info(st.session_state.action_suggestions)
 
     with main_tab3:
         result = st.session_state.get("diagnosis_result")
