@@ -13,6 +13,7 @@
    REDIRECT_URI / GEMINI_API_KEY を設定
 """
 
+import html
 import json
 import math
 import re
@@ -57,6 +58,30 @@ div[data-testid="stVerticalBlockBorderWrapper"] {
     font-weight: 500;
 }
 .stTabs [data-baseweb="tab-list"] { gap: 4px; }
+.speech-bubble-wrap {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin: 4px 0 8px;
+}
+.speech-avatar {
+    font-size: 30px;
+    line-height: 1;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+.speech-bubble {
+    position: relative;
+    background: #FFF6DA;
+    border: 1px solid #F0DFA0;
+    border-radius: 18px;
+    border-top-left-radius: 4px;
+    padding: 16px 20px;
+    font-size: 0.95rem;
+    line-height: 1.8;
+    color: #4a4020;
+}
+.speech-bubble b { color: #2F6F62; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -136,6 +161,21 @@ def render_category_bar_chart(counts: dict, buckets: list[str]) -> None:
     )
     text = bars.mark_text(align="left", dx=5, color="#666").encode(text="ラベル:N")
     st.altair_chart((bars + text).properties(height=34 * len(df)), use_container_width=True)
+
+
+def render_speech_bubble(text: str, avatar: str = "🛡️") -> None:
+    """AIからのメッセージを、吹き出し風のHTMLで表示する(表示専用)。
+    テキストはHTMLエスケープしたうえで整形するため、任意のHTMLは注入されない。"""
+    escaped = html.escape(text)
+    escaped = re.sub(r"【(.+?)】", r"<b>【\1】</b>", escaped)
+    escaped = escaped.replace("\n", "<br>")
+    st.markdown(
+        f'<div class="speech-bubble-wrap">'
+        f'<div class="speech-avatar">{avatar}</div>'
+        f'<div class="speech-bubble">{escaped}</div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
 
 # ============ 動画選択・APIクォータ設定 ============
 VIDEOS_PAGE_SIZE = 10          # 動画一覧の1ページあたり取得件数
@@ -457,6 +497,11 @@ ACTION_SUGGESTIONS_PROMPT = """\
 個人攻撃・誹謗中傷・単なる感想やあいさつは無視してください。
 該当する内容がなければ、その見出しの下に「特にありませんでした」と書いてください。
 個々のコメントをそのまま引用せず、傾向として日本語で簡潔にまとめてください。
+
+文体について: 事務的な報告書のような硬い言葉遣いではなく、
+仲の良いスタッフや友人が気さくに、時々ユーモアを交えながら
+話しかけてくるような温かいトーンで書いてください。絵文字を1〜2個使ってもかまいません。
+ただし内容の実用性・具体性は損なわないでください。
 
 必ず次の見出し構成で出力してください:
 【次にしてほしいこと】
@@ -1312,8 +1357,32 @@ elif st.session_state.step == "inbox":
             st.divider()
             st.markdown("#### ③ 動画ごとの推移")
             if len(per_video_category_counts) >= 2:
-                trend_df = pd.DataFrame(per_video_category_counts).T[ALL_BUCKETS]
-                st.bar_chart(trend_df)
+                video_order = []
+                trend_rows = []
+                for video_title, counts in per_video_category_counts.items():
+                    short_title = video_title if len(video_title) <= 18 else video_title[:18] + "…"
+                    video_order.append(short_title)
+                    for b in ALL_BUCKETS:
+                        trend_rows.append({
+                            "動画": short_title,
+                            "full_title": video_title,
+                            "カテゴリ": "応援コメント(非該当)" if b == "非該当" else b,
+                            "color_key": b,
+                            "件数": counts[b],
+                        })
+                trend_df = pd.DataFrame(trend_rows)
+                trend_chart = alt.Chart(trend_df).mark_bar().encode(
+                    x=alt.X("動画:N", title=None, sort=video_order, axis=alt.Axis(labelAngle=-30)),
+                    y=alt.Y("件数:Q", title="件数"),
+                    color=alt.Color(
+                        "color_key:N",
+                        scale=alt.Scale(domain=list(CATEGORY_COLORS.keys()), range=list(CATEGORY_COLORS.values())),
+                        legend=alt.Legend(title=None),
+                    ),
+                    order=alt.Order("color_key:N"),
+                    tooltip=[alt.Tooltip("full_title:N", title="動画"), alt.Tooltip("カテゴリ:N"), alt.Tooltip("件数:Q")],
+                ).properties(height=320)
+                st.altair_chart(trend_chart, use_container_width=True)
             else:
                 st.caption("推移を見るには2本以上の動画を分析してください。")
 
@@ -1332,7 +1401,7 @@ elif st.session_state.step == "inbox":
                         st.session_state.action_suggestions = f"抽出に失敗しました: {e}"
 
             if st.session_state.action_suggestions:
-                st.info(st.session_state.action_suggestions)
+                render_speech_bubble(st.session_state.action_suggestions, avatar="💡")
 
     with main_tab3:
         result = st.session_state.get("diagnosis_result")
