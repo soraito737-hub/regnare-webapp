@@ -26,6 +26,7 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from google import genai
 from google.genai import types
+import altair as alt
 import pandas as pd
 import altair as alt
 from sklearn.metrics.pairwise import cosine_similarity
@@ -303,6 +304,13 @@ PERSONA_PROFILES = {
 }
 
 PERSONA_ORDER = ["private_fan", "light", "visual", "assertive"]
+PERSONA_COLORS = {
+    "private_fan": "#6E9B94",
+    "light": "#3F8F63",
+    "visual": "#C98A1B",
+    "assertive": "#C2483D",
+}
+RANK_MARKERS = ["①", "②", "③"]
 
 # 被害タイプ別のクラスター平均値(アンケート「グループ統計量」より、n=213)
 HARM_ITEM_STATS = {
@@ -318,14 +326,35 @@ HARM_ITEM_STATS = {
 
 def render_harm_comparison_chart(item_keys: list[str]) -> None:
     """指定した被害項目について、4タイプの平均値を並べた棒グラフを表示する(表示専用)。"""
-    rows = {}
+    persona_names = [PERSONA_PROFILES[p]["name"] for p in PERSONA_ORDER]
+    records = []
+    max_score = 0.0
     for key in item_keys:
         item = HARM_ITEM_STATS[key]
-        rows[item["label"]] = {
-            PERSONA_PROFILES[p]["name"]: item["means"][PERSONA_PROFILES[p]["cluster_id"]]
-            for p in PERSONA_ORDER
-        }
-    st.bar_chart(pd.DataFrame(rows).T, stack=False)
+        for p in PERSONA_ORDER:
+            score = item["means"][PERSONA_PROFILES[p]["cluster_id"]]
+            max_score = max(max_score, score)
+            records.append({"item": item["label"], "persona": PERSONA_PROFILES[p]["name"], "score": score})
+
+    chart = (
+        alt.Chart(pd.DataFrame(records))
+        .mark_bar()
+        .encode(
+            x=alt.X("item:N", title=None, sort=[HARM_ITEM_STATS[k]["label"] for k in item_keys], axis=alt.Axis(labelAngle=0)),
+            xOffset=alt.XOffset("persona:N", sort=persona_names),
+            y=alt.Y(
+                "score:Q", title=None,
+                scale=alt.Scale(domain=[0, max_score * 1.15]),
+                axis=alt.Axis(tickCount=4, format=".1f"),
+            ),
+            color=alt.Color(
+                "persona:N", title=None, sort=persona_names,
+                scale=alt.Scale(domain=persona_names, range=[PERSONA_COLORS[p] for p in PERSONA_ORDER]),
+            ),
+            tooltip=[alt.Tooltip("item:N", title="項目"), alt.Tooltip("persona:N", title="タイプ"), alt.Tooltip("score:Q", title="平均スコア", format=".2f")],
+        )
+    )
+    st.altair_chart(chart, use_container_width=True)
     st.caption("数値はアンケート回答の平均スコアで、高いほど該当する被害が多い傾向を示します。")
 
 
@@ -351,8 +380,9 @@ def render_persona_harm_detail(persona_key: str) -> None:
         return
 
     st.write("来やすい被害の傾向トップ3")
-    for key in persona["harm_top3_keys"]:
-        st.write(f"- {HARM_ITEM_STATS[key]['label']}")
+    for rank, key in enumerate(persona["harm_top3_keys"]):
+        marker = RANK_MARKERS[rank] if rank < len(RANK_MARKERS) else f"{rank + 1}."
+        st.markdown(f"**{marker}** {HARM_ITEM_STATS[key]['label']}")
     render_harm_comparison_chart(persona["harm_top3_keys"])
     st.write(persona["tendency_text"])
 
