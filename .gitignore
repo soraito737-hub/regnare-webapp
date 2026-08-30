@@ -1,0 +1,18 @@
+# OAuth / API secrets
+modulus/client_secret.json
+client_secret.json
+.env
+.streamlit/secrets.toml
+
+# Python
+__pycache__/
+*.pyc
+
+# OS
+新しいフォルダー/
+
+# Claude Code local runtime state
+.claude/
+
+# 実行時に蓄積されるユーザーフィードバックデータ(コードではなく運用データ)
+data/user_feedback.json

@@ -1,0 +1,816 @@
+{
+  "n": 100,
+  "scores": {
+    "precision": 1.0,
+    "recall": 0.95,
+    "f1": 0.974,
+    "accuracy": 0.97,
+    "category_accuracy": 0.867,
+    "tp": 57,
+    "fp": 0,
+    "tn": 40,
+    "fn": 3
+  },
+  "per_comment": [
+    {
+      "comment": "だっさ、その髪型ないわー",
+      "true_category": "外見",
+      "true_judgement": "該当",
+      "predicted_category": "外見",
+      "predicted_judgement": "該当",
+      "reason": "髪型という容姿・見た目に対して明確に否定的な表現で攻撃しているため。"
+    },
+    {
+      "comment": "顔面崩壊してんじゃん今日",
+      "true_category": "外見",
+      "true_judgement": "該当",
+      "predicted_category": "外見",
+      "predicted_judgement": "該当",
+      "reason": "配信者の容姿に対して「顔面崩壊」と明確に否定的な言葉を用いて攻撃しているため。"
+    },
+    {
+      "comment": "太った?歳とったね普通に",
+      "true_category": "外見",
+      "true_judgement": "該当",
+      "predicted_category": "外見",
+      "predicted_judgement": "該当",
+      "reason": "配信者の体型や加齢といった外見に関する否定的な言及を行っているため。"
+    },
+    {
+      "comment": "その服のセンスマジ無理",
+      "true_category": "外見",
+      "true_judgement": "該当",
+      "predicted_category": "外見",
+      "predicted_judgement": "該当",
+      "reason": "服装やファッションセンスに対して明確に否定的な言葉を用いて攻撃しているため。"
+    },
+    {
+      "comment": "なんかブサイクになってね?前と違う",
+      "true_category": "外見",
+      "true_judgement": "該当",
+      "predicted_category": "外見",
+      "predicted_judgement": "該当",
+      "reason": "配信者の容姿に対して否定的な言葉を用いて侮辱しているため。"
+    },
+    {
+      "comment": "整形失敗した人みたいな顔してる",
+      "true_category": "外見",
+      "true_judgement": "該当",
+      "predicted_category": "外見",
+      "predicted_judgement": "該当",
+      "reason": "配信者の容姿に対して「整形失敗した」という表現を用いて直接的に侮辱しているため。"
+    },
+    {
+      "comment": "老けたなーもうおばさんじゃん",
+      "true_category": "外見",
+      "true_judgement": "該当",
+      "predicted_category": "外見",
+      "predicted_judgement": "該当",
+      "reason": "容姿や年齢の変化に関して「老けた」「おばさん」と否定的な言及をしているため。"
+    },
+    {
+      "comment": "その化粧やばすぎ笑えない",
+      "true_category": "外見",
+      "true_judgement": "該当",
+      "predicted_category": "外見",
+      "predicted_judgement": "該当",
+      "reason": "配信者のメイク（見た目）に対して「やばすぎ笑えない」と明確に否定的な言及をしているため。"
+    },
+    {
+      "comment": "今日ちょっち疲れた顔してない?大丈夫?",
+      "true_category": "外見",
+      "true_judgement": "グレー",
+      "predicted_category": null,
+      "predicted_judgement": "非該当",
+      "reason": "配信者の体調を気遣う純粋なコメントであり、否定的な意図や悪意は見られないため。"
+    },
+    {
+      "comment": "髪切ったんだ、まあ似合ってるんじゃない",
+      "true_category": "外見",
+      "true_judgement": "グレー",
+      "predicted_category": "外見",
+      "predicted_judgement": "グレー",
+      "reason": "髪型という外見への言及であり、「まあ似合ってるんじゃない」という言い回しにやや含みがあり判断が難しいため。"
+    },
+    {
+      "comment": "さすが美男美女ですね(笑)",
+      "true_category": "外見",
+      "true_judgement": "グレー",
+      "predicted_category": "外見",
+      "predicted_judgement": "グレー",
+      "reason": "表面上は容姿を褒める言葉ですが、「(笑)」が付いていることで皮肉や嫌味として使われている可能性を排除できないため。"
+    },
+    {
+      "comment": "その服、個性的でいいと思うよ(棒)",
+      "true_category": "外見",
+      "true_judgement": "グレー",
+      "predicted_category": "外見",
+      "predicted_judgement": "該当",
+      "reason": "「(棒)」という表記から本心ではない皮肉であることが明白であり、服装という外見要素に対する否定的な意図が読み取れるため。"
+    },
+    {
+      "comment": "性格悪すぎ、裏で何言ってるかわかったもんじゃない",
+      "true_category": "人間性",
+      "true_judgement": "該当",
+      "predicted_category": "人間性",
+      "predicted_judgement": "該当",
+      "reason": "配信者の性格や人格を直接的に決めつけて攻撃する内容であるため。"
+    },
+    {
+      "comment": "この人ほんと自己中だよね",
+      "true_category": "人間性",
+      "true_judgement": "該当",
+      "predicted_category": "人間性",
+      "predicted_judgement": "該当",
+      "reason": "配信者の性格・人間性を否定的に決めつける攻撃的な内容であるため。"
+    },
+    {
+      "comment": "口だけ番長すぎワロタ",
+      "true_category": "人間性",
+      "true_judgement": "該当",
+      "predicted_category": "人間性",
+      "predicted_judgement": "該当",
+      "reason": "「口だけ番長」と配信者の誠実さや人間性を貶め、煽る否定的な表現が含まれているため。"
+    },
+    {
+      "comment": "信者だまして金巻き上げてるようにしか見えん",
+      "true_category": "人間性",
+      "true_judgement": "該当",
+      "predicted_category": "人間性",
+      "predicted_judgement": "該当",
+      "reason": "視聴者を騙して金銭を得ていると決めつけ、配信者の誠実さや人格を明確に否定・攻撃しているため。"
+    },
+    {
+      "comment": "腹黒いのバレバレなんだが",
+      "true_category": "人間性",
+      "true_judgement": "該当",
+      "predicted_category": "人間性",
+      "predicted_judgement": "該当",
+      "reason": "配信者の性格や人間性に対して明確に否定的な決めつけを行っているため。"
+    },
+    {
+      "comment": "友達いなさそう、性格終わってる",
+      "true_category": "人間性",
+      "true_judgement": "該当",
+      "predicted_category": "人間性",
+      "predicted_judgement": "該当",
+      "reason": "配信者の性格や人間性に対して明確に否定的な決めつけを行っているため。"
+    },
+    {
+      "comment": "他人見下しすぎて草も生えない",
+      "true_category": "人間性",
+      "true_judgement": "該当",
+      "predicted_category": "人間性",
+      "predicted_judgement": "該当",
+      "reason": "配信者の態度や性格について他人を見下していると決めつけ、否定的に批判しているため。"
+    },
+    {
+      "comment": "謝罪(笑)反省してないのバレバレ",
+      "true_category": "人間性",
+      "true_judgement": "該当",
+      "predicted_category": "人間性",
+      "predicted_judgement": "該当",
+      "reason": "配信者の反省の態度や誠実さに対して否定的な決めつけを行い攻撃しているため。"
+    },
+    {
+      "comment": "たまに冷たいなって思う時ある",
+      "true_category": "人間性",
+      "true_judgement": "グレー",
+      "predicted_category": "人間性",
+      "predicted_judgement": "グレー",
+      "reason": "配信者の態度や性格に対して否定的な印象を控えめに述べており、明確な攻撃性とまでは言えないため。"
+    },
+    {
+      "comment": "本音と建前使い分けすぎじゃない?",
+      "true_category": "人間性",
+      "true_judgement": "グレー",
+      "predicted_category": "人間性",
+      "predicted_judgement": "該当",
+      "reason": "配信者の誠実さや裏表のある態度といった人間性に対して否定的な決めつけを行っているため。"
+    },
+    {
+      "comment": "さすが誠実な人ですね〜(棒読み)",
+      "true_category": "人間性",
+      "true_judgement": "グレー",
+      "predicted_category": "人間性",
+      "predicted_judgement": "該当",
+      "reason": "「(棒読み)」という表記から明らかな皮肉であり、配信者の誠実さや人格を否定・愚弄しているため。"
+    },
+    {
+      "comment": "対応いつも塩対応だよね",
+      "true_category": "人間性",
+      "true_judgement": "グレー",
+      "predicted_category": "人間性",
+      "predicted_judgement": "グレー",
+      "reason": "リスナーへの態度の冷たさを指摘する表現であり、文脈によって愛のあるいじりか軽微な嫌味かの判断が分かれるため。"
+    },
+    {
+      "comment": "つまんな、時間返して",
+      "true_category": "活動クオリティ",
+      "true_judgement": "該当",
+      "predicted_category": "活動クオリティ",
+      "predicted_judgement": "該当",
+      "reason": "動画の面白さを全面的に否定し、時間を返せと攻撃的な批判を行っているため。"
+    },
+    {
+      "comment": "編集雑すぎワロタ素人かよ",
+      "true_category": "活動クオリティ",
+      "true_judgement": "該当",
+      "predicted_category": "活動クオリティ",
+      "predicted_judgement": "該当",
+      "reason": "動画の編集クオリティに対して否定的な表現を用いて明確に攻撃・批判しているため。"
+    },
+    {
+      "comment": "またこのネタ?飽きた",
+      "true_category": "活動クオリティ",
+      "true_judgement": "該当",
+      "predicted_category": "活動クオリティ",
+      "predicted_judgement": "該当",
+      "reason": "配信の企画内容に対して明確な批判と不満を述べているため。"
+    },
+    {
+      "comment": "サムネ詐欺やめーや",
+      "true_category": "活動クオリティ",
+      "true_judgement": "該当",
+      "predicted_category": "活動クオリティ",
+      "predicted_judgement": "該当",
+      "reason": "動画のサムネイル表現に対して強い口調で批判しており、活動のクオリティに対する否定的な言及に該当するため。"
+    },
+    {
+      "comment": "内容スカスカで草",
+      "true_category": "活動クオリティ",
+      "true_judgement": "該当",
+      "predicted_category": "活動クオリティ",
+      "predicted_judgement": "該当",
+      "reason": "動画や配信の内容に対して否定的な言葉と嘲笑を用いて批判しているため。"
+    },
+    {
+      "comment": "テンポ悪すぎて寝そう",
+      "true_category": "活動クオリティ",
+      "true_judgement": "該当",
+      "predicted_category": "活動クオリティ",
+      "predicted_judgement": "該当",
+      "reason": "配信の進行や構成のテンポに対する直接的かつ否定的な批判であるため。"
+    },
+    {
+      "comment": "劣化しすぎ、前の方が全然良かった",
+      "true_category": "活動クオリティ",
+      "true_judgement": "該当",
+      "predicted_category": "外見",
+      "predicted_judgement": "該当",
+      "reason": "見た目や容姿の変化に対して「劣化」という表現を用いて過度に否定しているため。"
+    },
+    {
+      "comment": "手抜き動画すぎて草生える",
+      "true_category": "活動クオリティ",
+      "true_judgement": "該当",
+      "predicted_category": "活動クオリティ",
+      "predicted_judgement": "該当",
+      "reason": "動画のクオリティに対して「手抜き」と明確に否定・批判しているため。"
+    },
+    {
+      "comment": "最近マンネリかもって思う時ある",
+      "true_category": "活動クオリティ",
+      "true_judgement": "グレー",
+      "predicted_category": "活動クオリティ",
+      "predicted_judgement": "グレー",
+      "reason": "動画や配信の企画内容に対する軽微な批判・不満であり、明確な攻撃性までは認められないため。"
+    },
+    {
+      "comment": "もうちょい構成練った方がいいかもね",
+      "true_category": "活動クオリティ",
+      "true_judgement": "グレー",
+      "predicted_category": "活動クオリティ",
+      "predicted_judgement": "グレー",
+      "reason": "動画の構成に対する軽微な指摘であり、明確な攻撃性はないものの批判的なニュアンスが含まれるため。"
+    },
+    {
+      "comment": "さすがクオリティ高い動画ですね(白目)",
+      "true_category": "活動クオリティ",
+      "true_judgement": "グレー",
+      "predicted_category": "活動クオリティ",
+      "predicted_judgement": "該当",
+      "reason": "「(白目)」という表現を添えることで、動画のクオリティを皮肉や嫌味として否定的に評価しているため。"
+    },
+    {
+      "comment": "編集、まあ普通かな",
+      "true_category": "活動クオリティ",
+      "true_judgement": "グレー",
+      "predicted_category": null,
+      "predicted_judgement": "非該当",
+      "reason": "編集に関する率直な感想であり、明確な攻撃性や悪意は認められないため。"
+    },
+    {
+      "comment": "それは今の時代アウトだろ常識的に考えて",
+      "true_category": "モラル・マナー説教",
+      "true_judgement": "該当",
+      "predicted_category": "モラル・マナー説教",
+      "predicted_judgement": "該当",
+      "reason": "配信者の言動に対して「常識的に考えてアウト」と上から目線で倫理観やマナーを非難・説教しているため。"
+    },
+    {
+      "comment": "撮影許可取ったのか?一般人映り込んでるけど",
+      "true_category": "モラル・マナー説教",
+      "true_judgement": "該当",
+      "predicted_category": "モラル・マナー説教",
+      "predicted_judgement": "該当",
+      "reason": "撮影における許可や一般人の映り込みといったマナー・モラル違反の可能性について、強い口調で非難・指摘しているため。"
+    },
+    {
+      "comment": "案件隠すのステマじゃん普通に",
+      "true_category": "モラル・マナー説教",
+      "true_judgement": "該当",
+      "predicted_category": "モラル・マナー説教",
+      "predicted_judgement": "該当",
+      "reason": "ステルスマーケティングを行っていると決めつけ、配信者の倫理観やモラル違反を決めつけて非難しているため。"
+    },
+    {
+      "comment": "その発言、炎上しても文句言えないよ",
+      "true_category": "モラル・マナー説教",
+      "true_judgement": "該当",
+      "predicted_category": "モラル・マナー説教",
+      "predicted_judgement": "該当",
+      "reason": "配信者の発言に対して上から目線でモラルやリスク管理に関する説教・批判を行っているため。"
+    },
+    {
+      "comment": "影響力あるんだから言葉選べよ",
+      "true_category": "モラル・マナー説教",
+      "true_judgement": "該当",
+      "predicted_category": "モラル・マナー説教",
+      "predicted_judgement": "該当",
+      "reason": "配信者の発言に対して上から目線で配慮を求める命令・説教を行っているため。"
+    },
+    {
+      "comment": "公共の場でその態度はないわ",
+      "true_category": "モラル・マナー説教",
+      "true_judgement": "該当",
+      "predicted_category": "モラル・マナー説教",
+      "predicted_judgement": "該当",
+      "reason": "公共の場での態度やマナーに対して上から目線で非難・指摘するコメントであるため。"
+    },
+    {
+      "comment": "モラルなさすぎて見てて恥ずかしい",
+      "true_category": "モラル・マナー説教",
+      "true_judgement": "該当",
+      "predicted_category": "モラル・マナー説教",
+      "predicted_judgement": "該当",
+      "reason": "配信者の倫理観やモラルを欠いていると決めつけて一方的に非難しているため。"
+    },
+    {
+      "comment": "配慮足りなすぎ、ちゃんと考えて発言しろ",
+      "true_category": "モラル・マナー説教",
+      "true_judgement": "該当",
+      "predicted_category": "モラル・マナー説教",
+      "predicted_judgement": "該当",
+      "reason": "配信者の発言に対して配慮が足りないと上から目線で説教・非難しているため。"
+    },
+    {
+      "comment": "その言い方は人によっては気になるかもね",
+      "true_category": "モラル・マナー説教",
+      "true_judgement": "グレー",
+      "predicted_category": "モラル・マナー説教",
+      "predicted_judgement": "グレー",
+      "reason": "言葉遣いに対する配慮を促すマイルドな指摘であり、明確な非難とまでは言えないため。"
+    },
+    {
+      "comment": "もう少し表現気をつけた方がいいかもです",
+      "true_category": "モラル・マナー説教",
+      "true_judgement": "グレー",
+      "predicted_category": "モラル・マナー説教",
+      "predicted_judgement": "グレー",
+      "reason": "丁寧な言い回しではあるものの、言葉遣いや表現に対する控えめな説教・指摘に該当するため。"
+    },
+    {
+      "comment": "さすが模範的な社会人ですね(笑)",
+      "true_category": "モラル・マナー説教",
+      "true_judgement": "グレー",
+      "predicted_category": "モラル・マナー説教",
+      "predicted_judgement": "該当",
+      "reason": "表面上は褒め言葉に見えますが、「(笑)」を伴う皮肉表現であり、相手のモラルやマナーを上から目線で揶揄・非難しているため。"
+    },
+    {
+      "comment": "案件表記、まあ分かりにくいっちゃ分かりにくい",
+      "true_category": "モラル・マナー説教",
+      "true_judgement": "グレー",
+      "predicted_category": "活動クオリティ",
+      "predicted_judgement": "グレー",
+      "reason": "動画内の案件表記に対する軽微な指摘であり、明確な攻撃性とまでは言えないため。"
+    },
+    {
+      "comment": "本名割れてるの草、○○だろこの人",
+      "true_category": "プライバシー",
+      "true_judgement": "該当",
+      "predicted_category": "プライバシー",
+      "predicted_judgement": "該当",
+      "reason": "配信者の本名を特定・暴露しようとしており、個人情報の無断公開に該当するため。"
+    },
+    {
+      "comment": "この背景で家特定したわ余裕",
+      "true_category": "プライバシー",
+      "true_judgement": "該当",
+      "predicted_category": "プライバシー",
+      "predicted_judgement": "該当",
+      "reason": "配信画面の背景から自宅の位置を特定したとほのめかしており、プライバシー侵害および脅迫的な内容に該当するため。"
+    },
+    {
+      "comment": "家族巻き込むのはさすがにアウトだろ",
+      "true_category": "プライバシー",
+      "true_judgement": "該当",
+      "predicted_category": "モラル・マナー説教",
+      "predicted_judgement": "該当",
+      "reason": "家族を巻き込んだ行動に対して、倫理観やマナーの観点から非難・説教を行っているため。"
+    },
+    {
+      "comment": "職場特定できる私物映っててやばい",
+      "true_category": "プライバシー",
+      "true_judgement": "該当",
+      "predicted_category": "プライバシー",
+      "predicted_judgement": "該当",
+      "reason": "個人が特定できる職場に関する情報の映り込みを指摘しているため。"
+    },
+    {
+      "comment": "近所の人だけど本当は性格終わってるらしいよ",
+      "true_category": "プライバシー",
+      "true_judgement": "該当",
+      "predicted_category": "人間性",
+      "predicted_judgement": "該当",
+      "reason": "配信者の性格や人格を根拠なく否定的に決めつけ、中傷を行っているため。"
+    },
+    {
+      "comment": "声で出身地バレてるのウケる",
+      "true_category": "プライバシー",
+      "true_judgement": "該当",
+      "predicted_category": "プライバシー",
+      "predicted_judgement": "グレー",
+      "reason": "声の特徴から出身地という個人に関わる情報を指摘・特定しようとしているため。"
+    },
+    {
+      "comment": "卒アル特定班湧いてて草",
+      "true_category": "プライバシー",
+      "true_judgement": "該当",
+      "predicted_category": "プライバシー",
+      "predicted_judgement": "グレー",
+      "reason": "卒業アルバムの特定というプライバシー侵害に繋がる個人情報の詮索行為に言及し、面白がっているため。"
+    },
+    {
+      "comment": "住所特定余裕でした、怖くないの?",
+      "true_category": "プライバシー",
+      "true_judgement": "該当",
+      "predicted_category": "プライバシー",
+      "predicted_judgement": "該当",
+      "reason": "配信者の住所の特定を示唆し、不安を煽る脅迫的な言及を行っているため。"
+    },
+    {
+      "comment": "訛りから出身地なんとなく分かるよね",
+      "true_category": "プライバシー",
+      "true_judgement": "グレー",
+      "predicted_category": "プライバシー",
+      "predicted_judgement": "グレー",
+      "reason": "出身地という個人情報に対する推測や詮索のニュアンスが含まれているため。"
+    },
+    {
+      "comment": "前に家族の話ちょろっとしてたよね",
+      "true_category": "プライバシー",
+      "true_judgement": "グレー",
+      "predicted_category": null,
+      "predicted_judgement": "非該当",
+      "reason": "過去の配信で言及された話題を回想しているのみであり、攻撃性や不適切なプライバシーの詮索は認められないため。"
+    },
+    {
+      "comment": "さすがプライバシー大事にしてますね(棒)",
+      "true_category": "プライバシー",
+      "true_judgement": "グレー",
+      "predicted_category": "モラル・マナー説教",
+      "predicted_judgement": "該当",
+      "reason": "「(棒)」という表記を用いて配信者のプライバシーに対する姿勢を皮肉・嫌味として揶揄しているため。"
+    },
+    {
+      "comment": "生活リズムから拠点なんとなく想像つく",
+      "true_category": "プライバシー",
+      "true_judgement": "グレー",
+      "predicted_category": "プライバシー",
+      "predicted_judgement": "該当",
+      "reason": "配信者の生活リズムから活動拠点や住所といった個人情報を推測・詮索する発言であるため。"
+    },
+    {
+      "comment": "うぽつ〜",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": null,
+      "predicted_judgement": "非該当",
+      "reason": "動画投稿に対する標準的な挨拶・労いのコメントであり、有害性や問題のない表現であるため。"
+    },
+    {
+      "comment": "今日も神回でした",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": null,
+      "predicted_judgement": "非該当",
+      "reason": "配信や動画に対する純粋な称賛のコメントであり、攻撃性や不適切な内容は含まれないため。"
+    },
+    {
+      "comment": "わろた、面白すぎ",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": null,
+      "predicted_judgement": "非該当",
+      "reason": "配信に対する純粋な肯定的な感想であり、攻撃性や不適切な内容は含まれていないため。"
+    },
+    {
+      "comment": "つぎの動画まってる",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": null,
+      "predicted_judgement": "非該当",
+      "reason": "次の動画を楽しみにしている旨を伝える一般的な応援コメントであり、問題のない表現であるため。"
+    },
+    {
+      "comment": "神すぎ、保存した",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": null,
+      "predicted_judgement": "非該当",
+      "reason": "コンテンツに対する純粋な称賛と好意的な反応であり、攻撃的な意図や問題となる要素は含まれないため。"
+    },
+    {
+      "comment": "これはガチ good",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": null,
+      "predicted_judgement": "非該当",
+      "reason": "配信内容や状況に対する純粋な称賛コメントであり、不適切な要素は含まれないため。"
+    },
+    {
+      "comment": "編集うまくなってきたね",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": null,
+      "predicted_judgement": "非該当",
+      "reason": "動画の編集技術の向上を肯定的に評価するコメントであり、悪意や不適切な表現は含まれていないため。"
+    },
+    {
+      "comment": "今日も乙です",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": null,
+      "predicted_judgement": "非該当",
+      "reason": "配信者に対する通常のねぎらいの挨拶であり、攻撃性や不適切な要素が含まれていないため。"
+    },
+    {
+      "comment": "最高すぎる、ありがとう",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": null,
+      "predicted_judgement": "非該当",
+      "reason": "動画や配信に対する純粋な感謝と称賛のコメントであり、攻撃性や不適切な内容は含まれないため。"
+    },
+    {
+      "comment": "泣いた、、感動した",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": null,
+      "predicted_judgement": "非該当",
+      "reason": "動画や配信の内容に対する素直なポジティブな感想であり、攻撃性や不適切な要素が含まれていないため。"
+    },
+    {
+      "comment": "登録したわ普通に",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": null,
+      "predicted_judgement": "非該当",
+      "reason": "チャンネル登録の報告であり、明確な悪意や攻撃的意図は認められないため。"
+    },
+    {
+      "comment": "声好きすぎる",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": null,
+      "predicted_judgement": "非該当",
+      "reason": "純粋な称賛のコメントであり、攻撃性や問題となる表現が含まれていないため。"
+    },
+    {
+      "comment": "続編はよ",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": null,
+      "predicted_judgement": "非該当",
+      "reason": "続編を期待する一般的な要望のコメントであり、攻撃性や不適切な意図は含まれないため。"
+    },
+    {
+      "comment": "この企画好きすぎる",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": null,
+      "predicted_judgement": "非該当",
+      "reason": "企画に対する純粋な肯定的な感想であり、攻撃性や不適切な要素が含まれていないため。"
+    },
+    {
+      "comment": "毎日見てるわ",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": null,
+      "predicted_judgement": "非該当",
+      "reason": "配信を日常的に視聴していることを伝える肯定的なコメントであり、攻撃性や悪意が含まれていないため。"
+    },
+    {
+      "comment": "尊い",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": null,
+      "predicted_judgement": "非該当",
+      "reason": "対象に対する純粋な好意や称賛を表す一般的なスラングであり、攻撃性や有害性は認められないため。"
+    },
+    {
+      "comment": "元気もらえた、ありがとう",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": null,
+      "predicted_judgement": "非該当",
+      "reason": "配信や動画に対する純粋な感謝のコメントであり、有害性や悪意は認められないため。"
+    },
+    {
+      "comment": "これ神編集すぎん?",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": null,
+      "predicted_judgement": "非該当",
+      "reason": "動画の編集クオリティを純粋に称賛する肯定的なコメントであり、攻撃性や皮肉は見られないため。"
+    },
+    {
+      "comment": "笑いすぎて腹痛い",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": null,
+      "predicted_judgement": "非該当",
+      "reason": "配信の内容を楽しんでいることを示す一般的な感想であり、攻撃性や悪意は見られないため。"
+    },
+    {
+      "comment": "推せる",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": null,
+      "predicted_judgement": "非該当",
+      "reason": "「推せる」は配信者に対する肯定的な評価や応援を表す言葉であり、攻撃性や有害性は見られないため。"
+    },
+    {
+      "comment": "また見に来ます",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": null,
+      "predicted_judgement": "非該当",
+      "reason": "配信者に対する前向きな挨拶のコメントであり、攻撃的な要素や問題となる内容は含まれていないため。"
+    },
+    {
+      "comment": "配信お疲れ様でした",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": null,
+      "predicted_judgement": "非該当",
+      "reason": "配信終了時の一般的なねぎらいの挨拶であり、攻撃性や問題のないコメントであるため。"
+    },
+    {
+      "comment": "今日も面白かった、乙",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": null,
+      "predicted_judgement": "非該当",
+      "reason": "配信を楽しんだ感想と労いの言葉であり、攻撃性や不適切な内容は含まれていないため。"
+    },
+    {
+      "comment": "がんばえ〜応援してる",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": null,
+      "predicted_judgement": "非該当",
+      "reason": "純粋な応援コメントであり、悪意や皮肉などの有害な意図は見られないため。"
+    },
+    {
+      "comment": "これはバズる",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": null,
+      "predicted_judgement": "非該当",
+      "reason": "動画や配信の話題化を期待する肯定的な応援コメントであり、有害性や悪意は含まれないため。"
+    },
+    {
+      "comment": "神回すぎワロタ",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": null,
+      "predicted_judgement": "非該当",
+      "reason": "動画や配信の内容を褒めるポジティブな感想であり、有害性や攻撃性が見られないため。"
+    },
+    {
+      "comment": "最初から見てる勢です",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": null,
+      "predicted_judgement": "非該当",
+      "reason": "初期からの視聴者であることを伝える一般的なファンのコメントであり、攻撃性や不適切な要素は見られないため。"
+    },
+    {
+      "comment": "コラボまた見たい",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": null,
+      "predicted_judgement": "非該当",
+      "reason": "今後のコラボ配信を期待する前向きなコメントであり、有害性や問題点は見られないため。"
+    },
+    {
+      "comment": "音質良くなったね",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": null,
+      "predicted_judgement": "非該当",
+      "reason": "配信の音質改善を素直に評価する肯定的なコメントであり、攻撃性や悪意は認められないため。"
+    },
+    {
+      "comment": "今日のトーク面白かった",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": null,
+      "predicted_judgement": "非該当",
+      "reason": "配信のトーク内容に対する純粋なポジティブな感想であり、攻撃性や嫌味などの問題が含まれていないため。"
+    },
+    {
+      "comment": "サムネかわいい",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": null,
+      "predicted_judgement": "非該当",
+      "reason": "動画のサムネイルに対する肯定的な感想であり、攻撃性や悪意が見られないため。"
+    },
+    {
+      "comment": "この曲好き",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": null,
+      "predicted_judgement": "非該当",
+      "reason": "楽曲に対する単純な好意の表明であり、攻撃性や不適切な要素が含まれていないため。"
+    },
+    {
+      "comment": "誕生日おめ!",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": null,
+      "predicted_judgement": "非該当",
+      "reason": "誕生日を祝福する一般的なコメントであり、不快感や悪意を示す表現は含まれていないため。"
+    },
+    {
+      "comment": "料理美味しそう",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": null,
+      "predicted_judgement": "非該当",
+      "reason": "動画内の料理に対する純粋な肯定的な感想であり、攻撃性や不適切な要素が含まれていないため。"
+    },
+    {
+      "comment": "ゲーム上手すぎ",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": null,
+      "predicted_judgement": "非該当",
+      "reason": "ゲームの技術を純粋に褒める肯定的なコメントであり、攻撃性や悪意は認められないため。"
+    },
+    {
+      "comment": "今日も安定の面白さ",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": null,
+      "predicted_judgement": "非該当",
+      "reason": "配信や動画の内容に対する純粋な褒め言葉であり、攻撃性や嫌味などの悪意は認められないため。"
+    },
+    {
+      "comment": "新衣装かわいい",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": null,
+      "predicted_judgement": "非該当",
+      "reason": "新衣装に対する純粋な褒め言葉であり、攻撃性や不適切な要素は含まれていないため。"
+    },
+    {
+      "comment": "これは伸びる動画",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": null,
+      "predicted_judgement": "非該当",
+      "reason": "動画の成功や人気が出ることを期待・評価する肯定的なコメントであり、問題がないため。"
+    },
+    {
+      "comment": "続きが気になる",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": null,
+      "predicted_judgement": "非該当",
+      "reason": "コンテンツに対する純粋な興味や期待を示したコメントであり、攻撃的な意図や批判は含まれていないため。"
+    },
+    {
+      "comment": "お疲れ様〜ゆっくり休んでね",
+      "true_category": null,
+      "true_judgement": "非該当",
+      "predicted_category": null,
+      "predicted_judgement": "非該当",
+      "reason": "配信者を労う一般的で温かいコメントであり、攻撃性や不適切な内容は含まれていないため。"
+    }
+  ]
+}

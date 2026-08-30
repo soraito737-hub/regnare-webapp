@@ -13,6 +13,7 @@
    REDIRECT_URI / GEMINI_API_KEY を設定
 """
 
+import html
 import json
 import math
 import re
@@ -57,6 +58,30 @@ div[data-testid="stVerticalBlockBorderWrapper"] {
     font-weight: 500;
 }
 .stTabs [data-baseweb="tab-list"] { gap: 4px; }
+.speech-bubble-wrap {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin: 4px 0 8px;
+}
+.speech-avatar {
+    font-size: 30px;
+    line-height: 1;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+.speech-bubble {
+    position: relative;
+    background: #FFF6DA;
+    border: 1px solid #F0DFA0;
+    border-radius: 18px;
+    border-top-left-radius: 4px;
+    padding: 16px 20px;
+    font-size: 0.95rem;
+    line-height: 1.8;
+    color: #4a4020;
+}
+.speech-bubble b { color: #2F6F62; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -97,7 +122,7 @@ def render_risk_badge(level: str) -> str:
     )
 
 
-CATEGORIES = ["外見", "人間性", "活動クオリティ", "モラル・マナー説教", "嫉妬型"]
+CATEGORIES = ["外見", "人間性", "活動クオリティ", "モラル・マナー説教", "プライバシー"]
 THRESHOLD_MATCH = 0.60
 THRESHOLD_GRAY = 0.45
 
@@ -109,6 +134,58 @@ def similarity_label(similarity: float) -> str:
     if similarity >= THRESHOLD_GRAY:
         return "中"
     return "低"
+
+
+CATEGORY_COLORS = {
+    "外見": "#e07a5f",
+    "人間性": "#f2994a",
+    "活動クオリティ": "#e0b243",
+    "モラル・マナー説教": "#9b6b9e",
+    "プライバシー": "#c1443c",
+    "非該当": "#3d8361",
+}
+
+
+def render_category_bar_chart(counts: dict, buckets: list[str]) -> None:
+    """カテゴリ別件数を、色分けした横棒グラフで表示する(表示専用)。"""
+    total = sum(counts.values()) or 1
+    df = pd.DataFrame([
+        {
+            "カテゴリ": "応援コメント(非該当)" if b == "非該当" else b,
+            "件数": counts[b],
+            "割合": counts[b] / total * 100,
+            "color_key": b,
+            "ラベル": f"{counts[b] / total * 100:.1f}%({counts[b]}件)",
+        }
+        for b in buckets
+    ])
+    bars = alt.Chart(df).mark_bar(cornerRadiusEnd=4).encode(
+        x=alt.X("割合:Q", title="割合(%)", scale=alt.Scale(domain=[0, 100])),
+        y=alt.Y("カテゴリ:N", sort="-x", title=None),
+        color=alt.Color(
+            "color_key:N",
+            scale=alt.Scale(domain=list(CATEGORY_COLORS.keys()), range=list(CATEGORY_COLORS.values())),
+            legend=None,
+        ),
+        tooltip=[alt.Tooltip("カテゴリ:N"), alt.Tooltip("件数:Q"), alt.Tooltip("割合:Q", format=".1f")],
+    )
+    text = bars.mark_text(align="left", dx=5, color="#666").encode(text="ラベル:N")
+    st.altair_chart((bars + text).properties(height=34 * len(df)), use_container_width=True)
+
+
+def render_speech_bubble(text: str, avatar: str = "🛡️") -> None:
+    """AIからのメッセージを、吹き出し風のHTMLで表示する(表示専用)。
+    テキストはHTMLエスケープしたうえで整形するため、任意のHTMLは注入されない。"""
+    escaped = html.escape(text)
+    escaped = re.sub(r"【(.+?)】", r"<b>【\1】</b>", escaped)
+    escaped = escaped.replace("\n", "<br>")
+    st.markdown(
+        f'<div class="speech-bubble-wrap">'
+        f'<div class="speech-avatar">{avatar}</div>'
+        f'<div class="speech-bubble">{escaped}</div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
 
 # ============ 動画選択・APIクォータ設定 ============
 VIDEOS_PAGE_SIZE = 10          # 動画一覧の1ページあたり取得件数
@@ -188,7 +265,7 @@ PERSONA_PROFILES = {
             "単発の批判コメントよりも、つきまとい的な言動や実害化といった"
             "「二次被害」へ発展しやすいタイプです。早めの対策をおすすめします。"
         ),
-        "categories": ["人間性", "嫉妬型"],
+        "categories": ["人間性", "プライバシー"],
     },
     "light": {
         "name": "ナチュラル発信型",
@@ -448,20 +525,42 @@ def get_gemini_client():
 GENERATION_MODEL = "gemini-3.6-flash"
 
 
-def summarize_category(category: str, comments_texts: list[str]) -> str:
-    """指定カテゴリのコメント群から、動画制作者向けにAIが共通する論点を要約する。
-    個々のコメント本文はここでは表示しない(要約結果のみを返す)。"""
+
+ACTION_SUGGESTIONS_PROMPT = """\
+以下はYouTube動画に寄せられたコメント群です。
+この中から、動画制作者にとって参考になる次の2種類の情報だけを抽出してください。
+
+1. 次に見たい・作ってほしい企画やコンテンツのリクエスト
+2. 攻撃的でない、建設的な改善提案(編集・構成・音質など)
+
+個人攻撃・誹謗中傷・単なる感想やあいさつは無視してください。
+該当する内容がなければ、その見出しの下に「特にありませんでした」と書いてください。
+個々のコメントをそのまま引用せず、傾向として日本語で簡潔にまとめてください。
+
+文体について: 事務的な報告書のような硬い言葉遣いではなく、
+仲の良いスタッフや友人が気さくに、時々ユーモアを交えながら
+話しかけてくるような温かいトーンで書いてください。絵文字を1〜2個使ってもかまいません。
+ただし内容の実用性・具体性は損なわないでください。
+
+必ず次の見出し構成で出力してください:
+【次にしてほしいこと】
+(箇条書き)
+
+【改善提案】
+(箇条書き)
+
+コメント一覧:
+{comments}"""
+
+
+def extract_action_suggestions(comments_texts: list[str]) -> str:
+    """コメント群から「次にしてほしい企画」「建設的な改善提案」だけをAIに抽出させる。
+    個人攻撃や単なる感想は除外する。"""
     if not comments_texts:
-        return "該当するコメントがありませんでした。"
+        return "コメントがありませんでした。"
     client = get_gemini_client()
-    joined = "\n".join(f"- {t}" for t in comments_texts[:100])
-    prompt = (
-        f"以下はYouTube動画に寄せられた「{category}」に分類されたコメントです。"
-        "動画制作者が状況を把握し、今後の活動に活かせるよう、"
-        "共通する論点や傾向を日本語で2〜4個の箇条書きで簡潔に要約してください。"
-        "個々のコメントをそのまま引用せず、あくまで傾向として要約してください。\n\n"
-        f"{joined}"
-    )
+    joined = "\n".join(f"- {t}" for t in comments_texts[:200])
+    prompt = ACTION_SUGGESTIONS_PROMPT.format(comments=joined)
     response = client.models.generate_content(
         model=GENERATION_MODEL,
         contents=prompt,
@@ -632,6 +731,113 @@ def search_channel_videos(credentials, channel_id: str, query: str,
         })
     return videos
 
+def render_comment_card(c: dict, key_name: str) -> None:
+    """コメント1件をカードとして表示する(見たくないタブの伏せ字表示、確認待ちの判断ボタン、
+    YouTube上での非表示・返信操作を含む)。"""
+    with st.container(border=True):
+        st.write(f"**{c['author']}**")
+        if key_name == "見たくない":
+            revealed = c["comment_key"] in st.session_state.revealed_comment_keys
+            if not revealed:
+                st.warning("内容を確認しますか？見ずに非表示にすることもできます。")
+                if st.button(
+                    "👁 はい、本文を表示する", key=f"reveal_{c['comment_key']}",
+                    type="primary",
+                ):
+                    st.session_state.revealed_comment_keys.add(c["comment_key"])
+                    st.rerun()
+            else:
+                st.write(c["text"])
+                if st.button("🙈 本文を隠す", key=f"hide_reveal_{c['comment_key']}"):
+                    st.session_state.revealed_comment_keys.discard(c["comment_key"])
+                    st.rerun()
+        else:
+            st.write(c["text"])
+        if c["category"]:
+            st.caption(f"カテゴリ: {c['category']} / 一致度: {similarity_label(c['similarity'])}")
+        if key_name == "確認待ち":
+            st.caption("この投稿の振り分け")
+            col1, col2 = st.columns(2)
+            if col1.button("🙅 見たくない", key=f"want_{c['comment_key']}"):
+                st.session_state.hidden_comment_ids.add(c["comment_key"])
+                st.rerun()
+            if col2.button("✅ 問題ない", key=f"ok_{c['comment_key']}", type="primary"):
+                st.session_state.ok_comment_ids.add(c["comment_key"])
+                st.rerun()
+            st.divider()
+
+        # --- YouTube上での操作(非表示・返信) すべてのコメントに表示 ---
+        comment_id = c.get("comment_id")
+        if comment_id:
+            st.caption("YouTube上の操作")
+            yt_hidden = comment_id in st.session_state.youtube_hidden_comment_ids
+            yt_replied = comment_id in st.session_state.youtube_replied_comment_ids
+
+            hide_col, status_col = st.columns([1, 2])
+            if yt_hidden:
+                status_col.caption("✅ YouTube上で非表示済み(保留中・取消可)")
+            else:
+                if hide_col.button("🚫 YouTube上で非表示にする", key=f"ythide_{c['comment_key']}"):
+                    try:
+                        hide_comment_on_youtube(st.session_state.credentials, comment_id)
+                        st.session_state.youtube_hidden_comment_ids.add(comment_id)
+                        st.success("YouTube上で非表示にしました")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"非表示にできませんでした: {e}")
+
+            with st.expander("💬 返信する" + ("(返信済み)" if yt_replied else "")):
+                reply_text = st.text_area("返信内容", key=f"replytext_{c['comment_key']}")
+                if st.button("返信を投稿する", key=f"replybtn_{c['comment_key']}", type="primary"):
+                    if reply_text.strip():
+                        try:
+                            reply_to_comment_on_youtube(st.session_state.credentials, comment_id, reply_text)
+                            st.session_state.youtube_replied_comment_ids.add(comment_id)
+                            st.success("返信を投稿しました")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"返信を投稿できませんでした: {e}")
+                    else:
+                        st.warning("返信内容を入力してください")
+
+
+def render_grouped_comments(items: list[dict], key_name: str, key_prefix: str) -> None:
+    """コメント一覧を、カテゴリ(5分類＋非該当)のピル型フィルターで絞り込んで表示する。"""
+    if not items:
+        st.write("このタブにコメントはありません")
+        return
+
+    buckets: dict[str, list] = {}
+    for c in items:
+        label = c["category"] if c.get("category") else "非該当"
+        buckets.setdefault(label, []).append(c)
+
+    ordered_labels = [cat for cat in CATEGORIES if cat in buckets]
+    if "非該当" in buckets:
+        ordered_labels.append("非該当")
+    for label in buckets:
+        if label not in ordered_labels:
+            ordered_labels.append(label)
+
+    pill_options = ["すべて"] + ordered_labels
+    selected_label = st.pills(
+        "カテゴリ", pill_options, default="すべて",
+        key=f"catfilter_{key_prefix}_{key_name}",
+    )
+    if selected_label is None:
+        selected_label = "すべて"
+
+    labels_to_show = ordered_labels if selected_label == "すべて" else [selected_label]
+
+    for label in labels_to_show:
+        group = buckets[label]
+        heading = "💬 応援コメント(非該当)" if label == "非該当" else label
+        st.markdown(f"**{heading}**（{len(group)}件）")
+        for c in group:
+            render_comment_card(c, key_name)
+        st.write("")
+
+
 # ============ セッション状態の初期化 ============
 if "step" not in st.session_state:
     st.session_state.step = "diagnosis"
@@ -669,11 +875,11 @@ if "analysis_selected_video_ids" not in st.session_state:
     st.session_state.analysis_selected_video_ids = set()
 if "analysis_results_by_video" not in st.session_state:
     st.session_state.analysis_results_by_video = {}
-if "category_summaries" not in st.session_state:
-    st.session_state.category_summaries = {}
+if "action_suggestions" not in st.session_state:
+    st.session_state.action_suggestions = None
 
 st.title("🛡️ レグナレ")
-st.caption("安全な受信トレイ — Regnare")
+st.caption("コメント欄 — Regnare")
 
 # ============ OAuthコールバック処理 ============
 query_params = st.query_params
@@ -754,16 +960,23 @@ elif st.session_state.step == "category":
 
     st.write("診断結果をもとに、見たくないカテゴリの候補にチェックを入れています。内容を確認し、必要に応じて調整してください。")
 
+    none_selected = st.checkbox(
+        "見たくないカテゴリは設定しない(すべて通常タブに表示する)",
+        value=False,
+        key="cat_none",
+    )
+
     selected = []
-    for cat in CATEGORIES:
-        default = cat in result["suggested_categories"]
-        checked = st.checkbox(
-            f"{cat}" + (" 🟢 おすすめ" if default else ""),
-            value=default,
-            key=f"cat_{cat}",
-        )
-        if checked:
-            selected.append(cat)
+    if not none_selected:
+        for cat in CATEGORIES:
+            default = cat in result["suggested_categories"]
+            checked = st.checkbox(
+                f"{cat}" + (" 🟢 おすすめ" if default else ""),
+                value=default,
+                key=f"cat_{cat}",
+            )
+            if checked:
+                selected.append(cat)
     st.session_state.selected_categories = selected
 
     if st.button("この設定で連携する →", use_container_width=True, type="primary"):
@@ -796,10 +1009,9 @@ elif st.session_state.step == "connect":
             "ご安心のうえ「詳細」→「(アプリ名)に移動」と進んでください。"
         )
 
-# ============ STEP 4: 安全受信トレイ ============
+# ============ STEP 4: コメント欄 ============
 elif st.session_state.step == "inbox":
-    st.subheader("安全受信トレイ")
-    st.caption(f"見たくない設定中のカテゴリ: {', '.join(st.session_state.selected_categories) or '(未選択)'}")
+    st.subheader("コメント欄")
 
     # --- チャンネル情報の初回取得 ---
     if st.session_state.uploads_playlist_id is None:
@@ -828,11 +1040,31 @@ elif st.session_state.step == "inbox":
     # ボタンを押さずに自動でコメント取得・判定まで実行する
     auto_run = (not videos_already_loaded) and not st.session_state.results_by_video
 
-    main_tab1, main_tab2, main_tab3 = st.tabs(
-        ["📥 安全受信トレイ(振り分け)", "📊 動画分析(カテゴリ別AI要約)", "🧭 診断結果"]
+    main_tab3, main_tab2, main_tab1 = st.tabs(
+        ["🧭 診断結果", "📊 動画分析", "📥 コメント欄(振り分け)"]
     )
 
     with main_tab1:
+
+        with st.expander("🙅 見たくないカテゴリを変更する", expanded=False):
+            none_selected_inbox = st.checkbox(
+                "見たくないカテゴリは設定しない(すべて通常タブに表示する)",
+                value=not st.session_state.selected_categories,
+                key="inbox_cat_none",
+            )
+            new_selected_categories: list[str] = []
+            if not none_selected_inbox:
+                for cat in CATEGORIES:
+                    checked = st.checkbox(
+                        cat,
+                        value=cat in st.session_state.selected_categories,
+                        key=f"inbox_cat_{cat}",
+                    )
+                    if checked:
+                        new_selected_categories.append(cat)
+            st.session_state.selected_categories = new_selected_categories
+
+        st.caption(f"見たくない設定中のカテゴリ: {', '.join(st.session_state.selected_categories) or '(なし)'}")
 
         with st.expander("🔍 対象動画を変更する", expanded=False):
             st.caption("検索・過去動画の読み込み・選び直しができます。")
@@ -1009,92 +1241,10 @@ elif st.session_state.step == "inbox":
                     ])
                     for tab, key_name in zip([tab1, tab2, tab3], ["通常", "確認待ち", "見たくない"]):
                         with tab:
-                            if not tabs[key_name]:
-                                st.write("このタブにコメントはありません")
-                            for c in tabs[key_name]:
-                                with st.container(border=True):
-                                    st.write(f"**{c['author']}**")
-                                    if key_name == "見たくない":
-                                        revealed = c["comment_key"] in st.session_state.revealed_comment_keys
-                                        if not revealed:
-                                            st.warning(
-                                                "内容を確認しますか？見ずに非表示にすることもできます。"
-                                            )
-                                            if st.button(
-                                                "👁 はい、本文を表示する", key=f"reveal_{c['comment_key']}",
-                                                type="primary",
-                                            ):
-                                                st.session_state.revealed_comment_keys.add(c["comment_key"])
-                                                st.rerun()
-                                        else:
-                                            st.write(c["text"])
-                                            if st.button(
-                                                "🙈 本文を隠す", key=f"hide_reveal_{c['comment_key']}"
-                                            ):
-                                                st.session_state.revealed_comment_keys.discard(c["comment_key"])
-                                                st.rerun()
-                                    else:
-                                        st.write(c["text"])
-                                    if c["category"]:
-                                        st.caption(f"カテゴリ: {c['category']} / 一致度: {similarity_label(c['similarity'])}")
-                                    if key_name == "確認待ち":
-                                        st.caption("この投稿の振り分け")
-                                        col1, col2 = st.columns(2)
-                                        if col1.button("🙅 見たくない", key=f"want_{c['comment_key']}"):
-                                            st.session_state.hidden_comment_ids.add(c["comment_key"])
-                                            st.rerun()
-                                        if col2.button("✅ 問題ない", key=f"ok_{c['comment_key']}", type="primary"):
-                                            st.session_state.ok_comment_ids.add(c["comment_key"])
-                                            st.rerun()
-                                        st.divider()
-
-                                    # --- YouTube上での操作(非表示・返信) すべてのコメントに表示 ---
-                                    comment_id = c.get("comment_id")
-                                    if comment_id:
-                                        st.caption("YouTube上の操作")
-                                        yt_hidden = comment_id in st.session_state.youtube_hidden_comment_ids
-                                        yt_replied = comment_id in st.session_state.youtube_replied_comment_ids
-
-                                        hide_col, status_col = st.columns([1, 2])
-                                        if yt_hidden:
-                                            status_col.caption("✅ YouTube上で非表示済み(保留中・取消可)")
-                                        else:
-                                            if hide_col.button(
-                                                "🚫 YouTube上で非表示にする", key=f"ythide_{c['comment_key']}"
-                                            ):
-                                                try:
-                                                    hide_comment_on_youtube(
-                                                        st.session_state.credentials, comment_id
-                                                    )
-                                                    st.session_state.youtube_hidden_comment_ids.add(comment_id)
-                                                    st.success("YouTube上で非表示にしました")
-                                                    st.rerun()
-                                                except Exception as e:
-                                                    st.error(f"非表示にできませんでした: {e}")
-
-                                        with st.expander("💬 返信する" + ("(返信済み)" if yt_replied else "")):
-                                            reply_text = st.text_area(
-                                                "返信内容", key=f"replytext_{c['comment_key']}"
-                                            )
-                                            if st.button("返信を投稿する", key=f"replybtn_{c['comment_key']}", type="primary"):
-                                                if reply_text.strip():
-                                                    try:
-                                                        reply_to_comment_on_youtube(
-                                                            st.session_state.credentials, comment_id, reply_text
-                                                        )
-                                                        st.session_state.youtube_replied_comment_ids.add(comment_id)
-                                                        st.success("返信を投稿しました")
-                                                        st.rerun()
-                                                    except Exception as e:
-                                                        st.error(f"返信を投稿できませんでした: {e}")
-                                                else:
-                                                    st.warning("返信内容を入力してください")
+                            render_grouped_comments(tabs[key_name], key_name, key_prefix=vid)
 
     with main_tab2:
-        st.info(
-            "こちらは判定・振り分けとは完全に独立した分析専用のコメント取得です。"
-            "選んだ動画のコメントを、5分類ごとにAIが要約します。個別のコメント本文は表示されません。"
-        )
+        st.info("こちらは判定・振り分けとは完全に独立した分析専用のコメント取得です。選んだ動画のコメントを分析します。")
 
         analysis_display_videos = st.session_state.videos
         col_aa, col_bb = st.columns(2)
@@ -1166,7 +1316,7 @@ elif st.session_state.step == "inbox":
                     + "、".join(analysis_skipped)
                 )
             st.session_state.analysis_results_by_video = analysis_results
-            st.session_state.category_summaries = {}
+            st.session_state.action_suggestions = None
 
         if st.session_state.analysis_results_by_video:
             ALL_BUCKETS = CATEGORIES + ["非該当"]
@@ -1187,8 +1337,6 @@ elif st.session_state.step == "inbox":
                     counts_this_video[bucket] += 1
                 per_video_category_counts[data["title"]] = counts_this_video
 
-            total_classified = sum(total_by_category.values()) or 1
-
             # --- 傾向レポート ---
             st.divider()
             st.markdown("### 📊 傾向レポート")
@@ -1196,22 +1344,13 @@ elif st.session_state.step == "inbox":
 
             st.markdown("#### ① 今回処理した動画のカテゴリ内訳(応援コメント含む)")
             st.caption("選択した動画すべてを合算した内訳です")
-            for b in ALL_BUCKETS:
-                pct = total_by_category[b] / total_classified * 100
-                label = "💬 応援コメント(非該当)" if b == "非該当" else b
-                st.write(f"{label}: {pct:.1f}%  ({total_by_category[b]}件)")
-                st.progress(min(pct / 100, 1.0))
+            render_category_bar_chart(total_by_category, ALL_BUCKETS)
 
             if len(per_video_category_counts) >= 2:
                 st.markdown("##### 動画ごとに分けて見る")
                 for video_title, counts in per_video_category_counts.items():
-                    video_total = sum(counts.values()) or 1
                     with st.expander(video_title):
-                        for b in ALL_BUCKETS:
-                            pct_v = counts[b] / video_total * 100
-                            label = "💬 応援コメント(非該当)" if b == "非該当" else b
-                            st.write(f"{label}: {pct_v:.1f}%  ({counts[b]}件)")
-                            st.progress(min(pct_v / 100, 1.0))
+                        render_category_bar_chart(counts, ALL_BUCKETS)
 
             st.divider()
             st.markdown("#### ② 同規模クリエイターとの比較")
@@ -1225,60 +1364,86 @@ elif st.session_state.step == "inbox":
                 "人間性": 20.0,
                 "活動クオリティ": 21.4,
                 "モラル・マナー説教": 19.3,
-                "嫉妬型": 20.4,
+                "プライバシー": 20.4,
             }
             anti_total = sum(total_by_category[c] for c in CATEGORIES) or 1
+            compare_rows = []
             for cat, bench in BENCHMARK_SHARE.items():
                 you_pct = total_by_category[cat] / anti_total * 100
-                st.write(f"**{cat}** — あなた: {you_pct:.1f}% / アンケート平均: {bench}%")
+                compare_rows.append({"カテゴリ": cat, "対象": "あなた", "割合": you_pct})
+                compare_rows.append({"カテゴリ": cat, "対象": "アンケート平均", "割合": bench})
+            compare_df = pd.DataFrame(compare_rows)
+
+            compare_chart = alt.Chart(compare_df).mark_bar(cornerRadiusEnd=3).encode(
+                y=alt.Y("カテゴリ:N", title=None, sort=list(BENCHMARK_SHARE.keys())),
+                x=alt.X("割合:Q", title="割合(%)"),
+                yOffset=alt.YOffset("対象:N", sort=["あなた", "アンケート平均"]),
+                color=alt.Color(
+                    "対象:N",
+                    scale=alt.Scale(domain=["あなた", "アンケート平均"], range=["#c1443c", "#b7bcc4"]),
+                    legend=alt.Legend(title=None, orient="top"),
+                ),
+                tooltip=[alt.Tooltip("カテゴリ:N"), alt.Tooltip("対象:N"), alt.Tooltip("割合:Q", format=".1f")],
+            ).properties(height=34 * len(BENCHMARK_SHARE))
+            st.altair_chart(compare_chart, use_container_width=True)
+
+            for cat, bench in BENCHMARK_SHARE.items():
+                you_pct = total_by_category[cat] / anti_total * 100
                 if you_pct > bench + 3:
-                    st.caption("⚠️ 平均より高めの傾向です")
+                    st.caption(f"⚠️ {cat}: 平均より高めの傾向です(あなた {you_pct:.1f}% / 平均 {bench}%)")
                 elif you_pct < bench - 3:
-                    st.caption("✓ 平均より低めです")
+                    st.caption(f"✓ {cat}: 平均より低めです(あなた {you_pct:.1f}% / 平均 {bench}%)")
                 else:
-                    st.caption("✓ 平均並みです")
+                    st.caption(f"✓ {cat}: 平均並みです(あなた {you_pct:.1f}% / 平均 {bench}%)")
 
             st.divider()
             st.markdown("#### ③ 動画ごとの推移")
             if len(per_video_category_counts) >= 2:
-                trend_df = pd.DataFrame(per_video_category_counts).T[ALL_BUCKETS]
-                st.bar_chart(trend_df)
+                video_order = []
+                trend_rows = []
+                for video_title, counts in per_video_category_counts.items():
+                    short_title = video_title if len(video_title) <= 18 else video_title[:18] + "…"
+                    video_order.append(short_title)
+                    for b in ALL_BUCKETS:
+                        trend_rows.append({
+                            "動画": short_title,
+                            "full_title": video_title,
+                            "カテゴリ": "応援コメント(非該当)" if b == "非該当" else b,
+                            "color_key": b,
+                            "件数": counts[b],
+                        })
+                trend_df = pd.DataFrame(trend_rows)
+                trend_chart = alt.Chart(trend_df).mark_bar().encode(
+                    x=alt.X("動画:N", title=None, sort=video_order, axis=alt.Axis(labelAngle=-30)),
+                    y=alt.Y("件数:Q", title="件数"),
+                    color=alt.Color(
+                        "color_key:N",
+                        scale=alt.Scale(domain=list(CATEGORY_COLORS.keys()), range=list(CATEGORY_COLORS.values())),
+                        legend=alt.Legend(title=None),
+                    ),
+                    order=alt.Order("color_key:N"),
+                    tooltip=[alt.Tooltip("full_title:N", title="動画"), alt.Tooltip("カテゴリ:N"), alt.Tooltip("件数:Q")],
+                ).properties(height=320)
+                st.altair_chart(trend_chart, use_container_width=True)
             else:
                 st.caption("推移を見るには2本以上の動画を分析してください。")
 
-            # --- AI要約(見たくない設定のカテゴリは対象外) ---
+            # --- 次のアクション(リクエスト・改善提案の抽出) ---
             st.divider()
-            st.markdown("### 🌱 AI要約")
-            selected_categories = st.session_state.selected_categories
-            visible_buckets = [
-                b for b in ALL_BUCKETS if b == "非該当" or b not in selected_categories
-            ]
-            hidden_buckets = [b for b in ALL_BUCKETS if b not in visible_buckets]
-            st.caption(
-                "「見たくない」に設定したカテゴリの要約は表示されません。"
-                + (f"(非表示中: {'、'.join(hidden_buckets)})" if hidden_buckets else "")
-            )
+            st.markdown("### 💡 次のアクション")
+            st.caption("コメントの中から「次にしてほしい企画」「建設的な改善提案」だけをAIが抽出します。個人攻撃や単なる感想は無視されます。")
 
-            if st.button("AI要約を生成する", key="gen_category_summaries", type="primary"):
-                with st.spinner("AIがコメントの傾向を要約しています…"):
-                    summaries = {}
-                    for b in visible_buckets:
-                        label = "応援コメント" if b == "非該当" else b
-                        try:
-                            summaries[b] = summarize_category(label, category_texts[b])
-                        except Exception as e:
-                            summaries[b] = f"要約に失敗しました: {e}"
-                    st.session_state.category_summaries = summaries
+            all_comment_texts = [t for texts in category_texts.values() for t in texts]
 
-            if st.session_state.category_summaries:
-                for b in visible_buckets:
-                    label = "💬 応援コメント" if b == "非該当" else b
-                    with st.expander(f"{label}({total_by_category.get(b, 0)}件)"):
-                        st.info(st.session_state.category_summaries.get(b, "(未生成)"))
-                        if category_texts[b]:
-                            with st.expander("実際のコメントを見る"):
-                                for t in category_texts[b]:
-                                    st.write(f"- {t}")
+            if st.button("次のアクションを抽出する", key="gen_action_suggestions", type="primary"):
+                with st.spinner("AIがコメントからリクエスト・改善提案を探しています…"):
+                    try:
+                        st.session_state.action_suggestions = extract_action_suggestions(all_comment_texts)
+                    except Exception as e:
+                        st.session_state.action_suggestions = f"抽出に失敗しました: {e}"
+
+            if st.session_state.action_suggestions:
+                render_speech_bubble(st.session_state.action_suggestions, avatar="💡")
 
     with main_tab3:
         result = st.session_state.get("diagnosis_result")
