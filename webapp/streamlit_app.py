@@ -101,6 +101,15 @@ CATEGORIES = ["外見", "人間性", "活動クオリティ", "モラル・マ�
 THRESHOLD_MATCH = 0.60
 THRESHOLD_GRAY = 0.45
 
+
+def similarity_label(similarity: float) -> str:
+    """AIの類似度スコアを「高/中/低」の一致度ラベルに変換する(表示専用)。"""
+    if similarity >= THRESHOLD_MATCH:
+        return "高"
+    if similarity >= THRESHOLD_GRAY:
+        return "中"
+    return "低"
+
 # ============ 動画選択・APIクォータ設定 ============
 VIDEOS_PAGE_SIZE = 10          # 動画一覧の1ページあたり取得件数
 DEFAULT_SELECTED_VIDEOS = 5    # デフォルトでチェックを入れる最新動画数
@@ -1027,8 +1036,9 @@ elif st.session_state.step == "inbox":
                                     else:
                                         st.write(c["text"])
                                     if c["category"]:
-                                        st.caption(f"カテゴリ: {c['category']} / 類似度: {c['similarity']:.2f}")
+                                        st.caption(f"カテゴリ: {c['category']} / 一致度: {similarity_label(c['similarity'])}")
                                     if key_name == "確認待ち":
+                                        st.caption("この投稿の振り分け")
                                         col1, col2 = st.columns(2)
                                         if col1.button("🙅 見たくない", key=f"want_{c['comment_key']}"):
                                             st.session_state.hidden_comment_ids.add(c["comment_key"])
@@ -1036,10 +1046,12 @@ elif st.session_state.step == "inbox":
                                         if col2.button("✅ 問題ない", key=f"ok_{c['comment_key']}", type="primary"):
                                             st.session_state.ok_comment_ids.add(c["comment_key"])
                                             st.rerun()
+                                        st.divider()
 
                                     # --- YouTube上での操作(非表示・返信) すべてのコメントに表示 ---
                                     comment_id = c.get("comment_id")
                                     if comment_id:
+                                        st.caption("YouTube上の操作")
                                         yt_hidden = comment_id in st.session_state.youtube_hidden_comment_ids
                                         yt_replied = comment_id in st.session_state.youtube_replied_comment_ids
 
