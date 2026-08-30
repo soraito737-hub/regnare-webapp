@@ -28,7 +28,6 @@ from google import genai
 from google.genai import types
 import altair as alt
 import pandas as pd
-import altair as alt
 from sklearn.metrics.pairwise import cosine_similarity
 
 # ============ 設定 ============
@@ -111,7 +110,7 @@ def render_step_indicator(current_step: str) -> None:
     st.markdown(" ".join(pills), unsafe_allow_html=True)
 
 
-_RISK_BADGE_COLORS = {"低": "#3F8F63", "注意": "#C98A1B", "やや高め": "#C98A1B", "高": "#C2483D"}
+_RISK_BADGE_COLORS = {"低": "#2F6F55", "注意": "#8F5F0C", "やや高め": "#8F5F0C", "高": "#A13327"}
 
 
 def render_risk_badge(level: str) -> str:
@@ -126,6 +125,16 @@ def render_risk_badge(level: str) -> str:
 CATEGORIES = ["外見", "人間性", "活動クオリティ", "モラル・マナー説教", "プライバシー"]
 THRESHOLD_MATCH = 0.60
 THRESHOLD_GRAY = 0.45
+
+
+def similarity_label(similarity: float) -> str:
+    """AIの類似度スコアを「高/中/低」の一致度ラベルに変換する(表示専用)。"""
+    if similarity >= THRESHOLD_MATCH:
+        return "高"
+    if similarity >= THRESHOLD_GRAY:
+        return "中"
+    return "低"
+
 
 CATEGORY_COLORS = {
     "外見": "#e07a5f",
@@ -305,10 +314,10 @@ PERSONA_PROFILES = {
 
 PERSONA_ORDER = ["private_fan", "light", "visual", "assertive"]
 PERSONA_COLORS = {
-    "light": "#AED6F1",
-    "private_fan": "#5DADE2",
-    "visual": "#2E86AB",
-    "assertive": "#1B4F72",
+    "light": "#E8F2FA",
+    "private_fan": "#7FB3D9",
+    "visual": "#2E75B6",
+    "assertive": "#082C45",
 }
 RANK_MARKERS = ["①", "②", "③"]
 
@@ -338,7 +347,7 @@ def render_harm_comparison_chart(item_keys: list[str]) -> None:
 
     chart = (
         alt.Chart(pd.DataFrame(records))
-        .mark_bar()
+        .mark_bar(stroke="#1F2A2E", strokeWidth=0.6)
         .encode(
             x=alt.X("item:N", title=None, sort=[HARM_ITEM_STATS[k]["label"] for k in item_keys], axis=alt.Axis(labelAngle=0)),
             xOffset=alt.XOffset("persona:N", sort=persona_names),
@@ -745,8 +754,9 @@ def render_comment_card(c: dict, key_name: str) -> None:
         else:
             st.write(c["text"])
         if c["category"]:
-            st.caption(f"カテゴリ: {c['category']} / 類似度: {c['similarity']:.2f}")
+            st.caption(f"カテゴリ: {c['category']} / 一致度: {similarity_label(c['similarity'])}")
         if key_name == "確認待ち":
+            st.caption("この投稿の振り分け")
             col1, col2 = st.columns(2)
             if col1.button("🙅 見たくない", key=f"want_{c['comment_key']}"):
                 st.session_state.hidden_comment_ids.add(c["comment_key"])
@@ -754,10 +764,12 @@ def render_comment_card(c: dict, key_name: str) -> None:
             if col2.button("✅ 問題ない", key=f"ok_{c['comment_key']}", type="primary"):
                 st.session_state.ok_comment_ids.add(c["comment_key"])
                 st.rerun()
+            st.divider()
 
         # --- YouTube上での操作(非表示・返信) すべてのコメントに表示 ---
         comment_id = c.get("comment_id")
         if comment_id:
+            st.caption("YouTube上の操作")
             yt_hidden = comment_id in st.session_state.youtube_hidden_comment_ids
             yt_replied = comment_id in st.session_state.youtube_replied_comment_ids
 
