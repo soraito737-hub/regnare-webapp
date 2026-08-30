@@ -305,10 +305,10 @@ PERSONA_PROFILES = {
 
 PERSONA_ORDER = ["private_fan", "light", "visual", "assertive"]
 PERSONA_COLORS = {
-    "private_fan": "#6E9B94",
-    "light": "#3F8F63",
-    "visual": "#C98A1B",
-    "assertive": "#C2483D",
+    "light": "#AED6F1",
+    "private_fan": "#5DADE2",
+    "visual": "#2E86AB",
+    "assertive": "#1B4F72",
 }
 RANK_MARKERS = ["①", "②", "③"]
 
@@ -343,7 +343,7 @@ def render_harm_comparison_chart(item_keys: list[str]) -> None:
             x=alt.X("item:N", title=None, sort=[HARM_ITEM_STATS[k]["label"] for k in item_keys], axis=alt.Axis(labelAngle=0)),
             xOffset=alt.XOffset("persona:N", sort=persona_names),
             y=alt.Y(
-                "score:Q", title=None,
+                "score:Q", title="被害の多さ(平均点)",
                 scale=alt.Scale(domain=[0, max_score * 1.15]),
                 axis=alt.Axis(tickCount=4, format=".1f"),
             ),
