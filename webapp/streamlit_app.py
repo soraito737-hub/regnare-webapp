@@ -85,7 +85,7 @@ def render_step_indicator(current_step: str) -> None:
     st.markdown(" ".join(pills), unsafe_allow_html=True)
 
 
-_RISK_BADGE_COLORS = {"低": "#3F8F63", "注意": "#C98A1B", "やや高め": "#C98A1B", "高": "#C2483D"}
+_RISK_BADGE_COLORS = {"低": "#2F6F55", "注意": "#8F5F0C", "やや高め": "#8F5F0C", "高": "#A13327"}
 
 
 def render_risk_badge(level: str) -> str:
@@ -228,10 +228,10 @@ PERSONA_PROFILES = {
 
 PERSONA_ORDER = ["private_fan", "light", "visual", "assertive"]
 PERSONA_COLORS = {
-    "light": "#AED6F1",
-    "private_fan": "#5DADE2",
-    "visual": "#2E86AB",
-    "assertive": "#1B4F72",
+    "light": "#E8F2FA",
+    "private_fan": "#7FB3D9",
+    "visual": "#2E75B6",
+    "assertive": "#082C45",
 }
 RANK_MARKERS = ["①", "②", "③"]
 
@@ -261,7 +261,7 @@ def render_harm_comparison_chart(item_keys: list[str]) -> None:
 
     chart = (
         alt.Chart(pd.DataFrame(records))
-        .mark_bar()
+        .mark_bar(stroke="#1F2A2E", strokeWidth=0.6)
         .encode(
             x=alt.X("item:N", title=None, sort=[HARM_ITEM_STATS[k]["label"] for k in item_keys], axis=alt.Axis(labelAngle=0)),
             xOffset=alt.XOffset("persona:N", sort=persona_names),
