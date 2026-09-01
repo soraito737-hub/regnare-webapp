@@ -616,8 +616,10 @@ if "analysis_results_by_video" not in st.session_state:
 if "action_suggestions" not in st.session_state:
     st.session_state.action_suggestions = None
 
-st.title("Regskip")
-st.caption("コメント欄 — Regskip")
+if st.session_state.get("step", "landing") != "landing":
+    # landing画面には専用の大きな見出しがすでにあるため、二重表示を避ける
+    st.title("Regskip")
+    st.caption("コメント欄 — Regskip")
 
 # ============ OAuthコールバック処理 ============
 query_params = st.query_params
