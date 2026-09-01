@@ -18,6 +18,7 @@ import json
 import math
 import re
 import sys
+import time
 import concurrent.futures
 from pathlib import Path
 from collections import Counter
@@ -644,6 +645,25 @@ def build_youtube_service(credentials, timeout: int = 30):
     return build("youtube", "v3", http=authed_http, cache_discovery=False)
 
 
+def execute_with_retry(request, max_retries: int = 4):
+    """通信の一時的な失敗(タイムアウト・5xx・レート制限)に対して指数バックオフで再試行する。
+    1回失敗しただけで動画をスキップしてしまわないようにするため。"""
+    for attempt in range(max_retries):
+        try:
+            return request.execute()
+        except HttpError as e:
+            if e.resp.status in (429, 500, 503) and attempt < max_retries - 1:
+                time.sleep(5 * (attempt + 1))
+                continue
+            raise
+        except OSError:
+            # socket.timeout・ssl.SSLErrorなど、通信が詰まった/切れた場合
+            if attempt < max_retries - 1:
+                time.sleep(5 * (attempt + 1))
+                continue
+            raise
+
+
 def fetch_comments(credentials, video_id: str, max_results: int = 20) -> list[dict]:
     service = build_youtube_service(credentials)
     comments = []
@@ -658,7 +678,7 @@ def fetch_comments(credentials, video_id: str, max_results: int = 20) -> list[di
             textFormat="plainText",
             pageToken=page_token,
         )
-        response = request.execute()
+        response = execute_with_retry(request)
         for item in response.get("items", []):
             top_comment = item["snippet"]["topLevelComment"]
             snippet = top_comment["snippet"]
@@ -677,12 +697,13 @@ def hide_comment_on_youtube(credentials, comment_id: str) -> None:
     """指定コメントをYouTube上で保留(heldForReview)にする。
     一般公開のコメント欄からは見えなくなるが、YouTube Studio上で本人がいつでも取り消せる。"""
     service = build_youtube_service(credentials)
-    service.comments().setModerationStatus(id=comment_id, moderationStatus="heldForReview").execute()
+    execute_with_retry(service.comments().setModerationStatus(id=comment_id, moderationStatus="heldForReview"))
 
 
 def reply_to_comment_on_youtube(credentials, comment_id: str, reply_text: str) -> None:
     """指定コメントに返信を投稿する。"""
     service = build_youtube_service(credentials)
+    # 返信投稿は再試行すると二重投稿になりうるため、あえてリトライしない
     service.comments().insert(
         part="snippet",
         body={"snippet": {"parentId": comment_id, "textOriginal": reply_text}},
@@ -692,7 +713,7 @@ def reply_to_comment_on_youtube(credentials, comment_id: str, reply_text: str) -
 def get_channel_info(credentials) -> dict | None:
     """ログインユーザー自身のチャンネルID・アップロード済み動画プレイリストIDを取得"""
     service = build_youtube_service(credentials)
-    resp = service.channels().list(part="contentDetails", mine=True).execute()
+    resp = execute_with_retry(service.channels().list(part="contentDetails", mine=True))
     items = resp.get("items", [])
     if not items:
         return None
@@ -706,12 +727,12 @@ def list_channel_videos(credentials, playlist_id: str, page_token: str | None = 
                          max_results: int = VIDEOS_PAGE_SIZE) -> tuple[list[dict], str | None]:
     """アップロード済み動画一覧を新しい順に取得(低クォータ)"""
     service = build_youtube_service(credentials)
-    resp = service.playlistItems().list(
+    resp = execute_with_retry(service.playlistItems().list(
         part="snippet",
         playlistId=playlist_id,
         maxResults=max_results,
         pageToken=page_token,
-    ).execute()
+    ))
     videos = []
     for item in resp.get("items", []):
         sn = item["snippet"]
@@ -731,14 +752,14 @@ def search_channel_videos(credentials, channel_id: str, query: str,
                            max_results: int = VIDEOS_PAGE_SIZE) -> list[dict]:
     """タイトルキーワードで動画を検索(高クォータのため明示検索時のみ使用)"""
     service = build_youtube_service(credentials)
-    resp = service.search().list(
+    resp = execute_with_retry(service.search().list(
         part="snippet",
         channelId=channel_id,
         q=query,
         type="video",
         order="date",
         maxResults=max_results,
-    ).execute()
+    ))
     videos = []
     for item in resp.get("items", []):
         sn = item["snippet"]
