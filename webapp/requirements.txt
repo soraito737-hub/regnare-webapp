@@ -1,7 +1,10 @@
 streamlit
 google-auth-oauthlib
 google-api-python-client
+google-auth-httplib2
+httplib2
 google-genai
+httpx
 scikit-learn
 numpy
 altair

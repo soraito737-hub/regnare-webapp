@@ -32,6 +32,7 @@ from googleapiclient.errors import HttpError
 from google import genai
 from google.genai import types
 import altair as alt
+import pandas as pd
 
 # modulus/ 配下の判定モジュール(LLMベース)をimportできるようにする
 sys.path.insert(0, str(Path(__file__).parent.parent / "modulus"))
@@ -94,10 +95,8 @@ div[data-testid="stVerticalBlockBorderWrapper"] {
 """, unsafe_allow_html=True)
 
 _STEP_ORDER = [
-    ("diagnosis", "① 診断"),
-    ("result", "② 診断結果"),
-    ("category", "③ カテゴリ選択"),
-    ("connect", "④ 連携"),
+    ("category", "① カテゴリ選択"),
+    ("connect", "② 連携"),
 ]
 
 
@@ -131,15 +130,6 @@ def render_risk_badge(level: str) -> str:
 
 
 CATEGORIES = ["外見", "人間性", "活動クオリティ", "モラル・マナー説教", "プライバシー"]
-
-
-def similarity_label(similarity: float) -> str:
-    """AIの類似度スコアを「高/中/低」の一致度ラベルに変換する(表示専用)。"""
-    if similarity >= THRESHOLD_MATCH:
-        return "高"
-    if similarity >= THRESHOLD_GRAY:
-        return "中"
-    return "低"
 
 
 CATEGORY_COLORS = {
@@ -203,305 +193,6 @@ VIDEOS_PAGE_SIZE = 10          # 動画一覧の1ページあたり取得件数
 DEFAULT_SELECTED_VIDEOS = 5    # デフォルトでチェックを入れる最新動画数
 MAX_VIDEOS_PER_RUN = 5         # 一度に処理できる動画数の上限
 MAX_COMMENTS_PER_VIDEO = 200   # 1動画あたりのコメント取得上限
-
-# ============ 発信スタイル診断(アンケートのクラスター分析に基づく) ============
-# 独自アンケート調査(n=213)のクラスター分析結果をもとにした発信スタイル診断。
-# 4クラスターへの分類は、調査で報告された各クラスターの特徴(高い/低い項目)から
-# 近似した重心(-1〜+1に正規化)を用いた最近傍判定。正確なクラスター重心の数値表が
-# 得られ次第、PERSONA_PROFILESの"centroid"を差し替えることでより精緻化できる。
-DIAGNOSIS_QUESTIONS = [
-    {
-        "key": "exposure",
-        "question": "動画や配信での「顔や容姿」の露出度はどのくらいですか？",
-        "options": [
-            ("顔や姿は出していない(声のみ、テロップのみ、立ち絵など)", 1),
-            ("首から下や手元など、身体の一部のみ見せている", 2),
-            ("顔や全体的な姿をしっかり出している", 3),
-            ("顔出しに加え、メイクや衣装・ビジュアルを魅せる工夫を意識している", 4),
-        ],
-    },
-    {
-        "key": "private",
-        "question": "自分の「プライベート(私生活・居住地・購入品など)」の情報をどの程度出していますか？",
-        "options": [
-            ("プライベートな情報は一切出していない", 1),
-            ("部屋の一部や買ったものなど、差し障りのない範囲で時々出している", 2),
-            ("自宅の様子、ファッション、私生活の日常を積極的に出している", 3),
-            ("最寄り駅周辺、地元の風景、よく行く店など、生活環境がわかる情報まで出している", 4),
-        ],
-    },
-    {
-        "key": "opinion",
-        "question": "トレンドや特定の話題に対して、「好き・嫌い」「賛成・反対」などの主張をしますか？",
-        "options": [
-            ("自分の強い意見や好き嫌いは動画内でほとんど言わない", 1),
-            ("テーマによっては、自分の意見や賛否を控えめに言うことがある", 2),
-            ("自分の「好き・嫌い」「賛成・反対」をはっきりと主張することが多い", 3),
-        ],
-    },
-    {
-        "key": "criticism",
-        "question": "特定の個人・動画・出来事を取り上げて、批判・ツッコミ・物申すことはありますか？",
-        "options": [
-            ("他人を批判したり、ツッコミを入れたりする企画は一切しない", 1),
-            ("たまにネタや冗談交じりで軽く触れる程度", 2),
-            ("あえて特定の話題や人物を取り上げ、批評・批判・ツッコミをすることがよくある", 3),
-        ],
-    },
-    {
-        "key": "harsh",
-        "question": "動画内で「毒舌」「過激な表現」「エッジの効いた演出」を取り入れていますか？",
-        "options": [
-            ("トゲのある表現は避け、安全でマイルドな表現を心がけている", 1),
-            ("視聴者を飽きさせないよう、たまに少しトゲのある発言や演出を入れる", 2),
-            ("毒舌やエッジの効いた演出、煽り要素を自分の強み(武器)として取り入れている", 3),
-        ],
-    },
-]
-
-PERSONA_PROFILES = {
-    "private_fan": {
-        "name": "プライベート発信型",
-        "description": "生活環境やプライベートな情報を開示し、ファンと距離の近いコミュニケーションを取るスタイルです。",
-        "centroid": {"exposure": 0.0, "private": 1.0, "assertion": -0.5},
-        "risk_level": "やや高め",
-        "cluster_id": 1,
-        # 調査の解釈: 執着・ガチ恋・実害ハラスメント(文脈の歪曲/反応を面白がられる/
-        # 暴力的コメント/まとめサイト晒し/妨害行為)のリスクが最も懸念されるタイプ
-        "harm_top3_keys": ["curated_site", "distortion", "sabotage"],
-        "tendency_text": (
-            "「距離の近さ」があなたの発信の魅力である一方、私生活の領域まで踏み込まれやすい傾向があります。"
-        ),
-        "phase_note": (
-            "単発の批判コメントよりも、つきまとい的な言動や実害化といった"
-            "「二次被害」へ発展しやすいタイプです。早めの対策をおすすめします。"
-        ),
-        "categories": ["人間性", "プライバシー"],
-    },
-    "light": {
-        "name": "ナチュラル発信型",
-        "description": "露出を最小限に抑え、過激な主張も控える安全第一の運用スタイルです。",
-        "centroid": {"exposure": -1.0, "private": -0.6, "assertion": -0.3},
-        "risk_level": "低",
-        "cluster_id": 2,
-        # 調査の解釈: 最もアンチ攻撃に遭いにくいタイプ
-        "reassurance_text": "アンケート調査の中でも、被害の水準がもっとも低いグループです。",
-        "simulation_text": (
-            "もし今後、顔出しや容姿の露出を増やしていくと「ビジュアル発信型」の傾向に近づく可能性があります。"
-        ),
-        "caution_text": "「被害が少ない」だけで「被害がゼロ」というわけではない点にはご注意ください。",
-        "categories": [],
-    },
-    "visual": {
-        "name": "ビジュアル発信型",
-        "description": "見た目(ルックスや衣装)をメインコンテンツにしつつ、プライベート開示や過激な発言は控えるスタイルです。",
-        "centroid": {"exposure": 0.85, "private": -0.1, "assertion": -0.5},
-        "risk_level": "注意",
-        "cluster_id": 3,
-        # 調査の解釈: 外見批判に集中的に狙われやすいタイプ
-        "harm_top3_keys": ["appearance"],
-        "tendency_text": "見た目をコンテンツの核にしているからこそ、そこが攻撃対象になりやすい構造です。",
-        "distinction_text": (
-            "このタイプで多いのは「見た目」への言及であり、「人格」そのものを否定されているわけではありません。"
-            "混同せず切り分けて受け止めることも大切です。"
-        ),
-        "categories": ["外見"],
-    },
-    "assertive": {
-        "name": "ストレート発信型",
-        "description": "自分の主張や、特定の話題・人物への切り込みを武器にするスタイルです。",
-        "centroid": {"exposure": 0.2, "private": -0.1, "assertion": 1.2},
-        "risk_level": "高",
-        "cluster_id": 4,
-        # 調査の解釈: 人格否定コメントや炎上・集団叩きのリスクが最も高いタイプ
-        "harm_top3_keys": ["humanity", "violent", "enjoying"],
-        "tendency_text": (
-            "意見表明を武器にしている分、意見そのものより「あなた自身」への攻撃に転化しやすい傾向があります。"
-        ),
-        "severity_text": "4タイプの中で、被害の深刻度がもっとも高い傾向にあります。事前に心の準備をしておくと安心です。",
-        "categories": ["活動クオリティ", "モラル・マナー説教"],
-    },
-}
-
-PERSONA_ORDER = ["private_fan", "light", "visual", "assertive"]
-PERSONA_COLORS = {
-    "light": "#E8F2FA",
-    "private_fan": "#7FB3D9",
-    "visual": "#2E75B6",
-    "assertive": "#082C45",
-}
-RANK_MARKERS = ["①", "②", "③"]
-
-# 被害タイプ別のクラスター平均値(アンケート「グループ統計量」より、n=213)
-HARM_ITEM_STATS = {
-    "appearance": {"label": "外見に関する批判コメント", "means": {1: 2.00, 2: 1.22, 3: 2.03, 4: 2.43}},
-    "humanity": {"label": "人格を否定するようなコメント", "means": {1: 1.78, 2: 1.69, 3: 1.83, 4: 2.71}},
-    "distortion": {"label": "発言を切り取られて叩かれる", "means": {1: 1.31, 2: 1.24, 3: 1.31, 4: 1.88}},
-    "enjoying": {"label": "炎上・反応を面白がられる", "means": {1: 1.42, 2: 1.28, 3: 1.41, 4: 2.12}},
-    "violent": {"label": "暴力的・攻撃的なコメント", "means": {1: 1.69, 2: 1.57, 3: 1.56, 4: 2.16}},
-    "curated_site": {"label": "まとめサイト等への晒し", "means": {1: 1.42, 2: 1.22, 3: 1.42, 4: 1.94}},
-    "sabotage": {"label": "配信・活動を妨害される(通報祭りや荒らしなど)", "means": {1: 1.19, 2: 1.06, 3: 1.25, 4: 1.63}},
-}
-
-
-def render_harm_comparison_chart(item_keys: list[str]) -> None:
-    """指定した被害項目について、4タイプの平均値を並べた棒グラフを表示する(表示専用)。"""
-    persona_names = [PERSONA_PROFILES[p]["name"] for p in PERSONA_ORDER]
-    records = []
-    max_score = 0.0
-    for key in item_keys:
-        item = HARM_ITEM_STATS[key]
-        for p in PERSONA_ORDER:
-            score = item["means"][PERSONA_PROFILES[p]["cluster_id"]]
-            max_score = max(max_score, score)
-            records.append({"item": item["label"], "persona": PERSONA_PROFILES[p]["name"], "score": score})
-
-    chart = (
-        alt.Chart(pd.DataFrame(records))
-        .mark_bar(stroke="#1F2A2E", strokeWidth=0.6)
-        .encode(
-            x=alt.X("item:N", title=None, sort=[HARM_ITEM_STATS[k]["label"] for k in item_keys], axis=alt.Axis(labelAngle=0)),
-            xOffset=alt.XOffset("persona:N", sort=persona_names),
-            y=alt.Y(
-                "score:Q", title="被害の多さ(平均点)",
-                scale=alt.Scale(domain=[0, max_score * 1.15]),
-                axis=alt.Axis(tickCount=4, format=".1f"),
-            ),
-            color=alt.Color(
-                "persona:N", title=None, sort=persona_names,
-                scale=alt.Scale(domain=persona_names, range=[PERSONA_COLORS[p] for p in PERSONA_ORDER]),
-            ),
-            tooltip=[alt.Tooltip("item:N", title="項目"), alt.Tooltip("persona:N", title="タイプ"), alt.Tooltip("score:Q", title="平均スコア", format=".2f")],
-        )
-    )
-    st.altair_chart(chart, use_container_width=True)
-    st.caption("数値はアンケート回答の平均スコアで、高いほど該当する被害が多い傾向を示します。")
-
-
-def render_persona_harm_detail(persona_key: str) -> None:
-    """診断結果のタイプごとに、想定される被害の傾向を詳しく表示する(表示専用)。"""
-    persona = PERSONA_PROFILES[persona_key]
-
-    if persona_key == "light":
-        st.write(persona["reassurance_text"])
-        st.info(persona["simulation_text"])
-        st.caption(persona["caution_text"])
-        return
-
-    if persona_key == "visual":
-        item = HARM_ITEM_STATS["appearance"]
-        score = item["means"][persona["cluster_id"]]
-        baseline = item["means"][PERSONA_PROFILES["light"]["cluster_id"]]
-        ratio = score / baseline
-        st.metric(item["label"], f"{score:.1f} / 4点中", f"控えめ層の約{ratio:.1f}倍", delta_color="off")
-        st.caption("その他の項目は、他タイプと比べて平均的〜低めの水準です。")
-        st.write(persona["tendency_text"])
-        st.info(persona["distinction_text"])
-        return
-
-    st.write("来やすい被害の傾向トップ3")
-    for rank, key in enumerate(persona["harm_top3_keys"]):
-        marker = RANK_MARKERS[rank] if rank < len(RANK_MARKERS) else f"{rank + 1}."
-        st.markdown(f"**{marker}** {HARM_ITEM_STATS[key]['label']}")
-    render_harm_comparison_chart(persona["harm_top3_keys"])
-    st.write(persona["tendency_text"])
-
-    if persona_key == "private_fan":
-        st.warning(persona["phase_note"])
-    elif persona_key == "assertive":
-        st.warning(persona["severity_text"])
-
-
-def render_diagnosis_summary(result: dict) -> None:
-    """診断結果(タイプ名・リスクバッジ・被害確率・被害傾向)をまとめて表示する(表示専用)。"""
-    st.markdown(f"### あなたのタイプ：{result['persona_name']}")
-    st.markdown(f"リスクレベル: {render_risk_badge(result['risk_level'])}", unsafe_allow_html=True)
-    st.write(result["persona_description"])
-
-    st.metric("悪質被害リスク(統計モデルによる推定確率)", f"{result['severe_harm_probability'] * 100:.1f}%")
-    st.caption(
-        "※ アンケート調査(n=213)の2項ロジスティック回帰分析モデルによる推定値です。"
-        "「活動スタイルの変化」は現在の質問に含まれないため、変化なし(最も安全な状態)と仮定して計算しています。"
-        "大きな路線変更を予定している場合、実際のリスクはこれより高い可能性があります。"
-    )
-
-    with st.container(border=True):
-        render_persona_harm_detail(result["persona_key"])
-
-    st.caption("※ タイプ分類は独自アンケート調査(n=213)のクラスター分析に基づく傾向の目安であり、将来を確定的に予測するものではありません。")
-
-
-def _normalize_answer(value: int, max_value: int) -> float:
-    """1〜max_valueの回答を-1〜+1のスケールに変換する。"""
-    return (value - 1) / (max_value - 1) * 2 - 1
-
-
-def _rescale_to_4(value: int, max_value: int) -> float:
-    """1〜max_valueの回答を、回帰モデルが前提とする1〜4のスケールに線形換算する。"""
-    if max_value == 4:
-        return float(value)
-    return 1 + (value - 1) / (max_value - 1) * 3
-
-
-# ============ 悪質被害スコア(2項ロジスティック回帰モデル) ============
-# アンケート分析(n=213)の2項ロジスティック回帰分析(目的変数: Severe_Damage_Dummy)による実測モデル。
-SEVERE_HARM_INTERCEPT = -4.329
-SEVERE_HARM_BETA_EXPOSURE = 0.471
-SEVERE_HARM_BETA_ASSERTION = 1.216
-SEVERE_HARM_BETA_CHANGE = 0.436
-# 「活動スタイルの変化」は現在の質問セットに含まれないため、最も安全な値(変化なし)で固定する
-SEVERE_HARM_CHANGE_BASELINE = 1
-
-
-def compute_severe_harm_probability(answers: dict) -> float:
-    """2項ロジスティック回帰モデルにより、深刻な被害を受ける確率を推定する。
-    Exposure_Score/Assertion_Scoreは4段階評価を前提とした係数のため、
-    3択の質問(opinion/criticism/harsh)は1〜4相当に線形換算して用いる。"""
-    exposure_score = (answers["exposure"] + answers["private"]) / 2
-    assertion_score = (
-        _rescale_to_4(answers["opinion"], 3)
-        + _rescale_to_4(answers["criticism"], 3)
-        + _rescale_to_4(answers["harsh"], 3)
-    ) / 3
-    logit = (
-        SEVERE_HARM_INTERCEPT
-        + SEVERE_HARM_BETA_EXPOSURE * exposure_score
-        + SEVERE_HARM_BETA_ASSERTION * assertion_score
-        + SEVERE_HARM_BETA_CHANGE * SEVERE_HARM_CHANGE_BASELINE
-    )
-    return 1 / (1 + math.exp(-logit))
-
-
-def build_diagnosis_result(persona_key: str, severe_harm_probability: float) -> dict:
-    """persona_keyと被害確率から診断結果の辞書を組み立てる(OAuthリダイレクト後の復元にも使う)。"""
-    persona = PERSONA_PROFILES[persona_key]
-    return {
-        "persona_key": persona_key,
-        "persona_name": persona["name"],
-        "persona_description": persona["description"],
-        "risk_level": persona["risk_level"],
-        "suggested_categories": persona["categories"],
-        "severe_harm_probability": severe_harm_probability,
-    }
-
-
-def diagnose(answers: dict) -> dict:
-    scores = {
-        "exposure": _normalize_answer(answers["exposure"], 4),
-        "private": _normalize_answer(answers["private"], 4),
-        "assertion": (
-            _normalize_answer(answers["opinion"], 3)
-            + _normalize_answer(answers["criticism"], 3)
-            + _normalize_answer(answers["harsh"], 3)
-        ) / 3,
-    }
-
-    def distance(centroid: dict) -> float:
-        return sum((scores[dim] - val) ** 2 for dim, val in centroid.items()) ** 0.5
-
-    persona_key = min(PERSONA_PROFILES, key=lambda k: distance(PERSONA_PROFILES[k]["centroid"]))
-    severe_harm_probability = compute_severe_harm_probability(answers)
-    return build_diagnosis_result(persona_key, severe_harm_probability)
 
 # ============ 動画ID抽出 ============
 def extract_video_id(text: str) -> str:
@@ -931,8 +622,7 @@ st.caption("コメント欄 — Regnare")
 # ============ OAuthコールバック処理 ============
 query_params = st.query_params
 if "code" in query_params and st.session_state.credentials is None:
-    # OAuthリダイレクトでsession_stateがリセットされるケースに備え、
-    # stateパラメータに乗せておいたcode_verifier/selected_categories/診断結果を先に復元する
+    # stateパラメータに乗せておいたcode_verifier/selected_categoriesを先に復元する
     restored = {}
     if "state" in query_params:
         try:
@@ -962,10 +652,6 @@ if "code" in query_params and st.session_state.credentials is None:
 
     if isinstance(restored.get("selected_categories"), list):
         st.session_state.selected_categories = restored["selected_categories"]
-    persona_key = restored.get("persona_key")
-    probability = restored.get("severe_harm_probability")
-    if persona_key in PERSONA_PROFILES and isinstance(probability, (int, float)):
-        st.session_state.diagnosis_result = build_diagnosis_result(persona_key, probability)
 
     st.query_params.clear()
     st.session_state.step = "inbox"
@@ -979,28 +665,23 @@ if st.session_state.step == "intro":
     st.write("YouTubeのアンチコメントで傷つく前に、見なくて済む仕組みを作るWebサイトです。")
 
     st.markdown("##### 📋 これから何が起きるか")
-    st.write("この後、以下の4ステップで進みます(合計2〜3分ほどです)。それぞれで「何が起きて、何が分かるか」をご紹介します。")
+    st.write("この後、以下の3ステップで進みます(合計1〜2分ほどです)。それぞれで「何が起きて、何が分かるか」をご紹介します。")
 
     intro_steps = [
         (
-            "①", "🧭", "発信スタイルを診断する(1分)",
-            "5つの簡単な質問に答えるだけで、あなたの発信スタイル(顔出し度合い・発言の強さなど)を分析します。",
-            "→ わかること: あなたが「外見批判」「人間性攻撃」「プライバシー詮索」など、"
-            "どの種類のアンチコメントを受けやすい傾向にあるかが分かります。",
-        ),
-        (
-            "②", "🙅", "見たくないコメントの種類を選ぶ",
+            "①", "🙅", "見たくないコメントの種類を選ぶ",
             "外見・人間性・活動クオリティ・モラル/マナー説教・プライバシーの5種類の中から、"
-            "自分が見たくないものを選びます。診断結果をもとに、おすすめが最初からチェックされています。",
-            "→ できること: この設定は後からいつでも変更できます。「特に気にしない」なら何も選ばなくても大丈夫です。",
+            "自分が見たくないものを選びます。見たくないコメントは人によって違うので、ご自身で判断して選んでください。",
+            "→ できること: この設定は後からいつでも変更できます。「人間性」への攻撃は"
+            "心理的ダメージが特に大きいことが分析で確認されているため、選択を強くおすすめしています。",
         ),
         (
-            "③", "🔑", "Googleでログインする(YouTube連携)",
+            "②", "🔑", "Googleでログインする(YouTube連携)",
             "ご自身のYouTubeチャンネルと連携し、実際のコメントを読み取れるようにします。",
             "→ 安心材料: 連携してもコメントを削除したり、勝手に何かを投稿したりすることは一切ありません(詳しくは次の項目)。",
         ),
         (
-            "④", "📥", "コメントが自動で振り分けられる",
+            "③", "📥", "コメントが自動で振り分けられる",
             "選んだ動画のコメントをAIが判定し、「通常」「グレーゾーン」「見たくない」の3つに自動で仕分けます。",
             "→ わかること: 見たくないカテゴリのコメントは本文が伏せられ、あなたが「見る」を選ぶまで表示されません。"
             "さらに、動画分析タブでは傾向のグラフや、AIによる改善提案も見られます。",
@@ -1034,60 +715,17 @@ if st.session_state.step == "intro":
     )
 
     if st.button("始める →", use_container_width=True, type="primary"):
-        st.session_state.step = "diagnosis"
-        st.rerun()
-
-# ============ STEP 1: 診断 ============
-if st.session_state.step == "diagnosis":
-    render_step_indicator("diagnosis")
-    st.subheader("STEP 1 / 4  発信スタイル診断")
-    st.write("5つの質問にお答えください。所要時間は1分ほどです。")
-
-    with st.form("diagnosis_form"):
-        answers_raw = {}
-
-        st.markdown("**見た目・プライベートについて**")
-        for q in DIAGNOSIS_QUESTIONS[:2]:
-            labels = [opt[0] for opt in q["options"]]
-            answers_raw[q["key"]] = st.radio(q["question"], labels, index=0, key=f"q_{q['key']}")
-
-        st.markdown("**発信スタイルについて**")
-        for q in DIAGNOSIS_QUESTIONS[2:]:
-            labels = [opt[0] for opt in q["options"]]
-            answers_raw[q["key"]] = st.radio(q["question"], labels, index=0, key=f"q_{q['key']}")
-
-        submitted = st.form_submit_button("診断結果を見る →", use_container_width=True, type="primary")
-
-    if submitted:
-        answers = {}
-        for q in DIAGNOSIS_QUESTIONS:
-            label_to_score = dict(q["options"])
-            answers[q["key"]] = label_to_score[answers_raw[q["key"]]]
-        st.session_state.diagnosis_result = diagnose(answers)
-        st.session_state.selected_categories = list(
-            st.session_state.diagnosis_result["suggested_categories"]
-        )
-        st.session_state.step = "result"
-        st.rerun()
-
-# ============ STEP 2: 診断結果 ============
-elif st.session_state.step == "result":
-    render_step_indicator("result")
-    st.subheader("STEP 2 / 4  診断結果")
-    result = st.session_state.diagnosis_result
-    render_diagnosis_summary(result)
-
-    if st.button("次へ：見たくないカテゴリを選ぶ →", use_container_width=True, type="primary"):
         st.session_state.step = "category"
         st.rerun()
 
-# ============ STEP 3: カテゴリ提案 ============
+# ============ STEP 1: 見たくないカテゴリを選ぶ ============
 elif st.session_state.step == "category":
     render_step_indicator("category")
-    st.subheader("STEP 3 / 4  見たくないカテゴリを選ぶ")
-    result = st.session_state.diagnosis_result
-
-    st.write("診断結果をもとに、見たくないカテゴリの候補にチェックを入れています。内容を確認し、必要に応じて調整してください。")
+    st.subheader("STEP 1 / 2  見たくないカテゴリを選ぶ")
+    st.write(
+        "見たくないコメントの種類は人によって違います。ご自身の判断で、"
+        "非表示にしたいカテゴリを選んでください。あとから設定は変更できます。"
+    )
 
     none_selected = st.checkbox(
         "見たくないカテゴリは設定しない(すべて通常タブに表示する)",
@@ -1098,24 +736,43 @@ elif st.session_state.step == "category":
     selected = []
     if not none_selected:
         for cat in CATEGORIES:
-            default = cat in result["suggested_categories"]
-            checked = st.checkbox(
-                f"{cat}" + (" 🟢 おすすめ" if default else ""),
-                value=default,
-                key=f"cat_{cat}",
-            )
+            if cat == "人間性":
+                st.warning(
+                    "「人間性」への攻撃(人格を否定するコメント)は、傷つきや怒りといった"
+                    "心理的ダメージへの極めて強い影響が統計的に確認されています(p<.001)。"
+                    "選択することを強くおすすめします。"
+                )
+            checked = st.checkbox(cat, value=False, key=f"cat_{cat}")
             if checked:
                 selected.append(cat)
     st.session_state.selected_categories = selected
 
     if st.button("この設定で連携する →", use_container_width=True, type="primary"):
+        st.session_state.step = "connect" if "人間性" in selected else "confirm_humanity"
+        st.rerun()
+
+# ============ STEP 1.5: 「人間性」を選ばなかった場合の再確認 ============
+elif st.session_state.step == "confirm_humanity":
+    render_step_indicator("category")
+    st.subheader("本当に大丈夫ですか？")
+    st.warning(
+        "「人間性」を見たくない設定にしていません。人格を否定するコメントは、"
+        "傷つきや怒りといった心理的ダメージへの極めて強い影響が統計的に確認されています(p<.001)。"
+        "見逃すと、気づかないうちに深く傷ついてしまう可能性があります。"
+    )
+
+    col1, col2 = st.columns(2)
+    if col1.button("設定を選び直す", use_container_width=True):
+        st.session_state.step = "category"
+        st.rerun()
+    if col2.button("このまま連携する →", use_container_width=True, type="primary"):
         st.session_state.step = "connect"
         st.rerun()
 
-# ============ STEP 4: YouTube連携 ============
+# ============ STEP 2: YouTube連携 ============
 elif st.session_state.step == "connect":
     render_step_indicator("connect")
-    st.subheader("STEP 4 / 4  YouTubeと連携")
+    st.subheader("STEP 2 / 2  YouTubeと連携")
     st.write("下のボタンから、ご自身のYouTubeアカウントでログインしてください。")
 
     flow = get_flow()
@@ -1127,8 +784,6 @@ elif st.session_state.step == "connect":
         # InvalidGrantErrorになるケースがあった。
         state=json.dumps({
             "selected_categories": st.session_state.selected_categories,
-            "persona_key": st.session_state.diagnosis_result["persona_key"],
-            "severe_harm_probability": st.session_state.diagnosis_result["severe_harm_probability"],
             "code_verifier": flow.code_verifier,
         }),
     )
@@ -1173,16 +828,9 @@ elif st.session_state.step == "inbox":
     # ボタンを押さずに自動でコメント取得・判定まで実行する
     auto_run = (not videos_already_loaded) and not st.session_state.results_by_video
 
-    main_tab3, main_tab2, main_tab1 = st.tabs(
-        ["🧭 診断結果", "📊 動画分析", "📥 コメント欄(振り分け)"]
+    main_tab2, main_tab1 = st.tabs(
+        ["📊 動画分析", "📥 コメント欄(振り分け)"]
     )
-
-    with main_tab3:
-        result = st.session_state.get("diagnosis_result")
-        if result:
-            render_diagnosis_summary(result)
-        else:
-            st.info("診断結果が見つかりませんでした。お手数ですが、最初から診断をやり直してください。")
 
     with main_tab2:
         st.info("こちらは判定・振り分けとは完全に独立した分析専用のコメント取得です。選んだ動画のコメントを分析します。")
@@ -1557,3 +1205,204 @@ elif st.session_state.step == "inbox":
                         with tab:
                             render_grouped_comments(tabs[key_name], key_name, key_prefix=vid)
 
+    with main_tab2:
+        st.info("こちらは判定・振り分けとは完全に独立した分析専用のコメント取得です。選んだ動画のコメントを分析します。")
+
+        analysis_display_videos = st.session_state.videos
+        col_aa, col_bb = st.columns(2)
+        if col_aa.button("表示中をすべて選択", key="analysis_select_all", use_container_width=True):
+            for v in analysis_display_videos:
+                st.session_state.analysis_selected_video_ids.add(v["video_id"])
+            st.rerun()
+        if col_bb.button("表示中の選択を解除", key="analysis_deselect_all", use_container_width=True):
+            for v in analysis_display_videos:
+                st.session_state.analysis_selected_video_ids.discard(v["video_id"])
+            st.rerun()
+
+        for v in analysis_display_videos:
+            row = st.columns([1, 4])
+            with row[0]:
+                if v["thumbnail"]:
+                    st.image(v["thumbnail"])
+            with row[1]:
+                checked = st.checkbox(
+                    f"{v['title']}  \n:gray[{v['published_at'][:10]}]",
+                    value=v["video_id"] in st.session_state.analysis_selected_video_ids,
+                    key=f"analysis_vid_{v['video_id']}",
+                )
+                if checked:
+                    st.session_state.analysis_selected_video_ids.add(v["video_id"])
+                else:
+                    st.session_state.analysis_selected_video_ids.discard(v["video_id"])
+
+        analysis_selected_count = len(st.session_state.analysis_selected_video_ids)
+        st.caption(f"分析対象として選択中: {analysis_selected_count} / 最大{MAX_VIDEOS_PER_RUN}本")
+        analysis_disabled = (
+            analysis_selected_count == 0 or analysis_selected_count > MAX_VIDEOS_PER_RUN
+        )
+
+        if st.button(
+            "分析用にコメントを取得する", key="analysis_fetch_button",
+            use_container_width=True, disabled=analysis_disabled, type="primary",
+        ):
+            loaded_by_id = {v["video_id"]: v for v in st.session_state.videos}
+            analysis_target_videos = [
+                loaded_by_id[vid] for vid in st.session_state.analysis_selected_video_ids
+                if vid in loaded_by_id
+            ]
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+            analysis_results = {}
+            analysis_skipped = []
+            total = len(analysis_target_videos)
+            for idx, v in enumerate(analysis_target_videos, start=1):
+                status_text.text(f"{idx}/{total} 本目の動画を分析用に取得中... 「{v['title']}」")
+                try:
+                    comments = fetch_comments(
+                        st.session_state.credentials, v["video_id"], max_results=MAX_COMMENTS_PER_VIDEO
+                    )
+                except HttpError:
+                    analysis_skipped.append(v["title"])
+                    progress_bar.progress(idx / total)
+                    continue
+                classified = []
+                for i, c in enumerate(comments):
+                    result = classify_comment(c["text"])
+                    classified.append({**c, **result})
+                analysis_results[v["video_id"]] = {"title": v["title"], "classified": classified}
+                progress_bar.progress(idx / total)
+            status_text.text(f"処理が完了しました({total}本中{len(analysis_results)}本を確認しました)")
+            if analysis_skipped:
+                st.warning(
+                    "以下の動画はコメント欄が無効になっているか取得できなかったためスキップしました: "
+                    + "、".join(analysis_skipped)
+                )
+            st.session_state.analysis_results_by_video = analysis_results
+            st.session_state.action_suggestions = None
+
+        if st.session_state.analysis_results_by_video:
+            ALL_BUCKETS = CATEGORIES + ["非該当"]
+            category_texts = {b: [] for b in ALL_BUCKETS}
+            total_by_category = {b: 0 for b in ALL_BUCKETS}
+            per_video_category_counts = {}
+            for vid, data in st.session_state.analysis_results_by_video.items():
+                counts_this_video = {b: 0 for b in ALL_BUCKETS}
+                for c in data["classified"]:
+                    if c["judgement"] in ("該当", "グレー") and c["category"] in CATEGORIES:
+                        bucket = c["category"]
+                    elif c["judgement"] == "非該当":
+                        bucket = "非該当"
+                    else:
+                        continue
+                    category_texts[bucket].append(c["text"])
+                    total_by_category[bucket] += 1
+                    counts_this_video[bucket] += 1
+                per_video_category_counts[data["title"]] = counts_this_video
+
+            # --- 傾向レポート ---
+            st.divider()
+            st.markdown("### 📊 傾向レポート")
+            st.caption("コメント本文は表示しません。数字の傾向だけを確認できます。")
+
+            st.markdown("#### ① 今回処理した動画のカテゴリ内訳(応援コメント含む)")
+            st.caption("選択した動画すべてを合算した内訳です")
+            render_category_bar_chart(total_by_category, ALL_BUCKETS)
+
+            if len(per_video_category_counts) >= 2:
+                st.markdown("##### 動画ごとに分けて見る")
+                for video_title, counts in per_video_category_counts.items():
+                    with st.expander(video_title):
+                        render_category_bar_chart(counts, ALL_BUCKETS)
+
+            st.divider()
+            st.markdown("#### ② 同規模クリエイターとの比較")
+            st.caption(
+                "アンケート調査(n=213)における、5分類間の相対的な傾向との比較です。"
+                "調査は自己申告の被害頻度(5件法)を基にした相対シェアであり、"
+                "実際のコメント件数比率とは単位が異なる点にご留意ください。"
+            )
+            BENCHMARK_SHARE = {
+                "外見": 18.8,
+                "人間性": 20.0,
+                "活動クオリティ": 21.4,
+                "モラル・マナー説教": 19.3,
+                "プライバシー": 20.4,
+            }
+            anti_total = sum(total_by_category[c] for c in CATEGORIES) or 1
+            compare_rows = []
+            for cat, bench in BENCHMARK_SHARE.items():
+                you_pct = total_by_category[cat] / anti_total * 100
+                compare_rows.append({"カテゴリ": cat, "対象": "あなた", "割合": you_pct})
+                compare_rows.append({"カテゴリ": cat, "対象": "アンケート平均", "割合": bench})
+            compare_df = pd.DataFrame(compare_rows)
+
+            compare_chart = alt.Chart(compare_df).mark_bar(cornerRadiusEnd=3).encode(
+                y=alt.Y("カテゴリ:N", title=None, sort=list(BENCHMARK_SHARE.keys())),
+                x=alt.X("割合:Q", title="割合(%)"),
+                yOffset=alt.YOffset("対象:N", sort=["あなた", "アンケート平均"]),
+                color=alt.Color(
+                    "対象:N",
+                    scale=alt.Scale(domain=["あなた", "アンケート平均"], range=["#c1443c", "#b7bcc4"]),
+                    legend=alt.Legend(title=None, orient="top"),
+                ),
+                tooltip=[alt.Tooltip("カテゴリ:N"), alt.Tooltip("対象:N"), alt.Tooltip("割合:Q", format=".1f")],
+            ).properties(height=34 * len(BENCHMARK_SHARE))
+            st.altair_chart(compare_chart, use_container_width=True)
+
+            for cat, bench in BENCHMARK_SHARE.items():
+                you_pct = total_by_category[cat] / anti_total * 100
+                if you_pct > bench + 3:
+                    st.caption(f"⚠️ {cat}: 平均より高めの傾向です(あなた {you_pct:.1f}% / 平均 {bench}%)")
+                elif you_pct < bench - 3:
+                    st.caption(f"✓ {cat}: 平均より低めです(あなた {you_pct:.1f}% / 平均 {bench}%)")
+                else:
+                    st.caption(f"✓ {cat}: 平均並みです(あなた {you_pct:.1f}% / 平均 {bench}%)")
+
+            st.divider()
+            st.markdown("#### ③ 動画ごとの推移")
+            if len(per_video_category_counts) >= 2:
+                video_order = []
+                trend_rows = []
+                for video_title, counts in per_video_category_counts.items():
+                    short_title = video_title if len(video_title) <= 18 else video_title[:18] + "…"
+                    video_order.append(short_title)
+                    for b in ALL_BUCKETS:
+                        trend_rows.append({
+                            "動画": short_title,
+                            "full_title": video_title,
+                            "カテゴリ": "応援コメント(非該当)" if b == "非該当" else b,
+                            "color_key": b,
+                            "件数": counts[b],
+                        })
+                trend_df = pd.DataFrame(trend_rows)
+                trend_chart = alt.Chart(trend_df).mark_bar().encode(
+                    x=alt.X("動画:N", title=None, sort=video_order, axis=alt.Axis(labelAngle=-30)),
+                    y=alt.Y("件数:Q", title="件数"),
+                    color=alt.Color(
+                        "color_key:N",
+                        scale=alt.Scale(domain=list(CATEGORY_COLORS.keys()), range=list(CATEGORY_COLORS.values())),
+                        legend=alt.Legend(title=None),
+                    ),
+                    order=alt.Order("color_key:N"),
+                    tooltip=[alt.Tooltip("full_title:N", title="動画"), alt.Tooltip("カテゴリ:N"), alt.Tooltip("件数:Q")],
+                ).properties(height=320)
+                st.altair_chart(trend_chart, use_container_width=True)
+            else:
+                st.caption("推移を見るには2本以上の動画を分析してください。")
+
+            # --- 次のアクション(リクエスト・改善提案の抽出) ---
+            st.divider()
+            st.markdown("### 💡 次のアクション")
+            st.caption("コメントの中から「次にしてほしい企画」「建設的な改善提案」だけをAIが抽出します。個人攻撃や単なる感想は無視されます。")
+
+            all_comment_texts = [t for texts in category_texts.values() for t in texts]
+
+            if st.button("次のアクションを抽出する", key="gen_action_suggestions", type="primary"):
+                with st.spinner("AIがコメントからリクエスト・改善提案を探しています…"):
+                    try:
+                        st.session_state.action_suggestions = extract_action_suggestions(all_comment_texts)
+                    except Exception as e:
+                        st.session_state.action_suggestions = f"抽出に失敗しました: {e}"
+
+            if st.session_state.action_suggestions:
+                render_speech_bubble(st.session_state.action_suggestions, avatar="💡")
