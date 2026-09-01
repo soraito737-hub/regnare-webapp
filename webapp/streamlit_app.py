@@ -27,7 +27,6 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from google import genai
 from google.genai import types
-import pandas as pd
 import altair as alt
 
 # modulus/ 配下の判定モジュール(LLMベース)をimportできるようにする
@@ -114,7 +113,7 @@ def render_step_indicator(current_step: str) -> None:
     st.markdown(" ".join(pills), unsafe_allow_html=True)
 
 
-_RISK_BADGE_COLORS = {"低": "#3F8F63", "注意": "#C98A1B", "やや高め": "#C98A1B", "高": "#C2483D"}
+_RISK_BADGE_COLORS = {"低": "#2F6F55", "注意": "#8F5F0C", "やや高め": "#8F5F0C", "高": "#A13327"}
 
 
 def render_risk_badge(level: str) -> str:
@@ -127,6 +126,16 @@ def render_risk_badge(level: str) -> str:
 
 
 CATEGORIES = ["外見", "人間性", "活動クオリティ", "モラル・マナー説教", "プライバシー"]
+
+
+def similarity_label(similarity: float) -> str:
+    """AIの類似度スコアを「高/中/低」の一致度ラベルに変換する(表示専用)。"""
+    if similarity >= THRESHOLD_MATCH:
+        return "高"
+    if similarity >= THRESHOLD_GRAY:
+        return "中"
+    return "低"
+
 
 CATEGORY_COLORS = {
     "外見": "#e07a5f",
@@ -310,29 +319,57 @@ PERSONA_PROFILES = {
 }
 
 PERSONA_ORDER = ["private_fan", "light", "visual", "assertive"]
+PERSONA_COLORS = {
+    "light": "#E8F2FA",
+    "private_fan": "#7FB3D9",
+    "visual": "#2E75B6",
+    "assertive": "#082C45",
+}
+RANK_MARKERS = ["①", "②", "③"]
 
 # 被害タイプ別のクラスター平均値(アンケート「グループ統計量」より、n=213)
 HARM_ITEM_STATS = {
     "appearance": {"label": "外見に関する批判コメント", "means": {1: 2.00, 2: 1.22, 3: 2.03, 4: 2.43}},
     "humanity": {"label": "人格を否定するようなコメント", "means": {1: 1.78, 2: 1.69, 3: 1.83, 4: 2.71}},
-    "distortion": {"label": "発言の文脈を歪められる", "means": {1: 1.31, 2: 1.24, 3: 1.31, 4: 1.88}},
+    "distortion": {"label": "発言を切り取られて叩かれる", "means": {1: 1.31, 2: 1.24, 3: 1.31, 4: 1.88}},
     "enjoying": {"label": "炎上・反応を面白がられる", "means": {1: 1.42, 2: 1.28, 3: 1.41, 4: 2.12}},
     "violent": {"label": "暴力的・攻撃的なコメント", "means": {1: 1.69, 2: 1.57, 3: 1.56, 4: 2.16}},
     "curated_site": {"label": "まとめサイト等への晒し", "means": {1: 1.42, 2: 1.22, 3: 1.42, 4: 1.94}},
-    "sabotage": {"label": "活動の妨害行為", "means": {1: 1.19, 2: 1.06, 3: 1.25, 4: 1.63}},
+    "sabotage": {"label": "配信・活動を妨害される(通報祭りや荒らしなど)", "means": {1: 1.19, 2: 1.06, 3: 1.25, 4: 1.63}},
 }
 
 
 def render_harm_comparison_chart(item_keys: list[str]) -> None:
     """指定した被害項目について、4タイプの平均値を並べた棒グラフを表示する(表示専用)。"""
-    rows = {}
+    persona_names = [PERSONA_PROFILES[p]["name"] for p in PERSONA_ORDER]
+    records = []
+    max_score = 0.0
     for key in item_keys:
         item = HARM_ITEM_STATS[key]
-        rows[item["label"]] = {
-            PERSONA_PROFILES[p]["name"]: item["means"][PERSONA_PROFILES[p]["cluster_id"]]
-            for p in PERSONA_ORDER
-        }
-    st.bar_chart(pd.DataFrame(rows).T, stack=False)
+        for p in PERSONA_ORDER:
+            score = item["means"][PERSONA_PROFILES[p]["cluster_id"]]
+            max_score = max(max_score, score)
+            records.append({"item": item["label"], "persona": PERSONA_PROFILES[p]["name"], "score": score})
+
+    chart = (
+        alt.Chart(pd.DataFrame(records))
+        .mark_bar(stroke="#1F2A2E", strokeWidth=0.6)
+        .encode(
+            x=alt.X("item:N", title=None, sort=[HARM_ITEM_STATS[k]["label"] for k in item_keys], axis=alt.Axis(labelAngle=0)),
+            xOffset=alt.XOffset("persona:N", sort=persona_names),
+            y=alt.Y(
+                "score:Q", title="被害の多さ(平均点)",
+                scale=alt.Scale(domain=[0, max_score * 1.15]),
+                axis=alt.Axis(tickCount=4, format=".1f"),
+            ),
+            color=alt.Color(
+                "persona:N", title=None, sort=persona_names,
+                scale=alt.Scale(domain=persona_names, range=[PERSONA_COLORS[p] for p in PERSONA_ORDER]),
+            ),
+            tooltip=[alt.Tooltip("item:N", title="項目"), alt.Tooltip("persona:N", title="タイプ"), alt.Tooltip("score:Q", title="平均スコア", format=".2f")],
+        )
+    )
+    st.altair_chart(chart, use_container_width=True)
     st.caption("数値はアンケート回答の平均スコアで、高いほど該当する被害が多い傾向を示します。")
 
 
@@ -358,8 +395,9 @@ def render_persona_harm_detail(persona_key: str) -> None:
         return
 
     st.write("来やすい被害の傾向トップ3")
-    for key in persona["harm_top3_keys"]:
-        st.write(f"- {HARM_ITEM_STATS[key]['label']}")
+    for rank, key in enumerate(persona["harm_top3_keys"]):
+        marker = RANK_MARKERS[rank] if rank < len(RANK_MARKERS) else f"{rank + 1}."
+        st.markdown(f"**{marker}** {HARM_ITEM_STATS[key]['label']}")
     render_harm_comparison_chart(persona["harm_top3_keys"])
     st.write(persona["tendency_text"])
 
@@ -695,6 +733,7 @@ def render_comment_card(c: dict, key_name: str) -> None:
         if c.get("reason") and c["judgement"] != "非該当":
             st.caption(f"💭 {c['reason']}")
         if key_name == "確認待ち":
+            st.caption("この投稿の振り分け")
             col1, col2 = st.columns(2)
             if col1.button("🙅 見たくない", key=f"want_{c['comment_key']}"):
                 st.session_state.hidden_comment_ids.add(c["comment_key"])
@@ -702,10 +741,12 @@ def render_comment_card(c: dict, key_name: str) -> None:
             if col2.button("✅ 問題ない", key=f"ok_{c['comment_key']}", type="primary"):
                 st.session_state.ok_comment_ids.add(c["comment_key"])
                 st.rerun()
+            st.divider()
 
         # --- YouTube上での操作(非表示・返信) すべてのコメントに表示 ---
         comment_id = c.get("comment_id")
         if comment_id:
+            st.caption("YouTube上の操作")
             yt_hidden = comment_id in st.session_state.youtube_hidden_comment_ids
             yt_replied = comment_id in st.session_state.youtube_replied_comment_ids
 
