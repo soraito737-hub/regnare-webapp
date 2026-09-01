@@ -18,11 +18,15 @@ import json
 import math
 import re
 import sys
+import time
+import concurrent.futures
 from pathlib import Path
 from collections import Counter
 
 import streamlit as st
 from google_auth_oauthlib.flow import Flow
+import httplib2
+import google_auth_httplib2
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from google import genai
@@ -32,6 +36,7 @@ import altair as alt
 # modulus/ 配下の判定モジュール(LLMベース)をimportできるようにする
 sys.path.insert(0, str(Path(__file__).parent.parent / "modulus"))
 from hybrid_classifier import HybridClassifier
+from user_feedback import save_feedback_entry
 
 # ============ 設定 ============
 SCOPES = ["https://www.googleapis.com/auth/youtube.force-ssl"]
@@ -587,6 +592,35 @@ def classify_comment(text: str) -> dict:
         "source": result.source,
     }
 
+
+def classify_comment_safe(text: str) -> dict:
+    """classify_commentを実行し、リトライしても失敗した場合は「グレー」に倒して処理を止めない
+    (通信エラー1件で全体がクラッシュしないようにするため)。"""
+    try:
+        return classify_comment(text)
+    except Exception as e:
+        return {
+            "category": None,
+            "judgement": "グレー",
+            "reason": f"判定中にエラーが発生したため、確認のためグレーゾーンに振り分けました({e})",
+            "source": "error",
+        }
+
+
+def classify_comments_parallel(texts: list[str], status_text=None, max_workers: int = 6) -> list[dict]:
+    """複数コメントを並列に判定する(逐次実行より数倍速い)。順序はtextsと対応させて返す。"""
+    results: list[dict] = [{}] * len(texts)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_to_idx = {executor.submit(classify_comment_safe, t): i for i, t in enumerate(texts)}
+        done = 0
+        for future in concurrent.futures.as_completed(future_to_idx):
+            idx = future_to_idx[future]
+            results[idx] = future.result()
+            done += 1
+            if status_text is not None:
+                status_text.text(f"判定中...（{done}/{len(texts)}件）")
+    return results
+
 # ============ YouTube OAuth (Web版) ============
 def get_flow():
     client_config = {
@@ -602,11 +636,41 @@ def get_flow():
         client_config, scopes=SCOPES, redirect_uri=st.secrets["REDIRECT_URI"], autogenerate_code_verifier=False
     )
 
+
+def build_youtube_service(credentials, timeout: int = 30):
+    """タイムアウト付きでYouTube APIクライアントを作る。
+    google-api-python-clientの標準経路(build(credentials=...))は内部のhttplib2に
+    タイムアウトが設定されず、通信が詰まると画面が「処理中」のまま無限に固まるため。"""
+    authed_http = google_auth_httplib2.AuthorizedHttp(credentials, http=httplib2.Http(timeout=timeout))
+    return build("youtube", "v3", http=authed_http, cache_discovery=False)
+
+
+def execute_with_retry(request, max_retries: int = 4):
+    """通信の一時的な失敗(タイムアウト・5xx・レート制限)に対して指数バックオフで再試行する。
+    1回失敗しただけで動画をスキップしてしまわないようにするため。"""
+    for attempt in range(max_retries):
+        try:
+            return request.execute()
+        except HttpError as e:
+            if e.resp.status in (429, 500, 503) and attempt < max_retries - 1:
+                time.sleep(5 * (attempt + 1))
+                continue
+            raise
+        except OSError:
+            # socket.timeout・ssl.SSLErrorなど、通信が詰まった/切れた場合
+            if attempt < max_retries - 1:
+                time.sleep(5 * (attempt + 1))
+                continue
+            raise
+
+
 def fetch_comments(credentials, video_id: str, max_results: int = 20) -> list[dict]:
-    service = build("youtube", "v3", credentials=credentials)
+    service = build_youtube_service(credentials)
     comments = []
     page_token = None
-    while len(comments) < max_results:
+    for _ in range(50):  # ページ送りの上限(1ページ最大100件なので通常は数ページで足りる、無限ループ防止の保険)
+        if len(comments) >= max_results:
+            break
         request = service.commentThreads().list(
             part="snippet",
             videoId=video_id,
@@ -614,7 +678,7 @@ def fetch_comments(credentials, video_id: str, max_results: int = 20) -> list[di
             textFormat="plainText",
             pageToken=page_token,
         )
-        response = request.execute()
+        response = execute_with_retry(request)
         for item in response.get("items", []):
             top_comment = item["snippet"]["topLevelComment"]
             snippet = top_comment["snippet"]
@@ -632,13 +696,14 @@ def fetch_comments(credentials, video_id: str, max_results: int = 20) -> list[di
 def hide_comment_on_youtube(credentials, comment_id: str) -> None:
     """指定コメントをYouTube上で保留(heldForReview)にする。
     一般公開のコメント欄からは見えなくなるが、YouTube Studio上で本人がいつでも取り消せる。"""
-    service = build("youtube", "v3", credentials=credentials)
-    service.comments().setModerationStatus(id=comment_id, moderationStatus="heldForReview").execute()
+    service = build_youtube_service(credentials)
+    execute_with_retry(service.comments().setModerationStatus(id=comment_id, moderationStatus="heldForReview"))
 
 
 def reply_to_comment_on_youtube(credentials, comment_id: str, reply_text: str) -> None:
     """指定コメントに返信を投稿する。"""
-    service = build("youtube", "v3", credentials=credentials)
+    service = build_youtube_service(credentials)
+    # 返信投稿は再試行すると二重投稿になりうるため、あえてリトライしない
     service.comments().insert(
         part="snippet",
         body={"snippet": {"parentId": comment_id, "textOriginal": reply_text}},
@@ -647,8 +712,8 @@ def reply_to_comment_on_youtube(credentials, comment_id: str, reply_text: str) -
 
 def get_channel_info(credentials) -> dict | None:
     """ログインユーザー自身のチャンネルID・アップロード済み動画プレイリストIDを取得"""
-    service = build("youtube", "v3", credentials=credentials)
-    resp = service.channels().list(part="contentDetails", mine=True).execute()
+    service = build_youtube_service(credentials)
+    resp = execute_with_retry(service.channels().list(part="contentDetails", mine=True))
     items = resp.get("items", [])
     if not items:
         return None
@@ -661,13 +726,13 @@ def get_channel_info(credentials) -> dict | None:
 def list_channel_videos(credentials, playlist_id: str, page_token: str | None = None,
                          max_results: int = VIDEOS_PAGE_SIZE) -> tuple[list[dict], str | None]:
     """アップロード済み動画一覧を新しい順に取得(低クォータ)"""
-    service = build("youtube", "v3", credentials=credentials)
-    resp = service.playlistItems().list(
+    service = build_youtube_service(credentials)
+    resp = execute_with_retry(service.playlistItems().list(
         part="snippet",
         playlistId=playlist_id,
         maxResults=max_results,
         pageToken=page_token,
-    ).execute()
+    ))
     videos = []
     for item in resp.get("items", []):
         sn = item["snippet"]
@@ -686,15 +751,15 @@ def list_channel_videos(credentials, playlist_id: str, page_token: str | None = 
 def search_channel_videos(credentials, channel_id: str, query: str,
                            max_results: int = VIDEOS_PAGE_SIZE) -> list[dict]:
     """タイトルキーワードで動画を検索(高クォータのため明示検索時のみ使用)"""
-    service = build("youtube", "v3", credentials=credentials)
-    resp = service.search().list(
+    service = build_youtube_service(credentials)
+    resp = execute_with_retry(service.search().list(
         part="snippet",
         channelId=channel_id,
         q=query,
         type="video",
         order="date",
         maxResults=max_results,
-    ).execute()
+    ))
     videos = []
     for item in resp.get("items", []):
         sn = item["snippet"]
@@ -707,7 +772,7 @@ def search_channel_videos(credentials, channel_id: str, query: str,
     return videos
 
 def render_comment_card(c: dict, key_name: str) -> None:
-    """コメント1件をカードとして表示する(見たくないタブの伏せ字表示、確認待ちの判断ボタン、
+    """コメント1件をカードとして表示する(見たくないタブの伏せ字表示、グレーゾーンの判断ボタン、
     YouTube上での非表示・返信操作を含む)。"""
     with st.container(border=True):
         st.write(f"**{c['author']}**")
@@ -732,14 +797,18 @@ def render_comment_card(c: dict, key_name: str) -> None:
             st.caption(f"カテゴリ: {c['category']}")
         if c.get("reason") and c["judgement"] != "非該当":
             st.caption(f"💭 {c['reason']}")
-        if key_name == "確認待ち":
-            st.caption("この投稿の振り分け")
+        if key_name == "グレーゾーン":
+            st.caption("この投稿の振り分け(次回以降、似た文言は自動で同じ判断になります)")
             col1, col2 = st.columns(2)
             if col1.button("🙅 見たくない", key=f"want_{c['comment_key']}"):
                 st.session_state.hidden_comment_ids.add(c["comment_key"])
+                save_feedback_entry(c["text"], "見たくない", c["category"])
+                get_hybrid_classifier.clear()
                 st.rerun()
             if col2.button("✅ 問題ない", key=f"ok_{c['comment_key']}", type="primary"):
                 st.session_state.ok_comment_ids.add(c["comment_key"])
+                save_feedback_entry(c["text"], "問題ない", c["category"])
+                get_hybrid_classifier.clear()
                 st.rerun()
             st.divider()
 
@@ -932,7 +1001,7 @@ if st.session_state.step == "intro":
         ),
         (
             "④", "📥", "コメントが自動で振り分けられる",
-            "選んだ動画のコメントをAIが判定し、「通常」「確認待ち」「見たくない」の3つに自動で仕分けます。",
+            "選んだ動画のコメントをAIが判定し、「通常」「グレーゾーン」「見たくない」の3つに自動で仕分けます。",
             "→ わかること: 見たくないカテゴリのコメントは本文が伏せられ、あなたが「見る」を選ぶまで表示されません。"
             "さらに、動画分析タブでは傾向のグラフや、AIによる改善提案も見られます。",
         ),
@@ -1239,19 +1308,22 @@ elif st.session_state.step == "inbox":
                     comments = fetch_comments(
                         st.session_state.credentials, v["video_id"], max_results=MAX_COMMENTS_PER_VIDEO
                     )
-                except HttpError as e:
+                except (HttpError, OSError) as e:
+                    # OSErrorはsocket.timeout/ssl.SSLErrorなど、通信が詰まって
+                    # タイムアウトした場合を含む(build_youtube_serviceのtimeout設定により発生しうる)
                     skipped_videos.append(v["title"])
                     progress_bar.progress(idx / total)
                     continue
-                classified = []
-                for i, c in enumerate(comments):
-                    result = classify_comment(c["text"])
-                    classified.append({
+                results = classify_comments_parallel([c["text"] for c in comments], status_text=status_text)
+                classified = [
+                    {
                         **c, **result,
                         "comment_key": f"{v['video_id']}_{i}_{c['text'][:30]}",
                         "video_id": v["video_id"],
                         "video_title": v["title"],
-                    })
+                    }
+                    for i, (c, result) in enumerate(zip(comments, results))
+                ]
                 results_by_video[v["video_id"]] = {"title": v["title"], "classified": classified}
                 progress_bar.progress(idx / total)
             status_text.text(f"処理が完了しました({total}本中{len(results_by_video)}本を確認しました)")
@@ -1278,15 +1350,15 @@ elif st.session_state.step == "inbox":
                 if key in ok_ids:
                     return "通常"
                 if c["judgement"] == "グレー":
-                    return "確認待ち"
+                    return "グレーゾーン"
                 if c["judgement"] == "該当" and c["category"] in selected_categories:
                     return "見たくない"
                 return "通常"
 
-            total_counts = {"通常": 0, "確認待ち": 0, "見たくない": 0}
+            total_counts = {"通常": 0, "グレーゾーン": 0, "見たくない": 0}
             per_video_tabs = {}
             for vid, data in st.session_state.results_by_video.items():
-                tabs = {"通常": [], "確認待ち": [], "見たくない": []}
+                tabs = {"通常": [], "グレーゾーン": [], "見たくない": []}
                 for c in data["classified"]:
                     bucket = route_comment(c)
                     tabs[bucket].append(c)
@@ -1297,7 +1369,7 @@ elif st.session_state.step == "inbox":
             st.markdown("### 全体サマリー")
             s1, s2, s3 = st.columns(3)
             s1.metric("✅ 通常", total_counts["通常"])
-            s2.metric("⏳ 確認待ち", total_counts["確認待ち"])
+            s2.metric("⏳ グレーゾーン", total_counts["グレーゾーン"])
             s3.metric("🙈 見たくない", total_counts["見たくない"])
 
             st.markdown("#### 動画ごとの件数内訳")
@@ -1305,7 +1377,7 @@ elif st.session_state.step == "inbox":
                 t = per_video_tabs[vid]
                 st.write(
                     f"**{data['title']}** — "
-                    f"✅ 通常:{len(t['通常'])} / ⏳ 確認待ち:{len(t['確認待ち'])} / 🙈 見たくない:{len(t['見たくない'])}"
+                    f"✅ 通常:{len(t['通常'])} / ⏳ グレーゾーン:{len(t['グレーゾーン'])} / 🙈 見たくない:{len(t['見たくない'])}"
                 )
 
             st.divider()
@@ -1315,10 +1387,10 @@ elif st.session_state.step == "inbox":
                 with st.expander(data["title"]):
                     tab1, tab2, tab3 = st.tabs([
                         f"✅ 通常 ({len(tabs['通常'])})",
-                        f"⏳ 確認待ち ({len(tabs['確認待ち'])})",
+                        f"⏳ グレーゾーン ({len(tabs['グレーゾーン'])})",
                         f"🙈 見たくない ({len(tabs['見たくない'])})",
                     ])
-                    for tab, key_name in zip([tab1, tab2, tab3], ["通常", "確認待ち", "見たくない"]):
+                    for tab, key_name in zip([tab1, tab2, tab3], ["通常", "グレーゾーン", "見たくない"]):
                         with tab:
                             render_grouped_comments(tabs[key_name], key_name, key_prefix=vid)
 
@@ -1378,14 +1450,12 @@ elif st.session_state.step == "inbox":
                     comments = fetch_comments(
                         st.session_state.credentials, v["video_id"], max_results=MAX_COMMENTS_PER_VIDEO
                     )
-                except HttpError:
+                except (HttpError, OSError):
                     analysis_skipped.append(v["title"])
                     progress_bar.progress(idx / total)
                     continue
-                classified = []
-                for i, c in enumerate(comments):
-                    result = classify_comment(c["text"])
-                    classified.append({**c, **result})
+                results = classify_comments_parallel([c["text"] for c in comments], status_text=status_text)
+                classified = [{**c, **result} for c, result in zip(comments, results)]
                 analysis_results[v["video_id"]] = {"title": v["title"], "classified": classified}
                 progress_bar.progress(idx / total)
             status_text.text(f"処理が完了しました({total}本中{len(analysis_results)}本を確認しました)")
