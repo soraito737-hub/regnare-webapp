@@ -17,6 +17,7 @@ import html
 import json
 import math
 import re
+import sys
 from pathlib import Path
 from collections import Counter
 
@@ -28,7 +29,10 @@ from google import genai
 from google.genai import types
 import pandas as pd
 import altair as alt
-from sklearn.metrics.pairwise import cosine_similarity
+
+# modulus/ 配下の判定モジュール(LLMベース)をimportできるようにする
+sys.path.insert(0, str(Path(__file__).parent.parent / "modulus"))
+from hybrid_classifier import HybridClassifier
 
 # ============ 設定 ============
 SCOPES = ["https://www.googleapis.com/auth/youtube.force-ssl"]
@@ -123,8 +127,6 @@ def render_risk_badge(level: str) -> str:
 
 
 CATEGORIES = ["外見", "人間性", "活動クオリティ", "モラル・マナー説教", "プライバシー"]
-THRESHOLD_MATCH = 0.60
-THRESHOLD_GRAY = 0.45
 
 CATEGORY_COLORS = {
     "外見": "#e07a5f",
@@ -478,12 +480,7 @@ def extract_video_id(text: str) -> str:
 
     return text
 
-# ============ 判定モジュール(Gemini Embedding) ============
-def load_training_data():
-    path = Path(__file__).parent / "training_examples.json"
-    with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
-
+# ============ 判定モジュール(modulus/のLLMベース判定を利用) ============
 def get_gemini_client():
     return genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
 
@@ -533,49 +530,21 @@ def extract_action_suggestions(comments_texts: list[str]) -> str:
     )
     return response.text
 
-@st.cache_data(show_spinner=False)
-def embed_text(text: str) -> list[float]:
-    client = get_gemini_client()
-    result = client.models.embed_content(
-        model="gemini-embedding-001",
-        contents=text,
-        config=types.EmbedContentConfig(task_type="SEMANTIC_SIMILARITY"),
-    )
-    return result.embeddings[0].values
+@st.cache_resource(show_spinner=False)
+def get_hybrid_classifier() -> HybridClassifier:
+    """LLM判定＋ユーザーフィードバック記憶を組み合わせた判定器を、プロセス内で使い回す。"""
+    classifier = HybridClassifier(api_key=st.secrets["GEMINI_API_KEY"])
+    classifier.fit()
+    return classifier
 
-def build_category_vectors():
-    training = load_training_data()
-    vectors = {}
-    for category, examples in training.items():
-        vectors[category] = [embed_text(ex) for ex in examples]
-    return vectors
 
 def classify_comment(text: str) -> dict:
-    training = load_training_data()
-    category_vectors = build_category_vectors()
-    comment_vector = embed_text(text)
-    best_category, best_similarity, best_example = None, -1.0, None
-    for category, vectors in category_vectors.items():
-        sims = cosine_similarity([comment_vector], vectors)[0]
-        idx = sims.argmax()
-        if sims[idx] > best_similarity:
-            best_similarity = sims[idx]
-            best_category = category
-            best_example = training[category][idx]
-
-    if best_category == "非該当":
-        judgement = "非該当"
-    elif best_similarity >= THRESHOLD_MATCH:
-        judgement = "該当"
-    elif best_similarity >= THRESHOLD_GRAY:
-        judgement = "グレー"
-    else:
-        judgement = "非該当"
+    result = get_hybrid_classifier().classify(text)
     return {
-        "category": best_category,
-        "similarity": float(best_similarity),
-        "judgement": judgement,
-        "matched_example": best_example,
+        "category": result.category,
+        "judgement": result.judgement,
+        "reason": result.reason,
+        "source": result.source,
     }
 
 # ============ YouTube OAuth (Web版) ============
@@ -720,7 +689,9 @@ def render_comment_card(c: dict, key_name: str) -> None:
         else:
             st.write(c["text"])
         if c["category"]:
-            st.caption(f"カテゴリ: {c['category']} / 類似度: {c['similarity']:.2f}")
+            st.caption(f"カテゴリ: {c['category']}")
+        if c.get("reason") and c["judgement"] != "非該当":
+            st.caption(f"💭 {c['reason']}")
         if key_name == "確認待ち":
             col1, col2 = st.columns(2)
             if col1.button("🙅 見たくない", key=f"want_{c['comment_key']}"):
