@@ -616,9 +616,6 @@ if "analysis_results_by_video" not in st.session_state:
 if "action_suggestions" not in st.session_state:
     st.session_state.action_suggestions = None
 
-st.title("レグナレ")
-st.caption("コメント欄 — Regnare")
-
 # ============ OAuthコールバック処理 ============
 query_params = st.query_params
 if "code" in query_params and st.session_state.credentials is None:
