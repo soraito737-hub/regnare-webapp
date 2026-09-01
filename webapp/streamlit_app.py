@@ -616,7 +616,7 @@ if "analysis_results_by_video" not in st.session_state:
 if "action_suggestions" not in st.session_state:
     st.session_state.action_suggestions = None
 
-st.title("🛡️ レグナレ")
+st.title("レグナレ")
 st.caption("コメント欄 — Regnare")
 
 # ============ OAuthコールバック処理 ============
