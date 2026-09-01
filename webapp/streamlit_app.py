@@ -884,25 +884,41 @@ st.caption("コメント欄 — Regnare")
 # ============ OAuthコールバック処理 ============
 query_params = st.query_params
 if "code" in query_params and st.session_state.credentials is None:
-    flow = get_flow()
-    flow.code_verifier = st.session_state.get("code_verifier")
-    flow.fetch_token(code=query_params["code"])
-    st.session_state.credentials = flow.credentials
-
     # OAuthリダイレクトでsession_stateがリセットされるケースに備え、
-    # stateパラメータに乗せておいたselected_categories/診断結果を復元する
+    # stateパラメータに乗せておいたcode_verifier/selected_categories/診断結果を先に復元する
+    restored = {}
     if "state" in query_params:
         try:
-            restored = json.loads(query_params["state"])
-            if isinstance(restored, dict):
-                if isinstance(restored.get("selected_categories"), list):
-                    st.session_state.selected_categories = restored["selected_categories"]
-                persona_key = restored.get("persona_key")
-                probability = restored.get("severe_harm_probability")
-                if persona_key in PERSONA_PROFILES and isinstance(probability, (int, float)):
-                    st.session_state.diagnosis_result = build_diagnosis_result(persona_key, probability)
+            parsed = json.loads(query_params["state"])
+            if isinstance(parsed, dict):
+                restored = parsed
         except (json.JSONDecodeError, TypeError):
             pass
+
+    flow = get_flow()
+    flow.code_verifier = restored.get("code_verifier") or st.session_state.get("code_verifier")
+
+    try:
+        flow.fetch_token(code=query_params["code"])
+    except Exception:
+        st.error(
+            "Googleとの連携に失敗しました。認証コードの有効期限切れ、または二重送信の可能性があります。"
+            "お手数ですが、最初からもう一度ログインをお試しください。"
+        )
+        st.query_params.clear()
+        if st.button("最初からやり直す", use_container_width=True):
+            st.session_state.step = "connect"
+            st.rerun()
+        st.stop()
+
+    st.session_state.credentials = flow.credentials
+
+    if isinstance(restored.get("selected_categories"), list):
+        st.session_state.selected_categories = restored["selected_categories"]
+    persona_key = restored.get("persona_key")
+    probability = restored.get("severe_harm_probability")
+    if persona_key in PERSONA_PROFILES and isinstance(probability, (int, float)):
+        st.session_state.diagnosis_result = build_diagnosis_result(persona_key, probability)
 
     st.query_params.clear()
     st.session_state.step = "inbox"
@@ -993,10 +1009,14 @@ elif st.session_state.step == "connect":
     auth_url, _ = flow.authorization_url(
         prompt="consent",
         access_type="offline",
+        # code_verifierもstateに乗せて渡す。session_stateはOAuthリダイレクトで
+        # リセットされることがあるため、session_state頼みだとPKCE検証が失敗し
+        # InvalidGrantErrorになるケースがあった。
         state=json.dumps({
             "selected_categories": st.session_state.selected_categories,
             "persona_key": st.session_state.diagnosis_result["persona_key"],
             "severe_harm_probability": st.session_state.diagnosis_result["severe_harm_probability"],
+            "code_verifier": flow.code_verifier,
         }),
     )
     st.session_state.code_verifier = flow.code_verifier
