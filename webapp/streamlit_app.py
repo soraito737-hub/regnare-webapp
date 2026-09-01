@@ -24,6 +24,8 @@ from collections import Counter
 
 import streamlit as st
 from google_auth_oauthlib.flow import Flow
+import httplib2
+import google_auth_httplib2
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from google import genai
@@ -633,11 +635,22 @@ def get_flow():
         client_config, scopes=SCOPES, redirect_uri=st.secrets["REDIRECT_URI"], autogenerate_code_verifier=False
     )
 
+
+def build_youtube_service(credentials, timeout: int = 30):
+    """タイムアウト付きでYouTube APIクライアントを作る。
+    google-api-python-clientの標準経路(build(credentials=...))は内部のhttplib2に
+    タイムアウトが設定されず、通信が詰まると画面が「処理中」のまま無限に固まるため。"""
+    authed_http = google_auth_httplib2.AuthorizedHttp(credentials, http=httplib2.Http(timeout=timeout))
+    return build("youtube", "v3", http=authed_http, cache_discovery=False)
+
+
 def fetch_comments(credentials, video_id: str, max_results: int = 20) -> list[dict]:
-    service = build("youtube", "v3", credentials=credentials)
+    service = build_youtube_service(credentials)
     comments = []
     page_token = None
-    while len(comments) < max_results:
+    for _ in range(50):  # ページ送りの上限(1ページ最大100件なので通常は数ページで足りる、無限ループ防止の保険)
+        if len(comments) >= max_results:
+            break
         request = service.commentThreads().list(
             part="snippet",
             videoId=video_id,
@@ -663,13 +676,13 @@ def fetch_comments(credentials, video_id: str, max_results: int = 20) -> list[di
 def hide_comment_on_youtube(credentials, comment_id: str) -> None:
     """指定コメントをYouTube上で保留(heldForReview)にする。
     一般公開のコメント欄からは見えなくなるが、YouTube Studio上で本人がいつでも取り消せる。"""
-    service = build("youtube", "v3", credentials=credentials)
+    service = build_youtube_service(credentials)
     service.comments().setModerationStatus(id=comment_id, moderationStatus="heldForReview").execute()
 
 
 def reply_to_comment_on_youtube(credentials, comment_id: str, reply_text: str) -> None:
     """指定コメントに返信を投稿する。"""
-    service = build("youtube", "v3", credentials=credentials)
+    service = build_youtube_service(credentials)
     service.comments().insert(
         part="snippet",
         body={"snippet": {"parentId": comment_id, "textOriginal": reply_text}},
@@ -678,7 +691,7 @@ def reply_to_comment_on_youtube(credentials, comment_id: str, reply_text: str) -
 
 def get_channel_info(credentials) -> dict | None:
     """ログインユーザー自身のチャンネルID・アップロード済み動画プレイリストIDを取得"""
-    service = build("youtube", "v3", credentials=credentials)
+    service = build_youtube_service(credentials)
     resp = service.channels().list(part="contentDetails", mine=True).execute()
     items = resp.get("items", [])
     if not items:
@@ -692,7 +705,7 @@ def get_channel_info(credentials) -> dict | None:
 def list_channel_videos(credentials, playlist_id: str, page_token: str | None = None,
                          max_results: int = VIDEOS_PAGE_SIZE) -> tuple[list[dict], str | None]:
     """アップロード済み動画一覧を新しい順に取得(低クォータ)"""
-    service = build("youtube", "v3", credentials=credentials)
+    service = build_youtube_service(credentials)
     resp = service.playlistItems().list(
         part="snippet",
         playlistId=playlist_id,
@@ -717,7 +730,7 @@ def list_channel_videos(credentials, playlist_id: str, page_token: str | None = 
 def search_channel_videos(credentials, channel_id: str, query: str,
                            max_results: int = VIDEOS_PAGE_SIZE) -> list[dict]:
     """タイトルキーワードで動画を検索(高クォータのため明示検索時のみ使用)"""
-    service = build("youtube", "v3", credentials=credentials)
+    service = build_youtube_service(credentials)
     resp = service.search().list(
         part="snippet",
         channelId=channel_id,
@@ -1274,7 +1287,9 @@ elif st.session_state.step == "inbox":
                     comments = fetch_comments(
                         st.session_state.credentials, v["video_id"], max_results=MAX_COMMENTS_PER_VIDEO
                     )
-                except HttpError as e:
+                except (HttpError, OSError) as e:
+                    # OSErrorはsocket.timeout/ssl.SSLErrorなど、通信が詰まって
+                    # タイムアウトした場合を含む(build_youtube_serviceのtimeout設定により発生しうる)
                     skipped_videos.append(v["title"])
                     progress_bar.progress(idx / total)
                     continue
@@ -1414,7 +1429,7 @@ elif st.session_state.step == "inbox":
                     comments = fetch_comments(
                         st.session_state.credentials, v["video_id"], max_results=MAX_COMMENTS_PER_VIDEO
                     )
-                except HttpError:
+                except (HttpError, OSError):
                     analysis_skipped.append(v["title"])
                     progress_bar.progress(idx / total)
                     continue
