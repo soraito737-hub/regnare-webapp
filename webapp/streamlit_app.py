@@ -658,7 +658,64 @@ if "code" in query_params and st.session_state.credentials is None:
     st.rerun()
 
 # ============ STEP -1: ランディングページ ============
+if "splash_shown" not in st.session_state:
+    st.session_state.splash_shown = False
+
 if st.session_state.step == "landing":
+    if not st.session_state.splash_shown:
+        st.markdown(
+            """
+            <style>
+            @keyframes regskip-splash-fade {
+                0% { opacity: 1; }
+                65% { opacity: 1; }
+                100% { opacity: 0; visibility: hidden; }
+            }
+            @keyframes regskip-splash-rise {
+                0% { opacity: 0; transform: translateY(14px) scale(0.97); }
+                100% { opacity: 1; transform: translateY(0) scale(1); }
+            }
+            .regskip-splash {
+                position: fixed;
+                inset: 0;
+                z-index: 9999;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 0.9rem;
+                background: linear-gradient(160deg, #1f4a40 0%, #2F6F62 55%, #3d8361 100%);
+                animation: regskip-splash-fade 2.6s ease forwards;
+                pointer-events: none;
+            }
+            .regskip-splash-word {
+                font-size: 2.8rem;
+                font-weight: 700;
+                letter-spacing: -0.02em;
+                color: #ffffff;
+                opacity: 0;
+                animation: regskip-splash-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.15s forwards;
+            }
+            .regskip-splash-tagline {
+                font-size: 1.05rem;
+                color: #dff3ec;
+                letter-spacing: 0.01em;
+                opacity: 0;
+                animation: regskip-splash-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.55s forwards;
+            }
+            @media (prefers-reduced-motion: reduce) {
+                .regskip-splash { display: none; }
+            }
+            </style>
+            <div class="regskip-splash">
+                <div class="regskip-splash-word">Regskip</div>
+                <div class="regskip-splash-tagline">見たくないものは、スキップしていい。</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.session_state.splash_shown = True
+
     st.markdown(
         '<div style="text-align:center; padding: 2.5rem 0 0.5rem;">'
         '<h1 style="font-size:2.6rem; margin:0.3rem 0; letter-spacing:-0.02em;">Regskip</h1>'
