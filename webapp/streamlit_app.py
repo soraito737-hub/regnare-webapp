@@ -1108,7 +1108,8 @@ elif st.session_state.step == "inbox":
                         st.session_state.selected_video_ids.discard(v["video_id"])
 
             if st.session_state.video_search_results is None and st.session_state.videos_next_page_token:
-                if st.button("過去の動画をさらに読み込む", use_container_width=True):
+                load_col1, load_col2 = st.columns(2)
+                if load_col1.button("過去の動画をさらに読み込む", use_container_width=True):
                     with st.spinner("読み込んでいます..."):
                         more_videos, next_token = list_channel_videos(
                             st.session_state.credentials,
@@ -1117,6 +1118,20 @@ elif st.session_state.step == "inbox":
                         )
                         st.session_state.videos.extend(more_videos)
                         st.session_state.videos_next_page_token = next_token
+                    st.rerun()
+                if load_col2.button("投稿した動画をすべて読み込む", use_container_width=True):
+                    status = st.empty()
+                    next_token = st.session_state.videos_next_page_token
+                    while next_token:
+                        status.text(f"読み込み中...({len(st.session_state.videos)}件)")
+                        more_videos, next_token = list_channel_videos(
+                            st.session_state.credentials,
+                            st.session_state.uploads_playlist_id,
+                            page_token=next_token,
+                        )
+                        st.session_state.videos.extend(more_videos)
+                        st.session_state.videos_next_page_token = next_token
+                    status.empty()
                     st.rerun()
 
             selected_count = len(st.session_state.selected_video_ids)
