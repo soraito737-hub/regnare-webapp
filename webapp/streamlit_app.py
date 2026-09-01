@@ -737,12 +737,15 @@ elif st.session_state.step == "category":
     if not none_selected:
         for cat in CATEGORIES:
             if cat == "人間性":
-                st.warning(
-                    "「人間性」への攻撃(人格を否定するコメント)は、傷つきや怒りといった"
-                    "心理的ダメージへの極めて強い影響が統計的に確認されています(p<.001)。"
-                    "選択することを強くおすすめします。"
-                )
-            checked = st.checkbox(cat, value=False, key=f"cat_{cat}")
+                with st.container(border=True):
+                    checked = st.checkbox(cat, value=False, key=f"cat_{cat}")
+                    st.markdown(
+                        "⚠️ 人格を否定するコメントは、心理的ダメージへの"
+                        "**極めて強い影響が統計的に確認されています(p<.001)**。"
+                    )
+                    st.caption("選択することを強くおすすめします。")
+            else:
+                checked = st.checkbox(cat, value=False, key=f"cat_{cat}")
             if checked:
                 selected.append(cat)
     st.session_state.selected_categories = selected
