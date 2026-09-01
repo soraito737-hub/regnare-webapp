@@ -576,7 +576,9 @@ def get_hybrid_classifier() -> HybridClassifier:
     return classifier
 
 
+@st.cache_data(show_spinner=False)
 def classify_comment(text: str) -> dict:
+    """同じコメント文はキャッシュを使い回し、再判定のたびにAPI課金・待ち時間が発生しないようにする。"""
     result = get_hybrid_classifier().classify(text)
     return {
         "category": result.category,
