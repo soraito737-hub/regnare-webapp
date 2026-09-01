@@ -33,7 +33,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 # ============ 設定 ============
 SCOPES = ["https://www.googleapis.com/auth/youtube.force-ssl"]
 
-_current_step = st.session_state.get("step", "diagnosis")
+_current_step = st.session_state.get("step", "intro")
 st.set_page_config(
     page_title="レグナレ", page_icon="🛡️",
     layout="wide" if _current_step == "inbox" else "centered",
@@ -146,12 +146,17 @@ CATEGORY_COLORS = {
 }
 
 
+def display_category_label(key: str) -> str:
+    """内部カテゴリキーを画面表示用のラベルに変換する(データ・判定ロジック上のキーは「非該当」のまま扱う)。"""
+    return "肯定的なコメント" if key == "非該当" else key
+
+
 def render_category_bar_chart(counts: dict, buckets: list[str]) -> None:
     """カテゴリ別件数を、色分けした横棒グラフで表示する(表示専用)。"""
     total = sum(counts.values()) or 1
     df = pd.DataFrame([
         {
-            "カテゴリ": "応援コメント(非該当)" if b == "非該当" else b,
+            "カテゴリ": display_category_label(b),
             "件数": counts[b],
             "割合": counts[b] / total * 100,
             "color_key": b,
@@ -802,7 +807,7 @@ def render_comment_card(c: dict, key_name: str) -> None:
 
 
 def render_grouped_comments(items: list[dict], key_name: str, key_prefix: str) -> None:
-    """コメント一覧を、カテゴリ(5分類＋非該当)のピル型フィルターで絞り込んで表示する。"""
+    """コメント一覧を、カテゴリ(5分類＋肯定的なコメント)のピル型フィルターで絞り込んで表示する。"""
     if not items:
         st.write("このタブにコメントはありません")
         return
@@ -822,6 +827,7 @@ def render_grouped_comments(items: list[dict], key_name: str, key_prefix: str) -
     pill_options = ["すべて"] + ordered_labels
     selected_label = st.pills(
         "カテゴリ", pill_options, default="すべて",
+        format_func=lambda k: "すべて" if k == "すべて" else display_category_label(k),
         key=f"catfilter_{key_prefix}_{key_name}",
     )
     if selected_label is None:
@@ -831,7 +837,7 @@ def render_grouped_comments(items: list[dict], key_name: str, key_prefix: str) -
 
     for label in labels_to_show:
         group = buckets[label]
-        heading = "💬 応援コメント(非該当)" if label == "非該当" else label
+        heading = f"💬 {display_category_label(label)}" if label == "非該当" else label
         st.markdown(f"**{heading}**（{len(group)}件）")
         for c in group:
             render_comment_card(c, key_name)
@@ -840,7 +846,7 @@ def render_grouped_comments(items: list[dict], key_name: str, key_prefix: str) -
 
 # ============ セッション状態の初期化 ============
 if "step" not in st.session_state:
-    st.session_state.step = "diagnosis"
+    st.session_state.step = "intro"
 if "selected_categories" not in st.session_state:
     st.session_state.selected_categories = []
 if "credentials" not in st.session_state:
@@ -923,6 +929,41 @@ if "code" in query_params and st.session_state.credentials is None:
     st.query_params.clear()
     st.session_state.step = "inbox"
     st.rerun()
+
+# ============ STEP 0: はじめに ============
+if st.session_state.step == "intro":
+    st.subheader("はじめに")
+
+    st.markdown("##### 🛡️ これは何のためのアプリか")
+    st.write("YouTubeのアンチコメントによる「傷つき」を、事前に回避するための安全な受信トレイです。")
+
+    st.markdown("##### 📋 これから何が起きるか")
+    st.write("この後、以下の4ステップで進みます(合計2〜3分ほどです)。")
+    st.write("① いくつかの質問に答える(1分)")
+    st.write("② 見たくないコメントの種類を選ぶ")
+    st.write("③ Googleでログインする(YouTube連携)")
+    st.write("④ 実際のコメントが自動で振り分けられる")
+
+    st.markdown("##### 🔒 データの扱いについて")
+    with st.container(border=True):
+        st.write("・コメントを勝手に削除することはありません")
+        st.write("・見たくないコメントは、あなたが確認するまで本文を表示しません")
+        st.write("・データは保存されず、ブラウザを閉じると消えます")
+
+    st.markdown("##### 🔑 何に同意することになるか")
+    st.write(
+        "Googleでログインすると、あなたのチャンネルのコメント欄にアクセスする許可を求められます。"
+        "これは実際にコメントを取得・判定するために必要な連携です。"
+    )
+    st.info(
+        "その際「このアプリはGoogleで確認されていません」という警告画面が表示されますが、"
+        "審査前のテスト段階であるための一般的な表示です。"
+        "驚かれるかもしれませんが、そういうものだと事前に知っておいていただければと思います。"
+    )
+
+    if st.button("始める →", use_container_width=True, type="primary"):
+        st.session_state.step = "diagnosis"
+        st.rerun()
 
 # ============ STEP 1: 診断 ============
 if st.session_state.step == "diagnosis":
@@ -1362,7 +1403,7 @@ elif st.session_state.step == "inbox":
             st.markdown("### 📊 傾向レポート")
             st.caption("コメント本文は表示しません。数字の傾向だけを確認できます。")
 
-            st.markdown("#### ① 今回処理した動画のカテゴリ内訳(応援コメント含む)")
+            st.markdown("#### ① 今回処理した動画のカテゴリ内訳(肯定的なコメント含む)")
             st.caption("選択した動画すべてを合算した内訳です")
             render_category_bar_chart(total_by_category, ALL_BUCKETS)
 
@@ -1373,51 +1414,7 @@ elif st.session_state.step == "inbox":
                         render_category_bar_chart(counts, ALL_BUCKETS)
 
             st.divider()
-            st.markdown("#### ② 同規模クリエイターとの比較")
-            st.caption(
-                "アンケート調査(n=213)における、5分類間の相対的な傾向との比較です。"
-                "調査は自己申告の被害頻度(5件法)を基にした相対シェアであり、"
-                "実際のコメント件数比率とは単位が異なる点にご留意ください。"
-            )
-            BENCHMARK_SHARE = {
-                "外見": 18.8,
-                "人間性": 20.0,
-                "活動クオリティ": 21.4,
-                "モラル・マナー説教": 19.3,
-                "プライバシー": 20.4,
-            }
-            anti_total = sum(total_by_category[c] for c in CATEGORIES) or 1
-            compare_rows = []
-            for cat, bench in BENCHMARK_SHARE.items():
-                you_pct = total_by_category[cat] / anti_total * 100
-                compare_rows.append({"カテゴリ": cat, "対象": "あなた", "割合": you_pct})
-                compare_rows.append({"カテゴリ": cat, "対象": "アンケート平均", "割合": bench})
-            compare_df = pd.DataFrame(compare_rows)
-
-            compare_chart = alt.Chart(compare_df).mark_bar(cornerRadiusEnd=3).encode(
-                y=alt.Y("カテゴリ:N", title=None, sort=list(BENCHMARK_SHARE.keys())),
-                x=alt.X("割合:Q", title="割合(%)"),
-                yOffset=alt.YOffset("対象:N", sort=["あなた", "アンケート平均"]),
-                color=alt.Color(
-                    "対象:N",
-                    scale=alt.Scale(domain=["あなた", "アンケート平均"], range=["#c1443c", "#b7bcc4"]),
-                    legend=alt.Legend(title=None, orient="top"),
-                ),
-                tooltip=[alt.Tooltip("カテゴリ:N"), alt.Tooltip("対象:N"), alt.Tooltip("割合:Q", format=".1f")],
-            ).properties(height=34 * len(BENCHMARK_SHARE))
-            st.altair_chart(compare_chart, use_container_width=True)
-
-            for cat, bench in BENCHMARK_SHARE.items():
-                you_pct = total_by_category[cat] / anti_total * 100
-                if you_pct > bench + 3:
-                    st.caption(f"⚠️ {cat}: 平均より高めの傾向です(あなた {you_pct:.1f}% / 平均 {bench}%)")
-                elif you_pct < bench - 3:
-                    st.caption(f"✓ {cat}: 平均より低めです(あなた {you_pct:.1f}% / 平均 {bench}%)")
-                else:
-                    st.caption(f"✓ {cat}: 平均並みです(あなた {you_pct:.1f}% / 平均 {bench}%)")
-
-            st.divider()
-            st.markdown("#### ③ 動画ごとの推移")
+            st.markdown("#### ② 動画ごとの推移")
             if len(per_video_category_counts) >= 2:
                 video_order = []
                 trend_rows = []
@@ -1428,7 +1425,7 @@ elif st.session_state.step == "inbox":
                         trend_rows.append({
                             "動画": short_title,
                             "full_title": video_title,
-                            "カテゴリ": "応援コメント(非該当)" if b == "非該当" else b,
+                            "カテゴリ": display_category_label(b),
                             "color_key": b,
                             "件数": counts[b],
                         })
