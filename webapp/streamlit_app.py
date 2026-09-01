@@ -1177,6 +1177,169 @@ elif st.session_state.step == "inbox":
         ["🧭 診断結果", "📊 動画分析", "📥 コメント欄(振り分け)"]
     )
 
+    with main_tab3:
+        result = st.session_state.get("diagnosis_result")
+        if result:
+            render_diagnosis_summary(result)
+        else:
+            st.info("診断結果が見つかりませんでした。お手数ですが、最初から診断をやり直してください。")
+
+    with main_tab2:
+        st.info("こちらは判定・振り分けとは完全に独立した分析専用のコメント取得です。選んだ動画のコメントを分析します。")
+
+        analysis_display_videos = st.session_state.videos
+        col_aa, col_bb = st.columns(2)
+        if col_aa.button("表示中をすべて選択", key="analysis_select_all", use_container_width=True):
+            for v in analysis_display_videos:
+                st.session_state.analysis_selected_video_ids.add(v["video_id"])
+            st.rerun()
+        if col_bb.button("表示中の選択を解除", key="analysis_deselect_all", use_container_width=True):
+            for v in analysis_display_videos:
+                st.session_state.analysis_selected_video_ids.discard(v["video_id"])
+            st.rerun()
+
+        for v in analysis_display_videos:
+            row = st.columns([1, 4])
+            with row[0]:
+                if v["thumbnail"]:
+                    st.image(v["thumbnail"])
+            with row[1]:
+                checked = st.checkbox(
+                    f"{v['title']}  \n:gray[{v['published_at'][:10]}]",
+                    value=v["video_id"] in st.session_state.analysis_selected_video_ids,
+                    key=f"analysis_vid_{v['video_id']}",
+                )
+                if checked:
+                    st.session_state.analysis_selected_video_ids.add(v["video_id"])
+                else:
+                    st.session_state.analysis_selected_video_ids.discard(v["video_id"])
+
+        analysis_selected_count = len(st.session_state.analysis_selected_video_ids)
+        st.caption(f"分析対象として選択中: {analysis_selected_count} / 最大{MAX_VIDEOS_PER_RUN}本")
+        analysis_disabled = (
+            analysis_selected_count == 0 or analysis_selected_count > MAX_VIDEOS_PER_RUN
+        )
+
+        if st.button(
+            "分析用にコメントを取得する", key="analysis_fetch_button",
+            use_container_width=True, disabled=analysis_disabled, type="primary",
+        ):
+            loaded_by_id = {v["video_id"]: v for v in st.session_state.videos}
+            analysis_target_videos = [
+                loaded_by_id[vid] for vid in st.session_state.analysis_selected_video_ids
+                if vid in loaded_by_id
+            ]
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+            analysis_results = {}
+            analysis_skipped = []
+            total = len(analysis_target_videos)
+            for idx, v in enumerate(analysis_target_videos, start=1):
+                status_text.text(f"{idx}/{total} 本目の動画を分析用に取得中... 「{v['title']}」")
+                try:
+                    comments = fetch_comments(
+                        st.session_state.credentials, v["video_id"], max_results=MAX_COMMENTS_PER_VIDEO
+                    )
+                except (HttpError, OSError):
+                    analysis_skipped.append(v["title"])
+                    progress_bar.progress(idx / total)
+                    continue
+                results = classify_comments_parallel([c["text"] for c in comments], status_text=status_text)
+                classified = [{**c, **result} for c, result in zip(comments, results)]
+                analysis_results[v["video_id"]] = {"title": v["title"], "classified": classified}
+                progress_bar.progress(idx / total)
+            status_text.text(f"処理が完了しました({total}本中{len(analysis_results)}本を確認しました)")
+            if analysis_skipped:
+                st.warning(
+                    "以下の動画はコメント欄が無効になっているか取得できなかったためスキップしました: "
+                    + "、".join(analysis_skipped)
+                )
+            st.session_state.analysis_results_by_video = analysis_results
+            st.session_state.action_suggestions = None
+
+        if st.session_state.analysis_results_by_video:
+            ALL_BUCKETS = CATEGORIES + ["非該当"]
+            category_texts = {b: [] for b in ALL_BUCKETS}
+            total_by_category = {b: 0 for b in ALL_BUCKETS}
+            per_video_category_counts = {}
+            for vid, data in st.session_state.analysis_results_by_video.items():
+                counts_this_video = {b: 0 for b in ALL_BUCKETS}
+                for c in data["classified"]:
+                    if c["judgement"] in ("該当", "グレー") and c["category"] in CATEGORIES:
+                        bucket = c["category"]
+                    elif c["judgement"] == "非該当":
+                        bucket = "非該当"
+                    else:
+                        continue
+                    category_texts[bucket].append(c["text"])
+                    total_by_category[bucket] += 1
+                    counts_this_video[bucket] += 1
+                per_video_category_counts[data["title"]] = counts_this_video
+
+            # --- 傾向レポート ---
+            st.divider()
+            st.markdown("### 📊 傾向レポート")
+            st.caption("コメント本文は表示しません。数字の傾向だけを確認できます。")
+
+            st.markdown("#### ① 今回処理した動画のカテゴリ内訳(肯定的なコメント含む)")
+            st.caption("選択した動画すべてを合算した内訳です")
+            render_category_bar_chart(total_by_category, ALL_BUCKETS)
+
+            if len(per_video_category_counts) >= 2:
+                st.markdown("##### 動画ごとに分けて見る")
+                for video_title, counts in per_video_category_counts.items():
+                    with st.expander(video_title):
+                        render_category_bar_chart(counts, ALL_BUCKETS)
+
+            st.divider()
+            st.markdown("#### ② 動画ごとの推移")
+            if len(per_video_category_counts) >= 2:
+                video_order = []
+                trend_rows = []
+                for video_title, counts in per_video_category_counts.items():
+                    short_title = video_title if len(video_title) <= 18 else video_title[:18] + "…"
+                    video_order.append(short_title)
+                    for b in ALL_BUCKETS:
+                        trend_rows.append({
+                            "動画": short_title,
+                            "full_title": video_title,
+                            "カテゴリ": display_category_label(b),
+                            "color_key": b,
+                            "件数": counts[b],
+                        })
+                trend_df = pd.DataFrame(trend_rows)
+                trend_chart = alt.Chart(trend_df).mark_bar().encode(
+                    x=alt.X("動画:N", title=None, sort=video_order, axis=alt.Axis(labelAngle=-30)),
+                    y=alt.Y("件数:Q", title="件数"),
+                    color=alt.Color(
+                        "color_key:N",
+                        scale=alt.Scale(domain=list(CATEGORY_COLORS.keys()), range=list(CATEGORY_COLORS.values())),
+                        legend=alt.Legend(title=None),
+                    ),
+                    order=alt.Order("color_key:N"),
+                    tooltip=[alt.Tooltip("full_title:N", title="動画"), alt.Tooltip("カテゴリ:N"), alt.Tooltip("件数:Q")],
+                ).properties(height=320)
+                st.altair_chart(trend_chart, use_container_width=True)
+            else:
+                st.caption("推移を見るには2本以上の動画を分析してください。")
+
+            # --- 次のアクション(リクエスト・改善提案の抽出) ---
+            st.divider()
+            st.markdown("### 💡 次のアクション")
+            st.caption("コメントの中から「次にしてほしい企画」「建設的な改善提案」だけをAIが抽出します。個人攻撃や単なる感想は無視されます。")
+
+            all_comment_texts = [t for texts in category_texts.values() for t in texts]
+
+            if st.button("次のアクションを抽出する", key="gen_action_suggestions", type="primary"):
+                with st.spinner("AIがコメントからリクエスト・改善提案を探しています…"):
+                    try:
+                        st.session_state.action_suggestions = extract_action_suggestions(all_comment_texts)
+                    except Exception as e:
+                        st.session_state.action_suggestions = f"抽出に失敗しました: {e}"
+
+            if st.session_state.action_suggestions:
+                render_speech_bubble(st.session_state.action_suggestions, avatar="💡")
+
     with main_tab1:
 
         with st.expander("🙅 見たくないカテゴリを変更する", expanded=False):
@@ -1394,165 +1557,3 @@ elif st.session_state.step == "inbox":
                         with tab:
                             render_grouped_comments(tabs[key_name], key_name, key_prefix=vid)
 
-    with main_tab2:
-        st.info("こちらは判定・振り分けとは完全に独立した分析専用のコメント取得です。選んだ動画のコメントを分析します。")
-
-        analysis_display_videos = st.session_state.videos
-        col_aa, col_bb = st.columns(2)
-        if col_aa.button("表示中をすべて選択", key="analysis_select_all", use_container_width=True):
-            for v in analysis_display_videos:
-                st.session_state.analysis_selected_video_ids.add(v["video_id"])
-            st.rerun()
-        if col_bb.button("表示中の選択を解除", key="analysis_deselect_all", use_container_width=True):
-            for v in analysis_display_videos:
-                st.session_state.analysis_selected_video_ids.discard(v["video_id"])
-            st.rerun()
-
-        for v in analysis_display_videos:
-            row = st.columns([1, 4])
-            with row[0]:
-                if v["thumbnail"]:
-                    st.image(v["thumbnail"])
-            with row[1]:
-                checked = st.checkbox(
-                    f"{v['title']}  \n:gray[{v['published_at'][:10]}]",
-                    value=v["video_id"] in st.session_state.analysis_selected_video_ids,
-                    key=f"analysis_vid_{v['video_id']}",
-                )
-                if checked:
-                    st.session_state.analysis_selected_video_ids.add(v["video_id"])
-                else:
-                    st.session_state.analysis_selected_video_ids.discard(v["video_id"])
-
-        analysis_selected_count = len(st.session_state.analysis_selected_video_ids)
-        st.caption(f"分析対象として選択中: {analysis_selected_count} / 最大{MAX_VIDEOS_PER_RUN}本")
-        analysis_disabled = (
-            analysis_selected_count == 0 or analysis_selected_count > MAX_VIDEOS_PER_RUN
-        )
-
-        if st.button(
-            "分析用にコメントを取得する", key="analysis_fetch_button",
-            use_container_width=True, disabled=analysis_disabled, type="primary",
-        ):
-            loaded_by_id = {v["video_id"]: v for v in st.session_state.videos}
-            analysis_target_videos = [
-                loaded_by_id[vid] for vid in st.session_state.analysis_selected_video_ids
-                if vid in loaded_by_id
-            ]
-            progress_bar = st.progress(0)
-            status_text = st.empty()
-            analysis_results = {}
-            analysis_skipped = []
-            total = len(analysis_target_videos)
-            for idx, v in enumerate(analysis_target_videos, start=1):
-                status_text.text(f"{idx}/{total} 本目の動画を分析用に取得中... 「{v['title']}」")
-                try:
-                    comments = fetch_comments(
-                        st.session_state.credentials, v["video_id"], max_results=MAX_COMMENTS_PER_VIDEO
-                    )
-                except (HttpError, OSError):
-                    analysis_skipped.append(v["title"])
-                    progress_bar.progress(idx / total)
-                    continue
-                results = classify_comments_parallel([c["text"] for c in comments], status_text=status_text)
-                classified = [{**c, **result} for c, result in zip(comments, results)]
-                analysis_results[v["video_id"]] = {"title": v["title"], "classified": classified}
-                progress_bar.progress(idx / total)
-            status_text.text(f"処理が完了しました({total}本中{len(analysis_results)}本を確認しました)")
-            if analysis_skipped:
-                st.warning(
-                    "以下の動画はコメント欄が無効になっているか取得できなかったためスキップしました: "
-                    + "、".join(analysis_skipped)
-                )
-            st.session_state.analysis_results_by_video = analysis_results
-            st.session_state.action_suggestions = None
-
-        if st.session_state.analysis_results_by_video:
-            ALL_BUCKETS = CATEGORIES + ["非該当"]
-            category_texts = {b: [] for b in ALL_BUCKETS}
-            total_by_category = {b: 0 for b in ALL_BUCKETS}
-            per_video_category_counts = {}
-            for vid, data in st.session_state.analysis_results_by_video.items():
-                counts_this_video = {b: 0 for b in ALL_BUCKETS}
-                for c in data["classified"]:
-                    if c["judgement"] in ("該当", "グレー") and c["category"] in CATEGORIES:
-                        bucket = c["category"]
-                    elif c["judgement"] == "非該当":
-                        bucket = "非該当"
-                    else:
-                        continue
-                    category_texts[bucket].append(c["text"])
-                    total_by_category[bucket] += 1
-                    counts_this_video[bucket] += 1
-                per_video_category_counts[data["title"]] = counts_this_video
-
-            # --- 傾向レポート ---
-            st.divider()
-            st.markdown("### 📊 傾向レポート")
-            st.caption("コメント本文は表示しません。数字の傾向だけを確認できます。")
-
-            st.markdown("#### ① 今回処理した動画のカテゴリ内訳(肯定的なコメント含む)")
-            st.caption("選択した動画すべてを合算した内訳です")
-            render_category_bar_chart(total_by_category, ALL_BUCKETS)
-
-            if len(per_video_category_counts) >= 2:
-                st.markdown("##### 動画ごとに分けて見る")
-                for video_title, counts in per_video_category_counts.items():
-                    with st.expander(video_title):
-                        render_category_bar_chart(counts, ALL_BUCKETS)
-
-            st.divider()
-            st.markdown("#### ② 動画ごとの推移")
-            if len(per_video_category_counts) >= 2:
-                video_order = []
-                trend_rows = []
-                for video_title, counts in per_video_category_counts.items():
-                    short_title = video_title if len(video_title) <= 18 else video_title[:18] + "…"
-                    video_order.append(short_title)
-                    for b in ALL_BUCKETS:
-                        trend_rows.append({
-                            "動画": short_title,
-                            "full_title": video_title,
-                            "カテゴリ": display_category_label(b),
-                            "color_key": b,
-                            "件数": counts[b],
-                        })
-                trend_df = pd.DataFrame(trend_rows)
-                trend_chart = alt.Chart(trend_df).mark_bar().encode(
-                    x=alt.X("動画:N", title=None, sort=video_order, axis=alt.Axis(labelAngle=-30)),
-                    y=alt.Y("件数:Q", title="件数"),
-                    color=alt.Color(
-                        "color_key:N",
-                        scale=alt.Scale(domain=list(CATEGORY_COLORS.keys()), range=list(CATEGORY_COLORS.values())),
-                        legend=alt.Legend(title=None),
-                    ),
-                    order=alt.Order("color_key:N"),
-                    tooltip=[alt.Tooltip("full_title:N", title="動画"), alt.Tooltip("カテゴリ:N"), alt.Tooltip("件数:Q")],
-                ).properties(height=320)
-                st.altair_chart(trend_chart, use_container_width=True)
-            else:
-                st.caption("推移を見るには2本以上の動画を分析してください。")
-
-            # --- 次のアクション(リクエスト・改善提案の抽出) ---
-            st.divider()
-            st.markdown("### 💡 次のアクション")
-            st.caption("コメントの中から「次にしてほしい企画」「建設的な改善提案」だけをAIが抽出します。個人攻撃や単なる感想は無視されます。")
-
-            all_comment_texts = [t for texts in category_texts.values() for t in texts]
-
-            if st.button("次のアクションを抽出する", key="gen_action_suggestions", type="primary"):
-                with st.spinner("AIがコメントからリクエスト・改善提案を探しています…"):
-                    try:
-                        st.session_state.action_suggestions = extract_action_suggestions(all_comment_texts)
-                    except Exception as e:
-                        st.session_state.action_suggestions = f"抽出に失敗しました: {e}"
-
-            if st.session_state.action_suggestions:
-                render_speech_bubble(st.session_state.action_suggestions, avatar="💡")
-
-    with main_tab3:
-        result = st.session_state.get("diagnosis_result")
-        if result:
-            render_diagnosis_summary(result)
-        else:
-            st.info("診断結果が見つかりませんでした。お手数ですが、最初から診断をやり直してください。")
