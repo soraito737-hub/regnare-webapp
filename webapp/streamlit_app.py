@@ -661,7 +661,6 @@ if "code" in query_params and st.session_state.credentials is None:
 if st.session_state.step == "landing":
     st.markdown(
         '<div style="text-align:center; padding: 2.5rem 0 0.5rem;">'
-        '<div style="font-size:3rem;">🛡️</div>'
         '<h1 style="font-size:2.6rem; margin:0.3rem 0; letter-spacing:-0.02em;">Regskip</h1>'
         '<p style="font-size:1.15rem; color:#5B6B6A; max-width:480px; margin:0 auto; line-height:1.6;">'
         "コメント欄を、もっと安心できる場所に。<br>見なくて済むから、傷つかない。"
