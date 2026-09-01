@@ -1,5 +1,5 @@
 """
-レグナレ Streamlit版
+Regskip Streamlit版
 ======================
 本人がブラウザで直接使えるWebアプリ。
 
@@ -42,9 +42,9 @@ from user_feedback import save_feedback_entry
 # ============ 設定 ============
 SCOPES = ["https://www.googleapis.com/auth/youtube.force-ssl"]
 
-_current_step = st.session_state.get("step", "intro")
+_current_step = st.session_state.get("step", "landing")
 st.set_page_config(
-    page_title="レグナレ", page_icon="🛡️",
+    page_title="Regskip", page_icon="🛡️",
     layout="wide" if _current_step == "inbox" else "centered",
 )
 
@@ -137,7 +137,7 @@ CATEGORY_COLORS = {
     "人間性": "#f2994a",
     "活動クオリティ": "#e0b243",
     "モラル・マナー説教": "#9b6b9e",
-    "プライバシー": "#c1443c",
+    "プライバシー": "#1F7A5C",
     "非該当": "#3d8361",
 }
 
@@ -578,7 +578,7 @@ def render_grouped_comments(items: list[dict], key_name: str, key_prefix: str) -
 
 # ============ セッション状態の初期化 ============
 if "step" not in st.session_state:
-    st.session_state.step = "intro"
+    st.session_state.step = "landing"
 if "selected_categories" not in st.session_state:
     st.session_state.selected_categories = []
 if "credentials" not in st.session_state:
@@ -657,8 +657,45 @@ if "code" in query_params and st.session_state.credentials is None:
     st.session_state.step = "inbox"
     st.rerun()
 
+# ============ STEP -1: ランディングページ ============
+if st.session_state.step == "landing":
+    st.markdown(
+        '<div style="text-align:center; padding: 2.5rem 0 0.5rem;">'
+        '<div style="font-size:3rem;">🛡️</div>'
+        '<h1 style="font-size:2.6rem; margin:0.3rem 0; letter-spacing:-0.02em;">Regskip</h1>'
+        '<p style="font-size:1.15rem; color:#5B6B6A; max-width:480px; margin:0 auto; line-height:1.6;">'
+        "コメント欄を、もっと安心できる場所に。<br>見なくて済むから、傷つかない。"
+        "</p>"
+        "</div>",
+        unsafe_allow_html=True,
+    )
+
+    st.write("")
+    cols = st.columns(3)
+    highlights = [
+        ("🙅", "見たくないコメントの\n種類は自分で選べる"),
+        ("🤖", "AIが自動で\n通常・グレーゾーン・見たくないに振り分け"),
+        ("🔒", "勝手に削除・投稿しない、\nデータも保存しない"),
+    ]
+    for col, (icon, text) in zip(cols, highlights):
+        with col:
+            st.markdown(
+                f'<div style="text-align:center;font-size:1.8rem;">{icon}</div>',
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                f'<p style="text-align:center;color:#5B6B6A;font-size:0.9rem;'
+                f'white-space:pre-line;">{text}</p>',
+                unsafe_allow_html=True,
+            )
+
+    st.write("")
+    if st.button("はじめる →", use_container_width=True, type="primary"):
+        st.session_state.step = "intro"
+        st.rerun()
+
 # ============ STEP 0: はじめに ============
-if st.session_state.step == "intro":
+elif st.session_state.step == "intro":
     st.subheader("はじめに")
 
     st.markdown("##### 🛡️ これは何のためのアプリか")
@@ -743,18 +780,24 @@ elif st.session_state.step == "category":
     selected = []
     if not none_selected:
         for cat in CATEGORIES:
-            if cat == "人間性":
-                with st.container(border=True):
-                    checked = st.checkbox(cat, value=False, key=f"cat_{cat}")
+            color = CATEGORY_COLORS.get(cat, "#5B6B6A")
+            with st.container(border=True):
+                st.markdown(
+                    f'<span style="display:inline-block;width:10px;height:10px;'
+                    f'border-radius:50%;background:{color};margin-right:6px;"></span>'
+                    f'<strong style="color:{color};">{cat}</strong>',
+                    unsafe_allow_html=True,
+                )
+                checked = st.checkbox(cat, value=False, key=f"cat_{cat}", label_visibility="collapsed")
+                if cat == "人間性":
                     st.caption("人格や性格を否定するコメント")
                     st.markdown(
                         "⚠️ 人格を否定するコメントは、心理的ダメージへの"
                         "**極めて強い影響が統計的に確認されています(p<.001)**。"
                     )
                     st.caption("選択することを強くおすすめします。")
-            else:
-                checked = st.checkbox(cat, value=False, key=f"cat_{cat}")
-                st.caption(category_descriptions[cat])
+                else:
+                    st.caption(category_descriptions[cat])
             if checked:
                 selected.append(cat)
     st.session_state.selected_categories = selected
