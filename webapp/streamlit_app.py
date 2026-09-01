@@ -733,12 +733,20 @@ elif st.session_state.step == "category":
         key="cat_none",
     )
 
+    category_descriptions = {
+        "外見": "容姿・服装・体型など、見た目に関するコメント",
+        "活動クオリティ": "編集・企画内容・トーク力など、活動の質に関するコメント",
+        "モラル・マナー説教": "マナー違反やコンプライアンスなどを指摘・説教するコメント",
+        "プライバシー": "住所・本名・職場など、個人が特定されうる情報に触れるコメント",
+    }
+
     selected = []
     if not none_selected:
         for cat in CATEGORIES:
             if cat == "人間性":
                 with st.container(border=True):
                     checked = st.checkbox(cat, value=False, key=f"cat_{cat}")
+                    st.caption("人格や性格を否定するコメント")
                     st.markdown(
                         "⚠️ 人格を否定するコメントは、心理的ダメージへの"
                         "**極めて強い影響が統計的に確認されています(p<.001)**。"
@@ -746,6 +754,7 @@ elif st.session_state.step == "category":
                     st.caption("選択することを強くおすすめします。")
             else:
                 checked = st.checkbox(cat, value=False, key=f"cat_{cat}")
+                st.caption(category_descriptions[cat])
             if checked:
                 selected.append(cat)
     st.session_state.selected_categories = selected
