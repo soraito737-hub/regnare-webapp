@@ -1,5 +1,5 @@
 """
-レグナレ Streamlit版
+Regskip Streamlit版
 ======================
 本人がブラウザで直接使えるWebアプリ。
 
@@ -42,9 +42,9 @@ from user_feedback import save_feedback_entry
 # ============ 設定 ============
 SCOPES = ["https://www.googleapis.com/auth/youtube.force-ssl"]
 
-_current_step = st.session_state.get("step", "intro")
+_current_step = st.session_state.get("step", "landing")
 st.set_page_config(
-    page_title="レグナレ", page_icon="🛡️",
+    page_title="Regskip", page_icon="🛡️",
     layout="wide" if _current_step == "inbox" else "centered",
 )
 
@@ -578,7 +578,7 @@ def render_grouped_comments(items: list[dict], key_name: str, key_prefix: str) -
 
 # ============ セッション状態の初期化 ============
 if "step" not in st.session_state:
-    st.session_state.step = "intro"
+    st.session_state.step = "landing"
 if "selected_categories" not in st.session_state:
     st.session_state.selected_categories = []
 if "credentials" not in st.session_state:
@@ -616,8 +616,9 @@ if "analysis_results_by_video" not in st.session_state:
 if "action_suggestions" not in st.session_state:
     st.session_state.action_suggestions = None
 
-st.title("🛡️ レグナレ")
-st.caption("コメント欄 — Regnare")
+if st.session_state.step != "landing":
+    st.title("🛡️ Regskip")
+    st.caption("コメント欄 — Regskip")
 
 # ============ OAuthコールバック処理 ============
 query_params = st.query_params
@@ -657,8 +658,45 @@ if "code" in query_params and st.session_state.credentials is None:
     st.session_state.step = "inbox"
     st.rerun()
 
+# ============ STEP -1: ランディングページ ============
+if st.session_state.step == "landing":
+    st.markdown(
+        '<div style="text-align:center; padding: 2.5rem 0 0.5rem;">'
+        '<div style="font-size:3rem;">🛡️</div>'
+        '<h1 style="font-size:2.6rem; margin:0.3rem 0; letter-spacing:-0.02em;">Regskip</h1>'
+        '<p style="font-size:1.15rem; color:#5B6B6A; max-width:480px; margin:0 auto; line-height:1.6;">'
+        "コメント欄を、もっと安心できる場所に。<br>見なくて済むから、傷つかない。"
+        "</p>"
+        "</div>",
+        unsafe_allow_html=True,
+    )
+
+    st.write("")
+    cols = st.columns(3)
+    highlights = [
+        ("🙅", "見たくないコメントの\n種類は自分で選べる"),
+        ("🤖", "AIが自動で\n通常・グレーゾーン・見たくないに振り分け"),
+        ("🔒", "勝手に削除・投稿しない、\nデータも保存しない"),
+    ]
+    for col, (icon, text) in zip(cols, highlights):
+        with col:
+            st.markdown(
+                f'<div style="text-align:center;font-size:1.8rem;">{icon}</div>',
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                f'<p style="text-align:center;color:#5B6B6A;font-size:0.9rem;'
+                f'white-space:pre-line;">{text}</p>',
+                unsafe_allow_html=True,
+            )
+
+    st.write("")
+    if st.button("はじめる →", use_container_width=True, type="primary"):
+        st.session_state.step = "intro"
+        st.rerun()
+
 # ============ STEP 0: はじめに ============
-if st.session_state.step == "intro":
+elif st.session_state.step == "intro":
     st.subheader("はじめに")
 
     st.markdown("##### 🛡️ これは何のためのアプリか")
