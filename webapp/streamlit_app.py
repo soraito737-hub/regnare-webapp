@@ -137,7 +137,7 @@ CATEGORY_COLORS = {
     "人間性": "#f2994a",
     "活動クオリティ": "#e0b243",
     "モラル・マナー説教": "#9b6b9e",
-    "プライバシー": "#c1443c",
+    "プライバシー": "#1F7A5C",
     "非該当": "#3d8361",
 }
 
@@ -743,18 +743,24 @@ elif st.session_state.step == "category":
     selected = []
     if not none_selected:
         for cat in CATEGORIES:
-            if cat == "人間性":
-                with st.container(border=True):
-                    checked = st.checkbox(cat, value=False, key=f"cat_{cat}")
+            color = CATEGORY_COLORS.get(cat, "#5B6B6A")
+            with st.container(border=True):
+                st.markdown(
+                    f'<span style="display:inline-block;width:10px;height:10px;'
+                    f'border-radius:50%;background:{color};margin-right:6px;"></span>'
+                    f'<strong style="color:{color};">{cat}</strong>',
+                    unsafe_allow_html=True,
+                )
+                checked = st.checkbox(cat, value=False, key=f"cat_{cat}", label_visibility="collapsed")
+                if cat == "人間性":
                     st.caption("人格や性格を否定するコメント")
                     st.markdown(
                         "⚠️ 人格を否定するコメントは、心理的ダメージへの"
                         "**極めて強い影響が統計的に確認されています(p<.001)**。"
                     )
                     st.caption("選択することを強くおすすめします。")
-            else:
-                checked = st.checkbox(cat, value=False, key=f"cat_{cat}")
-                st.caption(category_descriptions[cat])
+                else:
+                    st.caption(category_descriptions[cat])
             if checked:
                 selected.append(cat)
     st.session_state.selected_categories = selected
