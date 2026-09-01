@@ -14,6 +14,7 @@ import time
 from dataclasses import dataclass
 from typing import Literal
 
+import httpx
 from google.genai import errors, types
 
 from gemini_client import make_client
@@ -115,6 +116,12 @@ class LLMCommentClassifier:
                 if e.code in (503, 500) and attempt < max_retries - 1:
                     # サーバー側の一時的な混雑。少し待って再試行する
                     time.sleep(10 * (attempt + 1))
+                    continue
+                raise
+            except (httpx.RemoteProtocolError, httpx.ConnectError, httpx.ReadTimeout, httpx.ConnectTimeout):
+                # 通信レベルの一時的な切断・タイムアウト。少し待って再試行する
+                if attempt < max_retries - 1:
+                    time.sleep(5 * (attempt + 1))
                     continue
                 raise
 
