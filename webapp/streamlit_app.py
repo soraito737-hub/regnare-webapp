@@ -674,9 +674,9 @@ if st.session_state.step == "landing":
     st.write("")
     cols = st.columns(3)
     highlights = [
-        ("🙅", "見たくないコメントの\n種類は自分で選べる"),
-        ("🤖", "AIが自動で\n通常・グレーゾーン・見たくないに振り分け"),
-        ("🔒", "勝手に削除・投稿しない、\nデータも保存しない"),
+        ("🎯", "見たくないコメントの\n種類は自分で選べる"),
+        ("🗂️", "AIが自動で\n通常・グレーゾーン・見たくないに振り分け"),
+        ("🤝", "あなたの許可なく\n削除・投稿・保存はしません"),
     ]
     for col, (icon, text) in zip(cols, highlights):
         with col:
