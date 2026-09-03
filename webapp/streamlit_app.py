@@ -1123,7 +1123,7 @@ elif st.session_state.step == "inbox":
 
         st.caption(f"見たくない設定中のカテゴリ: {', '.join(st.session_state.selected_categories) or '(なし)'}")
 
-        with st.expander("🔍 対象動画を変更する", expanded=False):
+        with st.expander("🔍 対象動画を選択する", expanded=False):
             st.caption("検索・過去動画の読み込み・選び直しができます。")
             search_query = st.text_input(
                 "動画タイトルで検索(キーワード絞り込み)", value=st.session_state.video_search_query
