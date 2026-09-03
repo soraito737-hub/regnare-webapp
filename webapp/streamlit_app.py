@@ -941,8 +941,8 @@ elif st.session_state.step == "inbox":
     # ボタンを押さずに自動でコメント取得・判定まで実行する
     auto_run = (not videos_already_loaded) and not st.session_state.results_by_video
 
-    main_tab2, main_tab1 = st.tabs(
-        ["📊 動画分析", "📥 コメント欄(振り分け)"]
+    main_tab1, main_tab2 = st.tabs(
+        ["📥 コメント欄(振り分け)", "📊 動画分析"]
     )
 
     with main_tab2:
