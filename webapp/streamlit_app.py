@@ -190,8 +190,9 @@ def render_speech_bubble(text: str, avatar: str = "🛡️") -> None:
 
 # ============ 動画選択・APIクォータ設定 ============
 VIDEOS_PAGE_SIZE = 50          # 動画一覧の1ページあたり取得件数(YouTube APIの上限)
-DEFAULT_SELECTED_VIDEOS = 5    # デフォルトでチェックを入れる最新動画数
-MAX_VIDEOS_PER_RUN = 5         # 一度に処理できる動画数の上限
+DEFAULT_SELECTED_VIDEOS = 1    # デフォルトでチェックを入れる最新動画数
+MAX_VIDEOS_INBOX = 1           # コメント欄(振り分け)タブで一度に処理できる動画数の上限
+MAX_VIDEOS_ANALYSIS = 2        # 動画分析タブで一度に処理できる動画数の上限
 MAX_COMMENTS_PER_VIDEO = 200   # 1動画あたりのコメント取得上限
 
 # ============ 動画ID抽出 ============
@@ -298,7 +299,7 @@ def classify_comment_safe(text: str) -> dict:
         }
 
 
-def classify_comments_parallel(texts: list[str], status_text=None, max_workers: int = 10) -> list[dict]:
+def classify_comments_parallel(texts: list[str], status_text=None, max_workers: int = 50) -> list[dict]:
     """複数コメントを並列に判定する(逐次実行より数倍速い)。順序はtextsと対応させて返す。"""
     results: list[dict] = [{}] * len(texts)
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -984,9 +985,9 @@ elif st.session_state.step == "inbox":
                     st.session_state.analysis_selected_video_ids.discard(v["video_id"])
 
         analysis_selected_count = len(st.session_state.analysis_selected_video_ids)
-        st.caption(f"分析対象として選択中: {analysis_selected_count} / 最大{MAX_VIDEOS_PER_RUN}本")
+        st.caption(f"分析対象として選択中: {analysis_selected_count} / 最大{MAX_VIDEOS_ANALYSIS}本")
         analysis_disabled = (
-            analysis_selected_count == 0 or analysis_selected_count > MAX_VIDEOS_PER_RUN
+            analysis_selected_count == 0 or analysis_selected_count > MAX_VIDEOS_ANALYSIS
         )
 
         if st.button(
@@ -1210,11 +1211,11 @@ elif st.session_state.step == "inbox":
                     st.rerun()
 
             selected_count = len(st.session_state.selected_video_ids)
-            st.caption(f"選択中: {selected_count} / 最大{MAX_VIDEOS_PER_RUN}本")
-            if selected_count > MAX_VIDEOS_PER_RUN:
-                st.warning(f"一度に処理できる動画は最大{MAX_VIDEOS_PER_RUN}本までです。選択を減らしてください。")
+            st.caption(f"選択中: {selected_count} / 最大{MAX_VIDEOS_INBOX}本")
+            if selected_count > MAX_VIDEOS_INBOX:
+                st.warning(f"一度に処理できる動画は最大{MAX_VIDEOS_INBOX}本までです。選択を減らしてください。")
 
-            process_disabled = selected_count == 0 or selected_count > MAX_VIDEOS_PER_RUN
+            process_disabled = selected_count == 0 or selected_count > MAX_VIDEOS_INBOX
             manual_trigger = st.button(
                 "この設定で再取得・判定する", use_container_width=True,
                 disabled=process_disabled, type="primary"
