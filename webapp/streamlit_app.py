@@ -189,7 +189,7 @@ def render_speech_bubble(text: str, avatar: str = "🛡️") -> None:
     )
 
 # ============ 動画選択・APIクォータ設定 ============
-VIDEOS_PAGE_SIZE = 10          # 動画一覧の1ページあたり取得件数
+VIDEOS_PAGE_SIZE = 50          # 動画一覧の1ページあたり取得件数(YouTube APIの上限)
 DEFAULT_SELECTED_VIDEOS = 5    # デフォルトでチェックを入れる最新動画数
 MAX_VIDEOS_PER_RUN = 5         # 一度に処理できる動画数の上限
 MAX_COMMENTS_PER_VIDEO = 200   # 1動画あたりのコメント取得上限
@@ -298,7 +298,7 @@ def classify_comment_safe(text: str) -> dict:
         }
 
 
-def classify_comments_parallel(texts: list[str], status_text=None, max_workers: int = 6) -> list[dict]:
+def classify_comments_parallel(texts: list[str], status_text=None, max_workers: int = 10) -> list[dict]:
     """複数コメントを並列に判定する(逐次実行より数倍速い)。順序はtextsと対応させて返す。"""
     results: list[dict] = [{}] * len(texts)
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -789,18 +789,26 @@ elif st.session_state.step == "intro":
             st.caption(outcome)
 
     st.markdown("##### 🔒 データの扱いについて")
-    st.write("大切にしている「勝手なことはしない」という設計方針を、はじめにお伝えしておきます。")
+    st.write("特に大事な「データの扱い」について、ここでご説明します。")
     with st.container(border=True):
-        st.write("・コメントを勝手に削除することはありません(YouTube上での非表示操作は、あなたがボタンを押した時だけ実行されます)")
-        st.write("・見たくないコメントは、あなたが「見る」を選ぶまで本文を表示しません")
-        st.write("・データは保存されません。取得したコメントや判定結果は、ブラウザのタブを閉じると消えます")
+        st.write(
+            "・コメントを取得する際にGoogleアカウントと連携していただきますが、"
+            "取得するのは**あなたのチャンネルに投稿されたコメントの情報だけ**です。"
+            "個人情報やチャンネル運営に関わるその他の情報を、こちらが一方的に取得・操作することは一切ありません。"
+        )
+        st.write(
+            "・取得したコメントやAIの判定結果は、**どこにも保存されません**。"
+            "ブラウザのタブを閉じれば、その場ですべて消えます。私たち運営側のサーバーにデータが残ることもありません。"
+        )
+        st.write(
+            "・コメントを非表示にしたり、返信を投稿したりする機能もありますが、"
+            "**勝手に削除・投稿されることは一切ありません**。実行されるのは、あなた自身が画面上のボタンを押した時だけです。"
+        )
 
     st.markdown("##### 🔑 何に同意することになるか")
     st.write(
         "Googleでログインすると、あなたのチャンネルのコメント欄にアクセスする許可を求められます。"
         "これは実際にコメントを取得・判定するために必要な連携です。"
-        "「YouTube上で非表示にする」「返信を投稿する」といった書き込み操作もできますが、"
-        "これらは各コメントのボタンをあなたが押した時だけ実行され、それ以外で勝手に投稿・削除されることはありません。"
     )
     st.info(
         "その際「このアプリはGoogleで確認されていません」という警告画面が表示されますが、"
