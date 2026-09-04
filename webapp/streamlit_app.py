@@ -298,7 +298,7 @@ def classify_comment_safe(text: str) -> dict:
         }
 
 
-def classify_comments_parallel(texts: list[str], status_text=None, max_workers: int = 6) -> list[dict]:
+def classify_comments_parallel(texts: list[str], status_text=None, max_workers: int = 10) -> list[dict]:
     """複数コメントを並列に判定する(逐次実行より数倍速い)。順序はtextsと対応させて返す。"""
     results: list[dict] = [{}] * len(texts)
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
