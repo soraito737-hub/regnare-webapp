@@ -189,7 +189,7 @@ def render_speech_bubble(text: str, avatar: str = "🛡️") -> None:
     )
 
 # ============ 動画選択・APIクォータ設定 ============
-VIDEOS_PAGE_SIZE = 10          # 動画一覧の1ページあたり取得件数
+VIDEOS_PAGE_SIZE = 50          # 動画一覧の1ページあたり取得件数(YouTube APIの上限)
 DEFAULT_SELECTED_VIDEOS = 5    # デフォルトでチェックを入れる最新動画数
 MAX_VIDEOS_PER_RUN = 5         # 一度に処理できる動画数の上限
 MAX_COMMENTS_PER_VIDEO = 200   # 1動画あたりのコメント取得上限
