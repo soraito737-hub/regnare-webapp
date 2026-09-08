@@ -392,6 +392,15 @@ def hide_comment_on_youtube(credentials, comment_id: str) -> None:
     execute_with_retry(service.comments().setModerationStatus(id=comment_id, moderationStatus="heldForReview"))
 
 
+def ban_author_on_youtube(credentials, comment_id: str) -> None:
+    """指定コメントの投稿者を、今後の全コメントが自動的に拒否されるようにブロックする。
+    このコメント自体もrejected(非公開)になる。YouTube Studio上でいつでも取り消せる。"""
+    service = build_youtube_service(credentials)
+    execute_with_retry(
+        service.comments().setModerationStatus(id=comment_id, moderationStatus="rejected", banAuthor=True)
+    )
+
+
 def reply_to_comment_on_youtube(credentials, comment_id: str, reply_text: str) -> None:
     """指定コメントに返信を投稿する。"""
     service = build_youtube_service(credentials)
@@ -511,11 +520,11 @@ def render_comment_card(c: dict, key_name: str) -> None:
             yt_hidden = comment_id in st.session_state.youtube_hidden_comment_ids
             yt_replied = comment_id in st.session_state.youtube_replied_comment_ids
 
-            hide_col, status_col = st.columns([1, 2])
+            hide_col, ban_col = st.columns(2)
             if yt_hidden:
-                status_col.caption("✅ YouTube上で非表示済み(保留中・取消可)")
+                hide_col.caption("✅ 非表示済み(保留中・取消可)")
             else:
-                if hide_col.button("🚫 YouTube上で非表示にする", key=f"ythide_{c['comment_key']}"):
+                if hide_col.button("🚫 このコメントを非表示にする", key=f"ythide_{c['comment_key']}"):
                     try:
                         hide_comment_on_youtube(st.session_state.credentials, comment_id)
                         st.session_state.youtube_hidden_comment_ids.add(comment_id)
@@ -523,6 +532,20 @@ def render_comment_card(c: dict, key_name: str) -> None:
                         st.rerun()
                     except Exception as e:
                         st.error(f"非表示にできませんでした: {e}")
+
+            yt_banned = comment_id in st.session_state.youtube_banned_author_comment_ids
+            if yt_banned:
+                ban_col.caption("⛔ ユーザーをブロック済み(取消可)")
+            else:
+                if ban_col.button("⛔ このユーザーをブロックする", key=f"ytban_{c['comment_key']}"):
+                    try:
+                        ban_author_on_youtube(st.session_state.credentials, comment_id)
+                        st.session_state.youtube_banned_author_comment_ids.add(comment_id)
+                        st.success(f"{c['author']}さんをブロックしました(今後のコメントは自動的に拒否されます)")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"ブロックできませんでした: {e}")
+            st.caption("ブロックすると、この投稿者の今後のコメントは自動で拒否されます。YouTube Studio上でいつでも取り消せます。")
 
             with st.expander("💬 返信する" + ("(返信済み)" if yt_replied else "")):
                 reply_text = st.text_area("返信内容", key=f"replytext_{c['comment_key']}")
@@ -606,6 +629,8 @@ if "results_by_video" not in st.session_state:
     st.session_state.results_by_video = {}
 if "youtube_hidden_comment_ids" not in st.session_state:
     st.session_state.youtube_hidden_comment_ids = set()
+if "youtube_banned_author_comment_ids" not in st.session_state:
+    st.session_state.youtube_banned_author_comment_ids = set()
 if "youtube_replied_comment_ids" not in st.session_state:
     st.session_state.youtube_replied_comment_ids = set()
 if "revealed_comment_keys" not in st.session_state:
@@ -732,9 +757,9 @@ if st.session_state.step == "landing":
     st.write("")
     cols = st.columns(3)
     highlights = [
-        ("🙅", "見たくないコメントの\n種類は自分で選べる"),
-        ("🤖", "AIが自動で\n通常・グレーゾーン・見たくないに振り分け"),
-        ("🔒", "勝手に削除・投稿しない、\nデータも保存しない"),
+        ("🎯", "見たくないコメントの\n種類は自分で選べる"),
+        ("🗂️", "AIが自動で\n通常・グレーゾーン・見たくないに振り分け"),
+        ("🤝", "あなたの許可なく\n削除・投稿・保存はしません"),
     ]
     for col, (icon, text) in zip(cols, highlights):
         with col:
@@ -1326,4 +1351,3 @@ elif st.session_state.step == "inbox":
                     for tab, key_name in zip([tab1, tab2, tab3], ["通常", "グレーゾーン", "見たくない"]):
                         with tab:
                             render_grouped_comments(tabs[key_name], key_name, key_prefix=vid)
-
