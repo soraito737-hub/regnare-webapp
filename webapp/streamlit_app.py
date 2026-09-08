@@ -189,9 +189,10 @@ def render_speech_bubble(text: str, avatar: str = "🛡️") -> None:
     )
 
 # ============ 動画選択・APIクォータ設定 ============
-VIDEOS_PAGE_SIZE = 10          # 動画一覧の1ページあたり取得件数
-DEFAULT_SELECTED_VIDEOS = 5    # デフォルトでチェックを入れる最新動画数
-MAX_VIDEOS_PER_RUN = 5         # 一度に処理できる動画数の上限
+VIDEOS_PAGE_SIZE = 50          # 動画一覧の1ページあたり取得件数(YouTube APIの上限)
+DEFAULT_SELECTED_VIDEOS = 1    # デフォルトでチェックを入れる最新動画数
+MAX_VIDEOS_INBOX = 1           # コメント欄(振り分け)タブで一度に処理できる動画数の上限
+MAX_VIDEOS_ANALYSIS = 2        # 動画分析タブで一度に処理できる動画数の上限
 MAX_COMMENTS_PER_VIDEO = 200   # 1動画あたりのコメント取得上限
 
 # ============ 動画ID抽出 ============
@@ -298,7 +299,7 @@ def classify_comment_safe(text: str) -> dict:
         }
 
 
-def classify_comments_parallel(texts: list[str], status_text=None, max_workers: int = 6) -> list[dict]:
+def classify_comments_parallel(texts: list[str], status_text=None, max_workers: int = 50) -> list[dict]:
     """複数コメントを並列に判定する(逐次実行より数倍速い)。順序はtextsと対応させて返す。"""
     results: list[dict] = [{}] * len(texts)
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -641,8 +642,9 @@ if "analysis_results_by_video" not in st.session_state:
 if "action_suggestions" not in st.session_state:
     st.session_state.action_suggestions = None
 
-if st.session_state.step != "landing":
-    st.title("🛡️ Regskip")
+if st.session_state.get("step", "landing") != "landing":
+    # landing画面には専用の大きな見出しがすでにあるため、二重表示を避ける
+    st.title("Regskip")
     st.caption("コメント欄 — Regskip")
 
 # ============ OAuthコールバック処理 ============
@@ -684,10 +686,66 @@ if "code" in query_params and st.session_state.credentials is None:
     st.rerun()
 
 # ============ STEP -1: ランディングページ ============
+if "splash_shown" not in st.session_state:
+    st.session_state.splash_shown = False
+
 if st.session_state.step == "landing":
+    if not st.session_state.splash_shown:
+        st.markdown(
+            """
+            <style>
+            @keyframes regskip-splash-fade {
+                0% { opacity: 1; }
+                65% { opacity: 1; }
+                100% { opacity: 0; visibility: hidden; }
+            }
+            @keyframes regskip-splash-rise {
+                0% { opacity: 0; transform: translateY(14px) scale(0.97); }
+                100% { opacity: 1; transform: translateY(0) scale(1); }
+            }
+            .regskip-splash {
+                position: fixed;
+                inset: 0;
+                z-index: 9999;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 0.9rem;
+                background: linear-gradient(160deg, #1f4a40 0%, #2F6F62 55%, #3d8361 100%);
+                animation: regskip-splash-fade 2.6s ease forwards;
+                pointer-events: none;
+            }
+            .regskip-splash-word {
+                font-size: 2.8rem;
+                font-weight: 700;
+                letter-spacing: -0.02em;
+                color: #ffffff;
+                opacity: 0;
+                animation: regskip-splash-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.15s forwards;
+            }
+            .regskip-splash-tagline {
+                font-size: 1.05rem;
+                color: #dff3ec;
+                letter-spacing: 0.01em;
+                opacity: 0;
+                animation: regskip-splash-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.55s forwards;
+            }
+            @media (prefers-reduced-motion: reduce) {
+                .regskip-splash { display: none; }
+            }
+            </style>
+            <div class="regskip-splash">
+                <div class="regskip-splash-word">Regskip</div>
+                <div class="regskip-splash-tagline">見たくないものは、スキップしていい。</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.session_state.splash_shown = True
+
     st.markdown(
         '<div style="text-align:center; padding: 2.5rem 0 0.5rem;">'
-        '<div style="font-size:3rem;">🛡️</div>'
         '<h1 style="font-size:2.6rem; margin:0.3rem 0; letter-spacing:-0.02em;">Regskip</h1>'
         '<p style="font-size:1.15rem; color:#5B6B6A; max-width:480px; margin:0 auto; line-height:1.6;">'
         "コメント欄を、もっと安心できる場所に。<br>見なくて済むから、傷つかない。"
@@ -757,18 +815,26 @@ elif st.session_state.step == "intro":
             st.caption(outcome)
 
     st.markdown("##### 🔒 データの扱いについて")
-    st.write("大切にしている「勝手なことはしない」という設計方針を、はじめにお伝えしておきます。")
+    st.write("特に大事な「データの扱い」について、ここでご説明します。")
     with st.container(border=True):
-        st.write("・コメントを勝手に削除することはありません(YouTube上での非表示操作は、あなたがボタンを押した時だけ実行されます)")
-        st.write("・見たくないコメントは、あなたが「見る」を選ぶまで本文を表示しません")
-        st.write("・データは保存されません。取得したコメントや判定結果は、ブラウザのタブを閉じると消えます")
+        st.write(
+            "・コメントを取得する際にGoogleアカウントと連携していただきますが、"
+            "取得するのは**あなたのチャンネルに投稿されたコメントの情報だけ**です。"
+            "個人情報やチャンネル運営に関わるその他の情報を、こちらが一方的に取得・操作することは一切ありません。"
+        )
+        st.write(
+            "・取得したコメントやAIの判定結果は、**どこにも保存されません**。"
+            "ブラウザのタブを閉じれば、その場ですべて消えます。私たち運営側のサーバーにデータが残ることもありません。"
+        )
+        st.write(
+            "・コメントを非表示にしたり、返信を投稿したりする機能もありますが、"
+            "**勝手に削除・投稿されることは一切ありません**。実行されるのは、あなた自身が画面上のボタンを押した時だけです。"
+        )
 
     st.markdown("##### 🔑 何に同意することになるか")
     st.write(
         "Googleでログインすると、あなたのチャンネルのコメント欄にアクセスする許可を求められます。"
         "これは実際にコメントを取得・判定するために必要な連携です。"
-        "「YouTube上で非表示にする」「返信を投稿する」といった書き込み操作もできますが、"
-        "これらは各コメントのボタンをあなたが押した時だけ実行され、それ以外で勝手に投稿・削除されることはありません。"
     )
     st.info(
         "その際「このアプリはGoogleで確認されていません」という警告画面が表示されますが、"
@@ -909,8 +975,8 @@ elif st.session_state.step == "inbox":
     # ボタンを押さずに自動でコメント取得・判定まで実行する
     auto_run = (not videos_already_loaded) and not st.session_state.results_by_video
 
-    main_tab2, main_tab1 = st.tabs(
-        ["📊 動画分析", "📥 コメント欄(振り分け)"]
+    main_tab1, main_tab2 = st.tabs(
+        ["📥 コメント欄(振り分け)", "📊 動画分析"]
     )
 
     with main_tab2:
@@ -944,9 +1010,9 @@ elif st.session_state.step == "inbox":
                     st.session_state.analysis_selected_video_ids.discard(v["video_id"])
 
         analysis_selected_count = len(st.session_state.analysis_selected_video_ids)
-        st.caption(f"分析対象として選択中: {analysis_selected_count} / 最大{MAX_VIDEOS_PER_RUN}本")
+        st.caption(f"分析対象として選択中: {analysis_selected_count} / 最大{MAX_VIDEOS_ANALYSIS}本")
         analysis_disabled = (
-            analysis_selected_count == 0 or analysis_selected_count > MAX_VIDEOS_PER_RUN
+            analysis_selected_count == 0 or analysis_selected_count > MAX_VIDEOS_ANALYSIS
         )
 
         if st.button(
@@ -1091,7 +1157,7 @@ elif st.session_state.step == "inbox":
 
         st.caption(f"見たくない設定中のカテゴリ: {', '.join(st.session_state.selected_categories) or '(なし)'}")
 
-        with st.expander("🔍 対象動画を変更する", expanded=False):
+        with st.expander("🔍 対象動画を選択する", expanded=False):
             st.caption("検索・過去動画の読み込み・選び直しができます。")
             search_query = st.text_input(
                 "動画タイトルで検索(キーワード絞り込み)", value=st.session_state.video_search_query
@@ -1170,11 +1236,11 @@ elif st.session_state.step == "inbox":
                     st.rerun()
 
             selected_count = len(st.session_state.selected_video_ids)
-            st.caption(f"選択中: {selected_count} / 最大{MAX_VIDEOS_PER_RUN}本")
-            if selected_count > MAX_VIDEOS_PER_RUN:
-                st.warning(f"一度に処理できる動画は最大{MAX_VIDEOS_PER_RUN}本までです。選択を減らしてください。")
+            st.caption(f"選択中: {selected_count} / 最大{MAX_VIDEOS_INBOX}本")
+            if selected_count > MAX_VIDEOS_INBOX:
+                st.warning(f"一度に処理できる動画は最大{MAX_VIDEOS_INBOX}本までです。選択を減らしてください。")
 
-            process_disabled = selected_count == 0 or selected_count > MAX_VIDEOS_PER_RUN
+            process_disabled = selected_count == 0 or selected_count > MAX_VIDEOS_INBOX
             manual_trigger = st.button(
                 "この設定で再取得・判定する", use_container_width=True,
                 disabled=process_disabled, type="primary"
