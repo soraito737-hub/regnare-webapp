@@ -870,6 +870,13 @@ elif st.session_state.step == "category":
         "モラル・マナー説教": "マナー違反やコンプライアンスなどを指摘・説教するコメント",
         "プライバシー": "住所・本名・職場など、個人が特定されうる情報に触れるコメント",
     }
+    category_icons = {
+        "外見": "🪞",
+        "人間性": "💭",
+        "活動クオリティ": "🎬",
+        "モラル・マナー説教": "📢",
+        "プライバシー": "🔒",
+    }
 
     selected = []
     if not none_selected:
@@ -879,7 +886,7 @@ elif st.session_state.step == "category":
                 st.markdown(
                     f'<span style="display:inline-block;width:10px;height:10px;'
                     f'border-radius:50%;background:{color};margin-right:6px;"></span>'
-                    f'<strong style="color:{color};">{cat}</strong>',
+                    f'<strong style="color:{color};">{category_icons.get(cat, "")} {cat}</strong>',
                     unsafe_allow_html=True,
                 )
                 checked = st.checkbox(cat, value=False, key=f"cat_{cat}", label_visibility="collapsed")
