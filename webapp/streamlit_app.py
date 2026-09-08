@@ -884,8 +884,6 @@ elif st.session_state.step == "category":
             color = CATEGORY_COLORS.get(cat, "#5B6B6A")
             with st.container(border=True):
                 st.markdown(
-                    f'<span style="display:inline-block;width:10px;height:10px;'
-                    f'border-radius:50%;background:{color};margin-right:6px;"></span>'
                     f'<strong style="color:{color};">{category_icons.get(cat, "")} {cat}</strong>',
                     unsafe_allow_html=True,
                 )
