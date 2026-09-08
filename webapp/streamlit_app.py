@@ -1331,7 +1331,7 @@ elif st.session_state.step == "inbox":
             s1, s2, s3 = st.columns(3)
             s1.metric("✅ 通常", total_counts["通常"])
             s2.metric("⏳ グレーゾーン", total_counts["グレーゾーン"])
-            s3.metric("🙈 見たくない", "非表示")
+            s3.metric("🙈 見たくない", "")
 
             st.markdown("#### 動画ごとの件数内訳")
             for vid, data in st.session_state.results_by_video.items():
