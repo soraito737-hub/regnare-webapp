@@ -594,7 +594,10 @@ def render_grouped_comments(items: list[dict], key_name: str, key_prefix: str) -
     for label in labels_to_show:
         group = buckets[label]
         heading = f"💬 {display_category_label(label)}" if label == "非該当" else label
-        st.markdown(f"**{heading}**（{len(group)}件）")
+        if key_name == "見たくない":
+            st.markdown(f"**{heading}**")
+        else:
+            st.markdown(f"**{heading}**（{len(group)}件）")
         for c in group:
             render_comment_card(c, key_name)
         st.write("")
@@ -1328,14 +1331,14 @@ elif st.session_state.step == "inbox":
             s1, s2, s3 = st.columns(3)
             s1.metric("✅ 通常", total_counts["通常"])
             s2.metric("⏳ グレーゾーン", total_counts["グレーゾーン"])
-            s3.metric("🙈 見たくない", total_counts["見たくない"])
+            s3.metric("🙈 見たくない", "非表示")
 
             st.markdown("#### 動画ごとの件数内訳")
             for vid, data in st.session_state.results_by_video.items():
                 t = per_video_tabs[vid]
                 st.write(
                     f"**{data['title']}** — "
-                    f"✅ 通常:{len(t['通常'])} / ⏳ グレーゾーン:{len(t['グレーゾーン'])} / 🙈 見たくない:{len(t['見たくない'])}"
+                    f"✅ 通常:{len(t['通常'])} / ⏳ グレーゾーン:{len(t['グレーゾーン'])} / 🙈 見たくない"
                 )
 
             st.divider()
@@ -1346,7 +1349,7 @@ elif st.session_state.step == "inbox":
                     tab1, tab2, tab3 = st.tabs([
                         f"✅ 通常 ({len(tabs['通常'])})",
                         f"⏳ グレーゾーン ({len(tabs['グレーゾーン'])})",
-                        f"🙈 見たくない ({len(tabs['見たくない'])})",
+                        "🙈 見たくない",
                     ])
                     for tab, key_name in zip([tab1, tab2, tab3], ["通常", "グレーゾーン", "見たくない"]):
                         with tab:
