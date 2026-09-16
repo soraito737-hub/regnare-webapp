@@ -9,6 +9,8 @@ regskip_実装仕様_for_claude_code.md のUI仕様(画面構成)に対応する
           → ⑤ローディング → ⑥コメント画面
 """
 
+import concurrent.futures
+import html
 import json
 import sys
 import time
@@ -26,8 +28,8 @@ from personal_classifier import (
     Category, EmergencyType, PersonalJudgmentClassifier, SurfaceLevel, TatemaePattern,
 )
 from personal_profile import (
-    PatternSetting, PersonalAction, PersonalProfile, PersonalSimilarityList,
-    find_flagged_authors, is_emergency, resolve_display_action,
+    DisplayAction, PatternSetting, PersonalAction, PersonalProfile, PersonalSimilarityList,
+    find_flagged_authors, is_emergency, resolve_display_action, similarity_tier,
 )
 
 SCOPES = ["https://www.googleapis.com/auth/youtube.force-ssl"]
@@ -162,6 +164,129 @@ def get_similarity_list() -> PersonalSimilarityList:
 @st.cache_data(show_spinner=False)
 def classify_comment_cached(text: str):
     return get_classifier().classify(text)
+
+
+def _process_single_comment(comment: dict, user_id: str) -> dict:
+    """1件のコメントを判定し、タブ振り分け先まで確定する。"""
+    text = comment["text"]
+    judgment = classify_comment_cached(text)
+
+    if is_emergency(judgment):
+        display = DisplayAction(hide=True, escalate_to_youtube=False, reason="emergency")
+        sim_score = 0.0
+        tab = "privacy"
+    else:
+        similarity_list = get_similarity_list()
+        matched_action, sim_score = similarity_list.check_similarity(user_id, text)
+        profile = get_profile()
+        display = resolve_display_action(judgment, profile, similarity_action=matched_action)
+        if not display.hide:
+            tab = "new"
+        elif display.escalate_to_youtube:
+            tab = "hidden_youtube"
+        else:
+            tab = "hidden_regskip"
+
+    return {
+        "comment": comment,
+        "judgment": judgment,
+        "display": display,
+        "similarity_score": sim_score,
+        "tab": tab,
+    }
+
+
+def process_video_comments(video: dict, status_text=None) -> dict:
+    """動画のコメントを取得し、全件判定してタブ別に振り分ける。"""
+    comments = fetch_comments(
+        st.session_state.rd_credentials, video["video_id"], max_results=MAX_COMMENTS_PER_VIDEO
+    )
+    user_id = get_user_id()
+
+    results = [None] * len(comments)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
+        future_to_idx = {
+            executor.submit(_process_single_comment, c, user_id): i for i, c in enumerate(comments)
+        }
+        done = 0
+        for future in concurrent.futures.as_completed(future_to_idx):
+            idx = future_to_idx[future]
+            try:
+                results[idx] = future.result()
+            except Exception as e:
+                results[idx] = {
+                    "comment": comments[idx],
+                    "judgment": None,
+                    "display": DisplayAction(hide=True, escalate_to_youtube=False, reason="error"),
+                    "similarity_score": 0.0,
+                    "tab": "hidden_regskip",
+                }
+            done += 1
+            if status_text is not None:
+                status_text.text(f"判定中…({done}/{len(comments)}件)")
+
+    tabs: dict[str, list] = {"new": [], "hidden_regskip": [], "hidden_youtube": [], "privacy": []}
+    for r in results:
+        tabs[r["tab"]].append(r)
+
+    flagged_authors = find_flagged_authors(user_id, get_similarity_list())
+
+    return {"tabs": tabs, "flagged_authors": flagged_authors}
+
+
+def _render_flagged_author_body(author: dict, video_id: str, banner: bool) -> None:
+    """要注意ユーザーのカード本体(バナー・タブ共通)。
+    アバター・投稿者名・直近◯回の見出しとカテゴリ×建前パターンの内訳は常時表示、
+    「コメントを見る」ボタンで該当コメントの本文を展開表示する。"""
+    author_id = author["author_channel_id"]
+    st.markdown(f"**{author_id}**  \n直近{author['count']}回、見たくない/非表示に分類")
+    breakdown_parts = [
+        f"{cat.value}×{pat.value} {count}件" for (cat, pat), count in author["breakdown"].items()
+    ]
+    st.caption("、".join(breakdown_parts))
+
+    reveal_key = f"rd_flagged_reveal_{video_id}_{author_id}"
+    if st.button("コメントを見る", key=f"rd_flagged_btn_{video_id}_{author_id}_{banner}"):
+        st.session_state[reveal_key] = not st.session_state.get(reveal_key, False)
+    if st.session_state.get(reveal_key):
+        data = st.session_state.rd_video_comments.get(video_id, {})
+        all_entries = [e for entries in data.get("tabs", {}).values() for e in entries]
+        for entry in all_entries:
+            if entry["comment"].get("author_channel_id") == author_id:
+                judgment = entry["judgment"]
+                cat_label = judgment.category.value if judgment else ""
+                pat_label = judgment.tatemae_pattern.value if judgment else ""
+                st.caption(f"{cat_label} / {pat_label}")
+                st.write(entry["comment"]["text"])
+
+    btn_cols = st.columns(2)
+    if btn_cols[0].button("ユーザーを非表示にする", key=f"rd_flagged_ban_{video_id}_{author_id}_{banner}", type="primary"):
+        data = st.session_state.rd_video_comments.get(video_id, {})
+        all_entries = [e for entries in data.get("tabs", {}).values() for e in entries]
+        for entry in all_entries:
+            if entry["comment"].get("author_channel_id") == author_id:
+                try:
+                    ban_author_on_youtube(st.session_state.rd_credentials, entry["comment"]["comment_id"])
+                except Exception:
+                    pass
+        st.session_state.setdefault("rd_dismissed_authors", set()).add(author_id)
+        st.rerun()
+    if btn_cols[1].button("このままにする", key=f"rd_flagged_keep_{video_id}_{author_id}_{banner}"):
+        st.session_state.setdefault("rd_dismissed_authors", set()).add(author_id)
+        st.rerun()
+
+
+@st.cache_data(show_spinner=False)
+def rephrase_comment_cached(text: str) -> str:
+    """『言い換えて見る』ボタン用: 攻撃的な言葉を使わずに要点だけ伝える言い換えをオンデマンド生成する。"""
+    client = get_classifier().client
+    prompt = (
+        "このコメントの言いたいことを、攻撃的な言葉を使わずに伝えてください。"
+        "伝えるべき内容が特になければ、その旨を伝えてください。\n\n"
+        f"コメント:「{text}」"
+    )
+    response = client.models.generate_content(model="gemini-3.6-flash", contents=prompt)
+    return response.text.strip()
 
 
 # ============ セッション状態の初期化 ============
@@ -357,10 +482,142 @@ elif st.session_state.rd_step == "home":
                 st.session_state.rd_videos_next_page_token = next_token
             st.rerun()
 
-# ============ ⑤ ローディング画面 / ⑥ コメント画面は次の実装区切りで対応 ============
-elif st.session_state.rd_step in ("loading", "comments"):
+# ============ ⑤ ローディング画面 ============
+elif st.session_state.rd_step == "loading":
     render_header(show_back=True)
-    st.info("⑤ローディング画面・⑥コメント画面は次の実装区切りで対応予定です。")
     video = st.session_state.rd_selected_video
-    if video:
-        st.write(f"選択中の動画: {video['title']}")
+    row = st.columns([1, 5])
+    with row[0]:
+        if video and video["thumbnail"]:
+            st.image(video["thumbnail"])
+    with row[1]:
+        st.write(f"**{video['title']}**" if video else "")
+
+    status_text = st.empty()
+    with st.spinner("コメントを読み込み中です…"):
+        result = process_video_comments(video, status_text=status_text)
+    st.session_state.rd_video_comments[video["video_id"]] = result
+    st.session_state.rd_step = "comments"
+    st.rerun()
+
+
+# ============ ⑥ コメント画面 ============
+elif st.session_state.rd_step == "comments":
+    render_header(show_back=True)
+    video = st.session_state.rd_selected_video
+    video_id = video["video_id"]
+    data = st.session_state.rd_video_comments.get(video_id, {"tabs": {"new": [], "hidden_regskip": [], "hidden_youtube": [], "privacy": []}, "flagged_authors": []})
+
+    row = st.columns([1, 5])
+    with row[0]:
+        if video["thumbnail"]:
+            st.image(video["thumbnail"])
+    with row[1]:
+        st.write(f"**{video['title']}**")
+
+    # --- 要注意ユーザーの常時バナー ---
+    dismissed = st.session_state.setdefault("rd_dismissed_authors", set())
+    for author in data["flagged_authors"]:
+        author_id = author["author_channel_id"]
+        if author_id in dismissed:
+            continue
+        with st.container(border=True):
+            _render_flagged_author_body(author, video_id, banner=True)
+
+    def _move_comment(tab_key: str, comment_id: str, new_action: PersonalAction):
+        entries = data["tabs"][tab_key]
+        idx = next((i for i, e in enumerate(entries) if e["comment"]["comment_id"] == comment_id), None)
+        if idx is None:
+            return
+        entry = entries.pop(idx)
+        judgment = entry["judgment"]
+        get_similarity_list().mark_comment(
+            user_id=get_user_id(), comment=entry["comment"]["text"], action=new_action,
+            category=judgment.category, tatemae_pattern=judgment.tatemae_pattern,
+            surface_level=judgment.surface_level,
+            author_channel_id=entry["comment"].get("author_channel_id"),
+        )
+        entry["display"] = DisplayAction(
+            hide=(new_action != PersonalAction.NORMAL),
+            escalate_to_youtube=(new_action == PersonalAction.HIDE_YOUTUBE),
+            reason="personal_similarity",
+        )
+        new_tab = "new" if new_action == PersonalAction.NORMAL else (
+            "hidden_youtube" if new_action == PersonalAction.HIDE_YOUTUBE else "hidden_regskip"
+        )
+        entry["tab"] = new_tab
+        data["tabs"][new_tab].append(entry)
+        if new_action == PersonalAction.HIDE_YOUTUBE:
+            try:
+                hide_comment_on_youtube(st.session_state.rd_credentials, comment_id)
+            except Exception:
+                pass
+
+    def _render_open_comment(entry: dict, tab_key: str):
+        c = entry["comment"]
+        comment_id = c["comment_id"]
+        with st.container(border=True):
+            top = st.columns([5, 1])
+            with top[0]:
+                st.write(f"**{c['author']}**  \n:gray[{c.get('published_at', '')[:10]}]")
+            with top[1]:
+                with st.popover("⋮"):
+                    if st.button("ユーザーを非表示にする", key=f"rd_ban_{comment_id}"):
+                        try:
+                            ban_author_on_youtube(st.session_state.rd_credentials, comment_id)
+                            st.success("このユーザーの今後のコメントを拒否するよう設定しました。")
+                        except Exception as e:
+                            st.error(f"操作に失敗しました: {e}")
+            st.write(c["text"])
+            if entry["similarity_score"] and similarity_tier(entry["similarity_score"]) == "grey":
+                st.caption("⚠️ 似たコメントに反応したことがあります")
+            btn_cols = st.columns(2)
+            if btn_cols[0].button("見たくない", key=f"rd_want_{tab_key}_{comment_id}"):
+                _move_comment(tab_key, comment_id, PersonalAction.HIDE_REGSKIP)
+                st.rerun()
+            if btn_cols[1].button("非表示にしたい", key=f"rd_hide_{tab_key}_{comment_id}", type="primary"):
+                _move_comment(tab_key, comment_id, PersonalAction.HIDE_YOUTUBE)
+                st.rerun()
+
+    def _render_hidden_comment(entry: dict, tab_key: str):
+        c = entry["comment"]
+        comment_id = c["comment_id"]
+        judgment = entry["judgment"]
+        with st.container(border=True):
+            st.write(f"**{c['author']}**")
+            if judgment:
+                st.caption(f"カテゴリ: {judgment.category.value}")
+            reveal_key = f"rd_rephrase_{comment_id}"
+            if st.button("言い換えて見る", key=f"rd_rephrase_btn_{comment_id}"):
+                st.session_state[reveal_key] = rephrase_comment_cached(c["text"])
+            if reveal_key in st.session_state:
+                st.info(st.session_state[reveal_key])
+
+    tab_new, tab_want, tab_hidden, tab_privacy, tab_flagged = st.tabs([
+        f"新着コメント ({len(data['tabs']['new'])})",
+        f"見たくない ({len(data['tabs']['hidden_regskip'])})",
+        f"非表示 ({len(data['tabs']['hidden_youtube'])})",
+        f"🔴 プライバシー ({len(data['tabs']['privacy'])})",
+        f"要注意ユーザー ({len(data['flagged_authors'])})",
+    ])
+
+    with tab_new:
+        for entry in data["tabs"]["new"]:
+            _render_open_comment(entry, "new")
+    with tab_want:
+        for entry in data["tabs"]["hidden_regskip"]:
+            _render_open_comment(entry, "hidden_regskip")
+    with tab_hidden:
+        for entry in data["tabs"]["hidden_youtube"]:
+            _render_hidden_comment(entry, "hidden_youtube")
+    with tab_privacy:
+        for entry in data["tabs"]["privacy"]:
+            c = entry["comment"]
+            with st.container(border=True):
+                st.write(f"**{c['author']}**")
+                st.caption(f"緊急区分: {entry['judgment'].emergency.value}")
+                st.write(c["text"])
+    with tab_flagged:
+        for author in data["flagged_authors"]:
+            with st.container(border=True):
+                _render_flagged_author_body(author, video_id, banner=False)
