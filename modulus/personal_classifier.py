@@ -101,6 +101,11 @@ FEW_SHOT_EXAMPLES = """\
 - 「今日の動画も面白かったです！」
   → category=該当なし, surface_level=1, tatemae_pattern=該当なし
   (純粋な肯定的感想で、攻撃的意図はない)
+- 「体格いいね」「最初の女の子可愛い」
+  → category=該当なし, surface_level=1, tatemae_pattern=該当なし
+  (限定句・否定的な前提を伴わない、素直な褒め言葉。「褒め殺し型」は、褒め言葉の
+  中に否定的な評価が明確に埋め込まれている場合のみ該当し、単語だけで機械的に
+  判定しないこと)
 - 「この背景の景色、家の近くだよね特定した」
   → category=該当なし, surface_level=1, tatemae_pattern=該当なし, emergency=プライバシー
   (特定カテゴリへの批判ではなく、実生活の特定を示唆する緊急案件)
