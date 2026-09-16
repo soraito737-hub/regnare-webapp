@@ -16,3 +16,4 @@ __pycache__/
 
 # 実行時に蓄積されるユーザーフィードバックデータ(コードではなく運用データ)
 data/user_feedback.json
+data/personal_similarity_*.json
