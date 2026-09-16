@@ -399,25 +399,52 @@ elif st.session_state.rd_step == "initial_settings":
     st.caption("攻撃的な言い方をされた時、どう扱ってほしいかをカテゴリごとに選んでください。あとからいつでも変更できます。")
 
     profile = get_profile()
-    action_labels = {
-        PersonalAction.NORMAL: "通常表示",
-        PersonalAction.HIDE_REGSKIP: "見たくない",
-        PersonalAction.HIDE_YOUTUBE: "非表示にしたい",
+
+    PATTERN_EXAMPLE_LABELS = {
+        TatemaePattern.OTHER_COMPARISON: "他の人と比べられる",
+        TatemaePattern.FAN_DEPARTURE: "ファンをやめると言われる",
+        TatemaePattern.RHETORICAL_QUESTION: "答えに困る質問",
+        TatemaePattern.BACKHANDED_COMPLIMENT: "皮肉っぽい褒め言葉",
+        TatemaePattern.FALSE_CONSENSUS: "「みんな」を主語にされる",
+        TatemaePattern.POLITE_INTERROGATION: "丁寧な言葉で長々問い詰められる",
+        TatemaePattern.FAKE_ADVICE: "アドバイスのふりをした説教",
     }
-    action_by_label = {v: k for k, v in action_labels.items()}
 
     for category in Category:
         if category == Category.NONE:
             continue
-        current = profile.get_attack_action(category)
-        choice = st.radio(
-            category.value,
-            options=list(action_labels.values()),
-            index=list(action_labels.keys()).index(current),
-            key=f"rd_attack_action_{category.value}",
-            horizontal=True,
-        )
-        profile.attack_action[category] = action_by_label[choice]
+        with st.container(border=True):
+            st.markdown(f"**{category.value}**")
+
+            current_attack = profile.get_attack_action(category)
+            attack_checked = st.checkbox(
+                "攻撃的な言い方を隠す",
+                value=(current_attack != PersonalAction.NORMAL),
+                key=f"rd_attack_action_{category.value}",
+                help="例:「ブスすぎて無理」",
+            )
+            profile.attack_action[category] = (
+                PersonalAction.HIDE_REGSKIP if attack_checked else PersonalAction.NORMAL
+            )
+
+            st.caption("軽い言い方でも、これは無理というものがあれば選んでください")
+            for pattern in TatemaePattern:
+                if pattern == TatemaePattern.NONE:
+                    continue
+                key = (category, pattern)
+                currently_on = profile.pattern_action.get(key, PatternSetting(action=PersonalAction.NORMAL)).action != PersonalAction.NORMAL
+                checked = st.checkbox(
+                    PATTERN_EXAMPLE_LABELS.get(pattern, pattern.value),
+                    value=currently_on,
+                    key=f"rd_pattern_{category.value}_{pattern.value}",
+                )
+                if checked:
+                    profile.pattern_action[key] = PatternSetting(action=PersonalAction.HIDE_REGSKIP)
+                elif key in profile.pattern_action:
+                    del profile.pattern_action[key]
+
+    with st.container(border=True):
+        st.markdown("**プライバシー**")
 
     st.divider()
     if st.button("この設定で始める", use_container_width=True, type="primary"):
