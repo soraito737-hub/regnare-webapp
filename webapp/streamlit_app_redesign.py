@@ -291,7 +291,7 @@ def rephrase_comment_cached(text: str) -> str:
 
 # ============ セッション状態の初期化 ============
 _defaults = {
-    "rd_step": "connect",
+    "rd_step": "diagnosis_placeholder",
     "rd_credentials": None,
     "rd_code_verifier": None,
     "rd_channel_id": None,
@@ -345,7 +345,18 @@ if "code" in query_params and st.session_state.rd_credentials is None:
 
     st.session_state.rd_credentials = flow.credentials
     st.query_params.clear()
-    st.session_state.rd_step = "diagnosis_placeholder"
+
+    # 初期設定(診断・カテゴリ設定)はGoogle連携より前に完了しているはずなので、
+    # ここではチャンネル情報を取得してそのままホームへ進む
+    with st.spinner("チャンネル情報を確認しています…"):
+        info = get_channel_info(st.session_state.rd_credentials)
+    if info is None:
+        st.error("チャンネル情報を取得できませんでした。YouTubeチャンネルがあるアカウントでログインしているか確認してください。")
+        st.stop()
+    st.session_state.rd_channel_id = info["channel_id"]
+    st.session_state.rd_uploads_playlist_id = info["uploads_playlist_id"]
+    get_profile().user_id = info["channel_id"]
+    st.session_state.rd_step = "home"
     st.rerun()
 
 
@@ -363,10 +374,12 @@ def render_header(show_back: bool = False):
         st.markdown("👤")
 
 
-# ============ ① ログイン(接続前) ============
+# ============ ③ ログイン(診断・初期設定の後に移動) ============
+# Google連携できなくても、診断・初期設定は誰でも試せるようにするため、
+# ログインは「この設定で始める」を押した後に行う形に変更した。
 if st.session_state.rd_step == "connect":
     st.title("Regskip")
-    st.write("YouTubeアカウントと連携して始めます。")
+    st.write("設定ありがとうございます。続けるには、YouTubeアカウントと連携してください。")
 
     flow = get_flow()
     auth_url, _ = flow.authorization_url(
@@ -376,7 +389,7 @@ if st.session_state.rd_step == "connect":
     st.session_state.rd_code_verifier = flow.code_verifier
     st.link_button("Googleでログインして連携する", auth_url, use_container_width=True, type="primary")
 
-# ============ ② 診断画面(準備中プレースホルダー) ============
+# ============ ① 診断画面(準備中プレースホルダー) ============
 elif st.session_state.rd_step == "diagnosis_placeholder":
     render_header(show_back=False)
     st.write("")
@@ -392,7 +405,7 @@ elif st.session_state.rd_step == "diagnosis_placeholder":
         st.session_state.rd_step = "initial_settings"
         st.rerun()
 
-# ============ ③ 初期設定画面(PersonalProfileの手動編集UI) ============
+# ============ ② 初期設定画面(PersonalProfileの手動編集UI) ============
 elif st.session_state.rd_step == "initial_settings":
     render_header(show_back=(bool(st.session_state.rd_channel_id)))
     st.subheader("初期設定")
@@ -447,17 +460,16 @@ elif st.session_state.rd_step == "initial_settings":
         st.markdown("**プライバシー**")
 
     st.divider()
-    if st.button("この設定で始める", use_container_width=True, type="primary"):
-        with st.spinner("チャンネル情報を確認しています…"):
-            info = get_channel_info(st.session_state.rd_credentials)
-        if info is None:
-            st.error("チャンネル情報を取得できませんでした。YouTubeチャンネルがあるアカウントでログインしているか確認してください。")
-            st.stop()
-        st.session_state.rd_channel_id = info["channel_id"]
-        st.session_state.rd_uploads_playlist_id = info["uploads_playlist_id"]
-        profile.user_id = info["channel_id"]
-        st.session_state.rd_step = "home"
-        st.rerun()
+    button_label = "この設定で始める" if st.session_state.rd_credentials is None else "この設定を保存する"
+    if st.button(button_label, use_container_width=True, type="primary"):
+        if st.session_state.rd_credentials is None:
+            # まだGoogle連携していない(初回設定フロー) -> ここで初めてログインへ進む
+            st.session_state.rd_step = "connect"
+            st.rerun()
+        else:
+            # すでに連携済み(ハンバーガーメニューから設定を編集しに来たケース) -> そのままホームへ戻る
+            st.session_state.rd_step = "home"
+            st.rerun()
 
 # ============ ④ ホーム画面(動画一覧) ============
 elif st.session_state.rd_step == "home":
