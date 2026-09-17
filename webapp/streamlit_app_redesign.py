@@ -413,14 +413,45 @@ elif st.session_state.rd_step == "initial_settings":
 
     profile = get_profile()
 
-    PATTERN_EXAMPLE_LABELS = {
-        TatemaePattern.OTHER_COMPARISON: "他の人と比べられる",
-        TatemaePattern.FAN_DEPARTURE: "ファンをやめると言われる",
-        TatemaePattern.RHETORICAL_QUESTION: "答えに困る質問",
-        TatemaePattern.BACKHANDED_COMPLIMENT: "皮肉っぽい褒め言葉",
-        TatemaePattern.FALSE_CONSENSUS: "「みんな」を主語にされる",
-        TatemaePattern.POLITE_INTERROGATION: "丁寧な言葉で長々問い詰められる",
-        TatemaePattern.FAKE_ADVICE: "アドバイスのふりをした説教",
+    # カテゴリごとに文言・具体例を変えたラベル(4カテゴリ×7パターン=28通り)。
+    # (アイコン, チェックボックスの短いラベル, ホバー表示用の具体例)
+    PATTERN_UI = {
+        Category.APPEARANCE: {
+            TatemaePattern.OTHER_COMPARISON: ("👤", "他の人と比べられる", "「〇〇さんの方が可愛いのに」"),
+            TatemaePattern.FAN_DEPARTURE: ("✨", "ファンをやめると言われる", "「見た目が無理になったので見なくなります」"),
+            TatemaePattern.RHETORICAL_QUESTION: ("💬", "若さに関する質問", "「その若作り、いつまで続けるの?」"),
+            TatemaePattern.BACKHANDED_COMPLIMENT: ("🩹", "皮肉っぽい褒め言葉", "「本当に自然な仕上がりですね(笑)」"),
+            TatemaePattern.FALSE_CONSENSUS: ("❝", "「みんな」を主語にされる", "「みんな見た目のこと気にしてるよ」"),
+            TatemaePattern.POLITE_INTERROGATION: ("😟", "丁寧な言葉で長々問い詰められる", "「差し支えなければ、なぜそのメイクなのか教えてください」"),
+            TatemaePattern.FAKE_ADVICE: ("💭", "アドバイスのふりをした指摘", "「老婆心ながら、そのメイクは正直……」"),
+        },
+        Category.PERSONALITY: {
+            TatemaePattern.OTHER_COMPARISON: ("👤", "他の人と性格を比べられる", "「〇〇さんの方が気さくで好き」"),
+            TatemaePattern.FAN_DEPARTURE: ("✨", "呆れて応援をやめると言われる", "「性格知って冷めたので離れます」"),
+            TatemaePattern.RHETORICAL_QUESTION: ("💬", "本性を疑うような質問", "「それが本当のあなたなんですか?」"),
+            TatemaePattern.BACKHANDED_COMPLIMENT: ("🩹", "遠回しに人間性を疑う褒め言葉", "「良い人ぶるの上手だよね」"),
+            TatemaePattern.FALSE_CONSENSUS: ("❝", "「みんな」に嫌われてると言われる", "「みんな陰で言ってるよ、あなたのこと」"),
+            TatemaePattern.POLITE_INTERROGATION: ("😟", "丁寧な言葉で人格を長々問い詰められる", "「なぜそのような態度を取られたのか、ご説明いただけますか」"),
+            TatemaePattern.FAKE_ADVICE: ("💭", "説教のような助言", "「経験上、そういう性格はいずれ壁にぶつかりますよ」"),
+        },
+        Category.ACTIVITY_QUALITY: {
+            TatemaePattern.OTHER_COMPARISON: ("👤", "他の配信者と実力を比べられる", "「〇〇さんの方が編集うまいよね」"),
+            TatemaePattern.FAN_DEPARTURE: ("✨", "つまらないから見るのをやめると言われる", "「最近の企画つまらないので見なくなりました」"),
+            TatemaePattern.RHETORICAL_QUESTION: ("💬", "企画の意図を疑うような質問", "「その企画、もう擦り切れてない?」"),
+            TatemaePattern.BACKHANDED_COMPLIMENT: ("🩹", "皮肉っぽく編集や企画を褒められる", "「尺稼ぎ上手だね」"),
+            TatemaePattern.FALSE_CONSENSUS: ("❝", "「みんな」がつまらないと思ってると言われる", "「みんな飽きてると思うよ、この企画」"),
+            TatemaePattern.POLITE_INTERROGATION: ("😟", "丁寧な言葉で構成を長々問い詰められる", "「なぜあのような構成にされたのか気になっております」"),
+            TatemaePattern.FAKE_ADVICE: ("💭", "上から目線の改善アドバイス", "「編集の学校行った方がいいかもね」"),
+        },
+        Category.MORAL_LECTURE: {
+            TatemaePattern.OTHER_COMPARISON: ("👤", "他の配信者はちゃんとしてると比べられる", "「他の配信者はもっと気をつけてるよ」"),
+            TatemaePattern.FAN_DEPARTURE: ("✨", "モラルがないから離れると言われる", "「その考え方が無理で応援やめます」"),
+            TatemaePattern.RHETORICAL_QUESTION: ("💬", "常識を疑うような質問", "「スポンサーさんは大丈夫なんですか、これ」"),
+            TatemaePattern.BACKHANDED_COMPLIMENT: ("🩹", "皮肉っぽく行儀の良さを褒められる", "「ここまで情報出しといて特定されないと思ってるならおめでたいね」"),
+            TatemaePattern.FALSE_CONSENSUS: ("❝", "「みんな」が呆れてると言われる", "「界隈全体がドン引きしてると思います」"),
+            TatemaePattern.POLITE_INTERROGATION: ("😟", "丁寧な言葉でマナーを長々問い詰められる", "「配慮に欠けると思うのですが、いかがお考えでしょうか」"),
+            TatemaePattern.FAKE_ADVICE: ("💭", "説教くさい注意", "「一応言っておくけど、それ結構際どいよ」"),
+        },
     }
 
     for category in Category:
@@ -439,22 +470,39 @@ elif st.session_state.rd_step == "initial_settings":
             profile.attack_action[category] = (
                 PersonalAction.HIDE_REGSKIP if attack_checked else PersonalAction.NORMAL
             )
+            st.caption("※該当する項目がない場合は、その他を選択してください")
 
             st.caption("軽い言い方でも、これは無理というものがあれば選んでください")
             for pattern in TatemaePattern:
                 if pattern == TatemaePattern.NONE:
                     continue
+                icon, label, example = PATTERN_UI[category][pattern]
                 key = (category, pattern)
                 currently_on = profile.pattern_action.get(key, PatternSetting(action=PersonalAction.NORMAL)).action != PersonalAction.NORMAL
                 checked = st.checkbox(
-                    PATTERN_EXAMPLE_LABELS.get(pattern, pattern.value),
+                    f"{icon} {label}",
                     value=currently_on,
                     key=f"rd_pattern_{category.value}_{pattern.value}",
+                    help=f"例:{example}",
                 )
                 if checked:
                     profile.pattern_action[key] = PatternSetting(action=PersonalAction.HIDE_REGSKIP)
                 elif key in profile.pattern_action:
                     del profile.pattern_action[key]
+
+            # 「その他」: 7パターンのどれにも当てはまらないが軽い言い方でも隠したい場合の受け皿。
+            # カテゴリ全体の「該当なし」建前(軽度)として扱う。
+            other_key = (category, TatemaePattern.NONE)
+            other_on = profile.pattern_action.get(other_key, PatternSetting(action=PersonalAction.NORMAL)).action != PersonalAction.NORMAL
+            other_checked = st.checkbox(
+                "🔘 その他(軽い言い方でも無理なもの)",
+                value=other_on,
+                key=f"rd_pattern_{category.value}_other",
+            )
+            if other_checked:
+                profile.pattern_action[other_key] = PatternSetting(action=PersonalAction.HIDE_REGSKIP)
+            elif other_key in profile.pattern_action:
+                del profile.pattern_action[other_key]
 
     with st.container(border=True):
         st.markdown("**プライバシー**")
