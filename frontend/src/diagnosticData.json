@@ -1,0 +1,79 @@
+{
+  "_meta": {
+    "description": "「Regskip 初期診断アセスメントおよびAI非表示制御ロジックの設計」に基づく診断(v3)。STEP1: James & Preeth (2023)をもとにした8つの攻撃分類から受けた経験のあるものを複数選択。STEP2: 選択した項目ごとにIES-6(Creamer, Bell & Failla, 2003の心理測定研究およびThoresen et al., 2010のIES-6短縮化研究に準拠した6項目簡易版, 侵入2・回避2・過覚醒2)で直近7日間の心理状況を測定。カテゴリ別スコアの3段階(0〜5/6〜14/15〜24)で、本サイトでの非表示・YouTube上で非表示タブへの振り分けの初期値を決める。YouTube上への実際の非表示APIの実行は、この診断だけでは行わず、既存の「実行する」ボタン+確認ダイアログでの人の操作を必須とする。",
+    "categories": "James & Preeth (2023)の8分類のうち、②⑤⑦はRegskipの既存カテゴリではなく建前パターンに対応する(2枚目の確認資料の対応表を参照)。⑥は元の「脅迫・プライベート侵入」から「暴言・活動停止要求」に変更済み。実際の危害を示唆する脅迫はRegskip側のemergency経路(SAFETY_THREAT等)が常時自動対応する別軸であり、LEVEL_2(侮蔑語・命令形・活動停止要求)とは異なるため、この項目はLEVEL_2に一致する内容に揃え、診断結果を「攻撃的な言い方」(attack_action)として全カテゴリ共通に反映する。"
+  },
+  "iesr6_scale": [
+    { "value": 0, "label": "まったくない" },
+    { "value": 1, "label": "少し" },
+    { "value": 2, "label": "中くらい" },
+    { "value": 3, "label": "かなり" },
+    { "value": 4, "label": "非常に" }
+  ],
+  "step1_items": [
+    {
+      "id": "appearance",
+      "label": "容姿・外見への攻撃",
+      "examples": ["その髪型、正直微妙だと思う", "その体型で自撮りするの?", "顔立ち、昔と変わったよね"],
+      "group": "category",
+      "mapping": { "type": "category", "category": "容姿否定" }
+    },
+    {
+      "id": "personality",
+      "label": "人格・属性への攻撃",
+      "examples": ["性格終わってるだろ", "そういう育ちだから仕方ないね", "学歴のわりに中身がないね"],
+      "group": "category",
+      "mapping": { "type": "category", "category": "人格否定" }
+    },
+    {
+      "id": "quality",
+      "label": "クオリティへの過剰攻撃",
+      "examples": ["つまらない、ゴミ", "内容が薄すぎて時間の無駄だった", "編集下手すぎて見てられない"],
+      "group": "category",
+      "mapping": { "type": "category", "category": "活動クオリティ" }
+    },
+    {
+      "id": "moral_lecture",
+      "label": "マナー・モラルへの説教",
+      "examples": ["社会人としてその発言はどうかと思う", "いい大人がその態度はありえない", "常識なさすぎて見てられない"],
+      "group": "category",
+      "mapping": { "type": "category", "category": "社会モラルマナー説教" }
+    },
+    {
+      "id": "mockery",
+      "label": "揶揄・あざけり",
+      "examples": ["それ本人ですか?(笑)", "よくこんな内容で続けられるね(笑)", "本当に自然な仕上がりですね(笑)"],
+      "group": "context",
+      "mapping": { "type": "pattern", "patterns": ["疑問形", "褒め殺し型"] }
+    },
+    {
+      "id": "comparison",
+      "label": "他者比較による蔑み",
+      "examples": ["〇〇さんの方がうまいよね", "他の配信者はもっとちゃんとしてるのに", "〇〇さんと比べると見劣りするね"],
+      "group": "context",
+      "mapping": { "type": "pattern", "patterns": ["他者比較"] }
+    },
+    {
+      "id": "false_consensus",
+      "label": "正義感・主語肥大化攻撃",
+      "examples": ["みんな不快に思ってるよ", "視聴者全員が呆れてると思う", "界隈全体がドン引きしてるよ"],
+      "group": "context",
+      "mapping": { "type": "pattern", "patterns": ["主語肥大化"] }
+    },
+    {
+      "id": "abuse",
+      "label": "暴言・活動停止要求",
+      "examples": ["才能ないから消えろ、やめろ", "二度と配信するな", "見てるだけで気持ち悪い、消えろ"],
+      "group": "context",
+      "mapping": { "type": "attack_all" }
+    }
+  ],
+  "iesr6_questions": [
+    { "text": "何かのきっかけで、その出来事についての気持ちがよみがえった", "subscale": "侵入" },
+    { "text": "その出来事についての映像が、ふと頭に浮かんだ", "subscale": "侵入" },
+    { "text": "その出来事を思い出させるものを避けようとした", "subscale": "回避" },
+    { "text": "その出来事について話さないようにした", "subscale": "回避" },
+    { "text": "睡眠を継続するのが難しかった", "subscale": "過覚醒" },
+    { "text": "物事に集中するのが難しかった", "subscale": "過覚醒" }
+  ]
+}

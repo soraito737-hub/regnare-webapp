@@ -58,11 +58,31 @@ class DisplayAction:
     reason: str  # "personal_similarity" | "personal_pattern" | "attack_level" | "none"(デバッグ・監査用)
 
 
+def _strongest_action(actions: list[PersonalAction]) -> PersonalAction:
+    """複数カテゴリ分の設定をまとめる時、一番強い(範囲が広い)ものを採用する。
+    HIDE_YOUTUBE > HIDE_REGSKIP > NORMAL の順。"""
+    if PersonalAction.HIDE_YOUTUBE in actions:
+        return PersonalAction.HIDE_YOUTUBE
+    if PersonalAction.HIDE_REGSKIP in actions:
+        return PersonalAction.HIDE_REGSKIP
+    return PersonalAction.NORMAL
+
+
 def resolve_display_action(
     judgment: CommentJudgment,
     profile: PersonalProfile,
     similarity_action: Optional[PersonalAction] = None,  # PersonalSimilarityList.check_similarityの結果
 ) -> DisplayAction:
+    # 【重要】YouTube側の実際の非表示(hide_comment_on_youtube)につながる
+    # 「hidden_youtube」タブへの自動振り分けは、次の2通りだけに限定する。
+    #   1. コメント画面でユーザーがそのコメント自体を個別に選んでボタンを押した場合
+    #      (mark_commentへの直接リクエスト。resolve_display_actionを経由しない)
+    #   2. 過去にユーザーが「YouTube上で非表示」を押した実際のコメントと、
+    #      エンベディングで似ていると判定された場合(= 実質的に同じ判断の再現)
+    # 一方、初期設定のカテゴリ×パターン一致・攻撃レベル一致は、個別のコメント文を
+    # 一度も人が見ていないAIだけの分類なので、自動ではYouTube上へは絶対に escalate せず、
+    # 「本サイトで非表示(hidden_regskip)」止まりにする。
+
     # 最優先: 個人用の類似検索リストに該当があれば、それを採用する
     # (実際のコメントに対する、最も具体的で新しい意思表示のため。NORMALの明示も含めて最優先)
     if similarity_action is not None:
@@ -73,21 +93,27 @@ def resolve_display_action(
         )
 
     # 個人ルール: カテゴリ×建前パターンの組み合わせに、通常表示以外の設定があれば従う
-    pattern_setting = profile.get_pattern_setting(judgment.category, judgment.tatemae_pattern)
-    if pattern_setting.action != PersonalAction.NORMAL:
+    # (AIの分類だけによる自動判定のため、YouTube上へのescalateはしない)
+    # 1コメントが複数カテゴリに該当することがあるため、該当する全カテゴリ分の設定を見て、
+    # 一番強い(範囲が広い)ものを採用する。
+    pattern_action = _strongest_action([
+        profile.get_pattern_setting(cat, judgment.tatemae_pattern).action for cat in judgment.categories
+    ])
+    if pattern_action != PersonalAction.NORMAL:
         return DisplayAction(
             hide=True,
-            escalate_to_youtube=(pattern_setting.action == PersonalAction.HIDE_YOUTUBE),
+            escalate_to_youtube=False,
             reason="personal_pattern",
         )
 
     # 攻撃レベル(侮蔑語等を含む)は、カテゴリごとの3択設定に従う
+    # (同じく、AIの分類だけによる自動判定のため、YouTube上へのescalateはしない)
     if judgment.surface_level == SurfaceLevel.LEVEL_2:
-        attack_action = profile.get_attack_action(judgment.category)
+        attack_action = _strongest_action([profile.get_attack_action(cat) for cat in judgment.categories])
         if attack_action != PersonalAction.NORMAL:
             return DisplayAction(
                 hide=True,
-                escalate_to_youtube=(attack_action == PersonalAction.HIDE_YOUTUBE),
+                escalate_to_youtube=False,
                 reason="attack_level",
             )
 
@@ -126,7 +152,7 @@ class SimilarityMark:
     comment: str
     embedding: list[float]
     action: PersonalAction
-    category: Category
+    categories: list[Category]  # 1コメントが複数カテゴリに同時に該当することがあるため配列
     tatemae_pattern: TatemaePattern
     surface_level: SurfaceLevel  # 【仕様書からの変更点】ユーザー指示によりレベルも記憶・再現の対象に追加
     author_channel_id: str | None = None  # 要注意ユーザー機能(投稿者単位の集計)のために保持
@@ -153,11 +179,15 @@ class PersonalSimilarityList:
             with open(path, "r", encoding="utf-8") as f:
                 raw = json.load(f)
             for r in raw:
+                # 旧形式(単一の"category")で保存された既存データも読めるように救済する。
+                raw_categories = r.get("categories")
+                if raw_categories is None:
+                    raw_categories = [r["category"]]
                 marks.append(SimilarityMark(
                     comment=r["comment"],
                     embedding=r["embedding"],
                     action=PersonalAction(r["action"]),
-                    category=Category(r["category"]),
+                    categories=[Category(c) for c in raw_categories],
                     tatemae_pattern=TatemaePattern(r["tatemae_pattern"]),
                     surface_level=SurfaceLevel(r["surface_level"]),
                     author_channel_id=r.get("author_channel_id"),
@@ -173,7 +203,7 @@ class PersonalSimilarityList:
                 "comment": m.comment,
                 "embedding": m.embedding,
                 "action": m.action.value,
-                "category": m.category.value,
+                "categories": [c.value for c in m.categories],
                 "tatemae_pattern": m.tatemae_pattern.value,
                 "surface_level": m.surface_level.value,
                 "author_channel_id": m.author_channel_id,
@@ -188,7 +218,7 @@ class PersonalSimilarityList:
         user_id: str,
         comment: str,
         action: PersonalAction,
-        category: Category,
+        categories: list[Category],
         tatemae_pattern: TatemaePattern,
         surface_level: SurfaceLevel,
         author_channel_id: str | None = None,
@@ -199,7 +229,7 @@ class PersonalSimilarityList:
             comment=comment,
             embedding=embedding,
             action=action,
-            category=category,
+            categories=categories,
             tatemae_pattern=tatemae_pattern,
             surface_level=surface_level,
             author_channel_id=author_channel_id,
@@ -232,13 +262,15 @@ def similarity_tier(score: float) -> str:
 
 
 def find_promotion_candidates(user_id: str, similarity_list: PersonalSimilarityList, min_count: int = 5) -> list[dict]:
-    """(category, tatemae_pattern)の組み合わせで、action != NORMALの記録がmin_count件以上あるものを抽出する。"""
+    """(category, tatemae_pattern)の組み合わせで、action != NORMALの記録がmin_count件以上あるものを抽出する。
+    1件のマークが複数カテゴリに該当する場合は、該当する各カテゴリ分としてそれぞれ数える。"""
     marks = similarity_list._load(user_id)
     groups: dict[tuple[Category, TatemaePattern], list[PersonalAction]] = {}
     for m in marks:
         if m.action == PersonalAction.NORMAL:
             continue
-        groups.setdefault((m.category, m.tatemae_pattern), []).append(m.action)
+        for category in m.categories:
+            groups.setdefault((category, m.tatemae_pattern), []).append(m.action)
 
     candidates = []
     for (category, pattern), actions in groups.items():
@@ -277,8 +309,10 @@ def find_flagged_authors(
             continue
         breakdown: dict[tuple[Category, TatemaePattern], int] = {}
         for m in author_marks:
-            key = (m.category, m.tatemae_pattern)
-            breakdown[key] = breakdown.get(key, 0) + 1
+            # 1件のマークが複数カテゴリに該当する場合は、該当する各カテゴリ分として数える。
+            for category in m.categories:
+                key = (category, m.tatemae_pattern)
+                breakdown[key] = breakdown.get(key, 0) + 1
         flagged.append({
             "author_channel_id": author_id,
             "count": len(author_marks),

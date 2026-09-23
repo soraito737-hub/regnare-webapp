@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from starlette.middleware.sessions import SessionMiddleware  # noqa: E402
 
 from config import FRONTEND_URL, SESSION_SECRET  # noqa: E402
-from routers import auth, profile  # noqa: E402
+from routers import auth, profile, videos  # noqa: E402
 
 app = FastAPI(title="Regskip API")
 
@@ -24,6 +24,7 @@ app.add_middleware(
 
 app.include_router(auth.router)
 app.include_router(profile.router)
+app.include_router(videos.router)
 
 
 @app.get("/api/health")

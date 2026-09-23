@@ -33,6 +33,7 @@ def callback(request: Request, code: str):
     request.session["credentials"] = credentials_to_dict(credentials)
     request.session["channel_id"] = info["channel_id"]
     request.session["uploads_playlist_id"] = info["uploads_playlist_id"]
+    request.session["avatar_url"] = info.get("avatar_url", "")
     return RedirectResponse(f"{FRONTEND_URL}/home")
 
 
@@ -41,9 +42,15 @@ def me(request: Request):
     """ログイン状態の確認。Reactが起動時にこれを呼んで、ログイン画面かホーム画面か決める。"""
     if "credentials" not in request.session:
         return {"logged_in": False}
+    if "avatar_url" not in request.session:
+        # avatar_url対応前にログインしたセッション向けのフォールバック。1回だけ取得してキャッシュする。
+        credentials = get_credentials(request)
+        info = get_channel_info(credentials) if credentials else None
+        request.session["avatar_url"] = info.get("avatar_url", "") if info else ""
     return {
         "logged_in": True,
         "channel_id": request.session.get("channel_id"),
+        "avatar_url": request.session.get("avatar_url", ""),
     }
 
 

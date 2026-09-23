@@ -60,7 +60,7 @@ class EmergencyType(str, Enum):
 @dataclass
 class CommentJudgment:
     comment_id: str
-    category: Category
+    categories: list[Category]  # 1コメントが複数カテゴリに同時に該当することがあるため配列
     surface_level: SurfaceLevel
     tatemae_pattern: TatemaePattern
     emergency: EmergencyType
@@ -75,45 +75,52 @@ _EMERGENCY_VALUES = "\n".join(f"- {e.value}" for e in EmergencyType if e != Emer
 FEW_SHOT_EXAMPLES = """\
 【判定例】
 - 「才能なさすぎ、動画作るのやめたら？」
-  → category=活動クオリティ, surface_level=2, tatemae_pattern=該当なし
+  → category=[活動クオリティ], surface_level=2, tatemae_pattern=該当なし
   (活動停止要求を含み字面通りの攻撃。皮肉的な建前がないため該当なし)
 - 「編集をもう少し工夫できるかも？」
-  → category=活動クオリティ, surface_level=1, tatemae_pattern=該当なし
+  → category=[活動クオリティ], surface_level=1, tatemae_pattern=該当なし
   (提案の形式で、侮蔑語・命令形・活動停止要求を含まない)
 - 「〇〇さんの方が編集うまいよね」
-  → category=活動クオリティ, surface_level=1, tatemae_pattern=他者比較
+  → category=[活動クオリティ], surface_level=1, tatemae_pattern=他者比較
   (他クリエイターとの比較を経由した間接的な批判)
 - 「もう見ません」
-  → category=該当なし, surface_level=1, tatemae_pattern=ファン離脱
+  → category=[該当なし], surface_level=1, tatemae_pattern=ファン離脱
   (離脱の事実報告を装い罪悪感を負わせる。侮蔑語がないためレベル1)
 - 「頭大丈夫？」
-  → category=人格否定, surface_level=2, tatemae_pattern=疑問形
+  → category=[人格否定], surface_level=2, tatemae_pattern=疑問形
   (疑問文の形式だが、答えようがなく相手を貶める機能を持つ。侮蔑的意図が明確なためレベル2)
 - 「よくこんな内容で続けられるね(笑)」
-  → category=活動クオリティ, surface_level=1, tatemae_pattern=褒め殺し型
+  → category=[活動クオリティ], surface_level=1, tatemae_pattern=褒め殺し型
   (「よく〜できるね」という感心を装う構文の中に、否定的評価(内容が低い)が埋め込まれている)
 - 「みんな呆れてるよ」
-  → category=人格否定, surface_level=1, tatemae_pattern=主語肥大化
+  → category=[人格否定], surface_level=1, tatemae_pattern=主語肥大化
   (個人の意見を「みんな」に置き換えて圧力をかけている)
 - 「いつも拝見しております。今回の企画について、なぜあのような構成にされたのか、
   視聴者として大変気になっております。ご説明いただけますと幸いです。」
-  → category=活動クオリティ, surface_level=1, tatemae_pattern=丁寧語長文詰問
+  → category=[活動クオリティ], surface_level=1, tatemae_pattern=丁寧語長文詰問
   (丁寧な文体を保ったまま、特定の企画・構成の落ち度を長文で執拗に追及している。
   一見ただの丁寧な質問に見えても、長さと執拗さ・特定の非への焦点で判断すること)
 - 「老婆心ながら、そのやり方は良くないと思いますよ」
-  → category=モラル・マナー説教, surface_level=1, tatemae_pattern=自己満足アドバイス
+  → category=[社会モラルマナー説教], surface_level=1, tatemae_pattern=自己満足アドバイス
   (助言を装いながら見下す評価になっている)
 - 「今日の動画も面白かったです！」
-  → category=該当なし, surface_level=1, tatemae_pattern=該当なし
+  → category=[該当なし], surface_level=1, tatemae_pattern=該当なし
   (純粋な肯定的感想で、攻撃的意図はない)
 - 「体格いいね」「最初の女の子可愛い」
-  → category=該当なし, surface_level=1, tatemae_pattern=該当なし
+  → category=[該当なし], surface_level=1, tatemae_pattern=該当なし
   (限定句・否定的な前提を伴わない、素直な褒め言葉。「褒め殺し型」は、褒め言葉の
   中に否定的な評価が明確に埋め込まれている場合のみ該当し、単語だけで機械的に
   判定しないこと)
 - 「この背景の景色、家の近くだよね特定した」
-  → category=該当なし, surface_level=1, tatemae_pattern=該当なし, emergency=プライバシー
+  → category=[該当なし], surface_level=1, tatemae_pattern=該当なし, emergency=プライバシー
   (特定カテゴリへの批判ではなく、実生活の特定を示唆する緊急案件)
+- 「ブスだし性格も終わってるよね」
+  → category=[容姿否定, 人格否定], surface_level=2, tatemae_pattern=該当なし
+  (容姿と人格、2つの独立したカテゴリへの侮蔑語を含む攻撃が1文に同時に含まれている。
+  このように複数のカテゴリに同時に当てはまる場合は、該当するもの全てを配列で返すこと)
+- 「その企画つまらないし、そんな性格だから人離れていくんだろうね」
+  → category=[活動クオリティ, 人格否定], surface_level=1, tatemae_pattern=該当なし
+  (活動の質への批判と、人格への批判が1文の中で別々に成立している)
 
 【注意】疑問形と褒め殺し型は、文法形式(疑問文か断定文か)では判定しないこと。
 表層レベルの判定基準と同じ形式的特徴を、建前パターンの判定に流用しないこと。
@@ -124,8 +131,12 @@ SYSTEM_PROMPT = f"""以下のYouTubeコメントについて、次の4点を判�
 【判定項目】
 
 ① category(カテゴリ)
-以下のいずれか一つ:{_CATEGORY_VALUES}
-(該当なし=特定の話題に紐づかない、対象を問わない罵倒)
+以下から該当するもの全てを配列で挙げること(複数該当してよい):{_CATEGORY_VALUES}
+1つのコメントの中で、独立した複数の対象(例:容姿と人格、活動内容と人格など)への
+批判・攻撃が同時に成立している場合は、該当するカテゴリを全て配列に含めること。
+逆に、1つの話題についての言い換え・比喩に過ぎない場合は1つだけを選ぶこと。
+どれにも当てはまらない場合は ["該当なし"] のみを配列に入れること
+(該当なし=特定の話題に紐づかない、対象を問わない罵倒)。
 
 ② surface_level(表層レベル、1〜2)
 文面の形式のみで判定すること。文脈や意図は考慮しない。
@@ -152,7 +163,7 @@ SYSTEM_PROMPT = f"""以下のYouTubeコメントについて、次の4点を判�
 {FEW_SHOT_EXAMPLES}
 
 必ず以下のJSON形式のみで回答してください(説明文やコードブロックは不要):
-{{"category": "...", "surface_level": 1または2, "tatemae_pattern": "...", "emergency": "...", "reasoning": "簡潔な判定理由"}}"""
+{{"category": ["...", "..."], "surface_level": 1または2, "tatemae_pattern": "...", "emergency": "...", "reasoning": "簡潔な判定理由"}}"""
 
 
 class PersonalJudgmentClassifier:
@@ -206,14 +217,14 @@ class PersonalJudgmentClassifier:
             # 応答が壊れていた場合は安全側(緊急・攻撃なし)に倒す
             return CommentJudgment(
                 comment_id=comment_id,
-                category=Category.NONE,
+                categories=[Category.NONE],
                 surface_level=SurfaceLevel.LEVEL_1,
                 tatemae_pattern=TatemaePattern.NONE,
                 emergency=EmergencyType.NONE,
                 reasoning="LLM応答の解析に失敗したため安全側で該当なしとしました",
             )
 
-        category = self._to_enum(Category, data.get("category"), Category.NONE)
+        categories = self._to_enum_list(Category, data.get("category"), Category.NONE)
         tatemae_pattern = self._to_enum(TatemaePattern, data.get("tatemae_pattern"), TatemaePattern.NONE)
         emergency = self._to_enum(EmergencyType, data.get("emergency"), EmergencyType.NONE)
 
@@ -229,7 +240,7 @@ class PersonalJudgmentClassifier:
 
         return CommentJudgment(
             comment_id=comment_id,
-            category=category,
+            categories=categories,
             surface_level=surface_level,
             tatemae_pattern=tatemae_pattern,
             emergency=emergency,
@@ -242,6 +253,25 @@ class PersonalJudgmentClassifier:
             return enum_cls(value)
         except ValueError:
             return default
+
+    @staticmethod
+    def _to_enum_list(enum_cls, value, default):
+        """category用。配列を期待するが、旧形式(単一文字列)が返ってきても救済する。
+        不正な値は無視し、有効な値が1つも無ければ[default]にする。重複は除く。
+        """
+        if isinstance(value, str):
+            value = [value]
+        if not isinstance(value, list):
+            return [default]
+        result = []
+        for v in value:
+            try:
+                parsed = enum_cls(v)
+            except (ValueError, TypeError):
+                continue
+            if parsed not in result:
+                result.append(parsed)
+        return result or [default]
 
     def classify_batch(self, comments: list[str]) -> list[CommentJudgment]:
         return [self.classify(c, comment_id=str(i)) for i, c in enumerate(comments)]
@@ -267,6 +297,7 @@ if __name__ == "__main__":
     print("=" * 70)
     for i, result in enumerate(classifier.classify_batch(test_comments)):
         print(f"\nコメント: 「{test_comments[i]}」")
-        print(f"  category={result.category.value} / surface_level={result.surface_level.value} / "
+        cat_str = "・".join(c.value for c in result.categories)
+        print(f"  category=[{cat_str}] / surface_level={result.surface_level.value} / "
               f"tatemae_pattern={result.tatemae_pattern.value} / emergency={result.emergency.value}")
         print(f"  理由: {result.reasoning}")
