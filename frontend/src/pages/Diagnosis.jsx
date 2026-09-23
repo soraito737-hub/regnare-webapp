@@ -28,18 +28,111 @@ function Splash({ onDone }) {
   );
 }
 
+function IconSearchMessage() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 5.5h13a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-6.5l-4 3v-3H4a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2Z" />
+      <circle cx="15.3" cy="15.3" r="2.4" />
+      <path d="m17.2 17.2 2.1 2.1" />
+    </svg>
+  );
+}
+
+function IconProfileBlock() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="9" cy="8" r="3.2" />
+      <path d="M3.5 19c0-3.3 2.5-5.5 5.5-5.5s5.5 2.2 5.5 5.5" />
+      <circle cx="18" cy="17" r="3.6" />
+      <path d="m16.3 15.3 3.4 3.4" />
+    </svg>
+  );
+}
+
+function IconEyeOff() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 3l18 18" />
+      <path d="M10.6 5.2A10.9 10.9 0 0 1 12 5c5 0 9 4 10 7-0.5 1.4-1.5 3-3 4.3" />
+      <path d="M6.6 6.6C4.4 8 2.9 10 2 12c1 3 5 7 10 7 1.4 0 2.7-.3 3.9-.8" />
+      <path d="M9.5 10.2a3 3 0 0 0 4.3 4.2" />
+    </svg>
+  );
+}
+
+function IconClipboard() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="5" y="4" width="14" height="17" rx="2" />
+      <rect x="9" y="2.5" width="6" height="3" rx="1" />
+      <path d="M8.5 10.5h7" />
+      <path d="M8.5 14h7" />
+      <path d="M8.5 17.5h4.5" />
+    </svg>
+  );
+}
+
+function IconMessageBubble() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 5.5h16a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H11l-4.5 3.5V16.5H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2Z" />
+    </svg>
+  );
+}
+
+function IconClock() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 7.5V12l3 2" />
+    </svg>
+  );
+}
+
+function IconCheck() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 12.5 9.2 18 20 6" />
+    </svg>
+  );
+}
+
 const EXPLAIN_POINTS = [
   {
+    icon: IconSearchMessage,
+    badge: "見つける",
     title: "どんなコメントを見たくないか診断できる",
     body: "いくつかの質問に答えるだけで、あなたが見たくないコメントの基準を診断できます",
+    examplesTitle: "診断でわかること",
+    examples: [
+      "容姿否定・人格否定など、攻撃の種類ごとに経験を選ぶ",
+      "つらさの度合いを測定する",
+      "結果からカテゴリごとのおすすめ設定を提案する",
+    ],
   },
   {
+    icon: IconProfileBlock,
+    badge: "設定する",
     title: "自分だけのコメント欄ができる",
     body: "見たくないコメントの初期設定と、実際のコメントの中から見たくないものを選ぶことで、自分だけのコメント欄を作ることができます",
+    examplesTitle: "設定できる項目",
+    examples: [
+      "容姿否定・人格否定などカテゴリごとに対応を選べる",
+      "直接的な攻撃と、遠回しな言い方を分けて設定できる",
+      "「非表示にしない/本サイトで非表示/YouTube上で非表示」の3段階から選べる",
+    ],
   },
   {
+    icon: IconEyeOff,
+    badge: "見えなくする",
     title: "見たくないコメントは、見ずに非表示にできる",
     body: "傷つく言い回しのコメントは本文を見なくても非表示にできます。実際に非表示にするかは、あなた自身の操作で決められます",
+    examplesTitle: "非表示の仕組み",
+    examples: [
+      "本サイト上だけで見えなくする",
+      "実際にYouTube上のコメントも非表示にする(自分の操作で決定)",
+      "個人情報を含むコメントは自動で専用タブに振り分ける",
+    ],
   },
 ];
 
@@ -55,16 +148,38 @@ function Explain({ onNext }) {
           Regskipは、そうしたコメントを自動で見分けて、あなたの目に触れる前に整理するツールです。
         </p>
       </div>
-      <div className="card explain-card">
-        {EXPLAIN_POINTS.map((point, i) => (
-          <div className="explain-point" key={point.title}>
-            <span className="explain-badge">{i + 1}</span>
-            <div>
-              <p className="explain-point-title">{point.title}</p>
-              <p className="explain-point-body">{point.body}</p>
-            </div>
-          </div>
-        ))}
+      <div className="explain-body">
+        <div className="explain-steps">
+          {EXPLAIN_POINTS.map((point, i) => {
+            const Icon = point.icon;
+            return (
+              <div className="explain-step" key={point.title}>
+                <div className="explain-step-main">
+                  <div className="explain-step-head">
+                    <span className="explain-step-number">{i + 1}</span>
+                    <span className="explain-step-icon">
+                      <Icon />
+                    </span>
+                    <span className="explain-step-badge">{point.badge}</span>
+                  </div>
+                  <p className="explain-step-title">{point.title}</p>
+                  <p className="explain-step-body">{point.body}</p>
+                </div>
+                <div className="explain-step-examples">
+                  <p className="explain-step-examples-title">{point.examplesTitle}</p>
+                  <ul className="explain-step-examples-list">
+                    {point.examples.map((ex) => (
+                      <li key={ex}>
+                        <IconCheck />
+                        <span>{ex}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            );
+          })}
+        </div>
         <button className="btn-primary explain-next" onClick={onNext}>
           次へ
         </button>
@@ -294,7 +409,7 @@ function Transition({ itemLabel, onNext }) {
       <Header />
       <div className="card intro chapter-break">
         <p className="chapter-break-done">ここまでのご回答、ありがとうございます</p>
-        <h1>ここからは「{itemLabel}」について、直近7日間の状態を教えてください</h1>
+        <h1>「{itemLabel}」を受けたときの、ご自身の状態を教えてください</h1>
         <button className="btn-primary" onClick={onNext}>
           次へ
         </button>
@@ -551,15 +666,48 @@ export default function Diagnosis() {
     return (
       <div className="page">
         <Header showBack onBack={() => setStage("explain")} />
-        <div className="card intro">
-          <h1>どんなコメントを見たくないか、診断できます</h1>
+        <div className="card intro intro-start">
+          <span className="intro-badge">
+            <IconClipboard />
+            診断ツール
+          </span>
+          <h1>どんなコメントに傷ついているか、診断できます</h1>
           <p>
-            過去に受けたことのあるコメントの種類と、それぞれについてのそのときのご自身の状態を、いくつか質問に答えるだけで、
-            あなた専用の「見たくないコメント」の基準が自動でできあがります。
+            過去に受けたことのあるコメントの種類と、それぞれについてのそのときのご自身の状態を、
+            <br />
+            いくつか質問に答えるだけで、あなた専用の「見たくないコメント」の基準が自動でできあがります。
           </p>
-          <button className="btn-primary" onClick={() => setStage("step1")}>
-            はじめる
-          </button>
+          <div className="intro-stats-detailed">
+            <div className="intro-stat-detail">
+              <span className="intro-stat-icon">
+                <IconMessageBubble />
+              </span>
+              <div>
+                <p className="intro-stat-label">対象のコメント</p>
+                <p className="intro-stat-value">8種類</p>
+              </div>
+            </div>
+            <div className="intro-stat-detail">
+              <span className="intro-stat-icon">
+                <IconClock />
+              </span>
+              <div>
+                <p className="intro-stat-label">所要時間</p>
+                <p className="intro-stat-value">約2〜3分</p>
+              </div>
+            </div>
+          </div>
+          <div className="intro-cta-panel">
+            <div className="intro-cta-text">
+              <p className="intro-cta-title">さあ、はじめましょう</p>
+              <p className="intro-cta-body">
+                下のボタンから診断を始められます。これまでに受けたコメントの経験をもとに、あなたに合った設定をご提案します。
+              </p>
+            </div>
+            <button className="btn-primary intro-cta-btn" onClick={() => setStage("step1")}>
+              はじめる
+            </button>
+          </div>
           <button className="btn-later" onClick={() => navigate("/home")}>
             あとでやる
           </button>

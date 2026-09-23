@@ -68,7 +68,10 @@ export default function Home() {
     return (
       <div className="page">
         <Header showMenu onMenuSettings={() => navigate("/settings")} />
-        <p className="page-lead">あなたのチャンネルの動画一覧です。動画を選ぶとコメントを確認・整理できます。</p>
+        <div className="settings-lead">
+          <h1>動画一覧</h1>
+          <p>あなたのチャンネルの動画一覧です。動画を選ぶとコメントを確認・整理できます。</p>
+        </div>
         <div className="centered-state">読み込み中…</div>
       </div>
     );
@@ -78,7 +81,10 @@ export default function Home() {
     return (
       <div className="page">
         <Header showMenu onMenuSettings={() => navigate("/settings")} />
-        <p className="page-lead">あなたのチャンネルの動画一覧です。動画を選ぶとコメントを確認・整理できます。</p>
+        <div className="settings-lead">
+          <h1>動画一覧</h1>
+          <p>あなたのチャンネルの動画一覧です。動画を選ぶとコメントを確認・整理できます。</p>
+        </div>
         <div className="centered-state error-text">{errorMsg}</div>
       </div>
     );
@@ -117,7 +123,10 @@ export default function Home() {
   return (
     <div className="page">
       <Header showMenu onMenuSettings={() => navigate("/settings")} />
-      <p className="page-lead">あなたのチャンネルの動画一覧です。動画を選ぶとコメントを確認・整理できます。</p>
+      <div className="settings-lead">
+        <h1>動画一覧</h1>
+        <p>あなたのチャンネルの動画一覧です。動画を選ぶとコメントを確認・整理できます。</p>
+      </div>
       <div className="video-grid">{videos.map(renderCard)}</div>
       {videos.length === 0 && <div className="empty-state">動画が見つかりませんでした</div>}
       {nextPageToken && (
