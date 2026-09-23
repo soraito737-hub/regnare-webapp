@@ -17,7 +17,7 @@ def classify_safe(classifier, comment_id, text):
         j = classifier.classify(text, comment_id=comment_id)
         return {
             "comment": text,
-            "category": j.category.value,
+            "categories": [c.value for c in j.categories],
             "surface_level": j.surface_level.value,
             "tatemae_pattern": j.tatemae_pattern.value,
             "emergency": j.emergency.value,
@@ -64,7 +64,8 @@ def main():
         if "error" in r:
             errors.append(r)
             continue
-        cat_counts[r["category"]] = cat_counts.get(r["category"], 0) + 1
+        for cat in r["categories"]:
+            cat_counts[cat] = cat_counts.get(cat, 0) + 1
         level_counts[r["surface_level"]] += 1
         pattern_counts[r["tatemae_pattern"]] = pattern_counts.get(r["tatemae_pattern"], 0) + 1
         if r["emergency"] != EmergencyType.NONE.value:

@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+python-multipart
+itsdangerous
+python-dotenv
+google-auth
+google-auth-oauthlib
+google-auth-httplib2
+google-api-python-client
+google-genai
+scikit-learn
