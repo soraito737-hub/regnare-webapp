@@ -251,6 +251,17 @@ p {
   color: var(--text-soft);
   font-size: 0.88rem;
 }
+.explain-lead {
+  text-align: center;
+}
+.explain-lead h1 {
+  font-size: 1.6rem;
+}
+.explain-lead p {
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.8;
+}
 
 .category-card {
   margin-bottom: 1.1rem;
@@ -1398,15 +1409,15 @@ p {
   justify-content: center;
 }
 .explain-point-title {
-  font-size: 0.95rem;
+  font-size: 1.1rem;
   font-weight: 700;
   color: var(--text);
-  margin: 0.15rem 0 0.25rem;
+  margin: 0.15rem 0 0.3rem;
 }
 .explain-point-body {
-  font-size: 0.84rem;
+  font-size: 0.98rem;
   color: var(--text-soft);
-  line-height: 1.6;
+  line-height: 1.7;
 }
 .explain-next {
   width: 100%;

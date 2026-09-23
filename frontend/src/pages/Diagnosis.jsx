@@ -47,10 +47,11 @@ function Explain({ onNext }) {
   return (
     <div className="page">
       <Header />
-      <div className="settings-lead">
+      <div className="settings-lead explain-lead">
         <h1>Regskipってどんなツール?</h1>
         <p>
           YouTubeのコメント欄には、応援コメントに混じって、傷つく言い回しのアンチコメントも届きます。
+          <br />
           Regskipは、そうしたコメントを自動で見分けて、あなたの目に触れる前に整理するツールです。
         </p>
       </div>
