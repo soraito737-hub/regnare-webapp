@@ -22,4 +22,10 @@ GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 SESSION_SECRET = os.environ["SESSION_SECRET"]
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:5173")
 
+# 本番(Renderなど)ではフロントエンドとバックエンドが別ドメインになるため、
+# セッションCookieをクロスサイトで送れるようSameSite=None・Secureにする必要がある。
+# ローカル開発(http://localhost)ではSecure Cookieはブラウザに保存されないため、
+# ENV=production の時だけ切り替える。
+IS_PRODUCTION = os.environ.get("ENV", "").lower() == "production"
+
 SCOPES = ["https://www.googleapis.com/auth/youtube.force-ssl"]

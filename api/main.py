@@ -8,12 +8,17 @@ from fastapi import FastAPI  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from starlette.middleware.sessions import SessionMiddleware  # noqa: E402
 
-from config import FRONTEND_URL, SESSION_SECRET  # noqa: E402
+from config import FRONTEND_URL, IS_PRODUCTION, SESSION_SECRET  # noqa: E402
 from routers import auth, profile, videos  # noqa: E402
 
 app = FastAPI(title="Regskip API")
 
-app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET, same_site="lax", https_only=False)
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=SESSION_SECRET,
+    same_site="none" if IS_PRODUCTION else "lax",
+    https_only=IS_PRODUCTION,
+)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[FRONTEND_URL],
