@@ -482,13 +482,13 @@ function ResultItemCard({ item, total, action, subscales }) {
   );
 }
 
-function DiagnosisResults({ itemResults, onNext }) {
+function DiagnosisResults({ itemResults, onNext, footerLabel = "初期設定に進む", showBackHeader = false }) {
   const sorted = [...itemResults].sort((a, b) => b.total - a.total);
   const top = sorted[0];
   const byGroup = { category: sorted.filter((r) => r.item.group === "category"), context: sorted.filter((r) => r.item.group === "context") };
   return (
     <div className="page">
-      <Header />
+      {showBackHeader ? <Header showBack /> : <Header />}
       <div className="settings-lead">
         <h1>診断結果</h1>
         <p className="diagnosis-summary-lead">
@@ -517,10 +517,52 @@ function DiagnosisResults({ itemResults, onNext }) {
 
       <div className="footer-bar">
         <button className="btn-primary" style={{ width: "100%" }} onClick={onNext}>
-          初期設定に進む
+          {footerLabel}
         </button>
       </div>
     </div>
+  );
+}
+
+// ハンバーガーメニューの「診断結果を見る」から開く、直近の診断結果の閲覧専用画面。
+// 診断フロー自体は経由せず、finish()がlocalStorageに保存した結果を読むだけ。
+export function DiagnosisResultPage() {
+  const navigate = useNavigate();
+  const [itemResults, setItemResults] = useState(null);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("lastDiagnosisResults");
+      if (raw) setItemResults(JSON.parse(raw));
+    } catch {
+      // 保存データが壊れている場合は「結果なし」扱いにする。
+    }
+  }, []);
+
+  if (!itemResults) {
+    return (
+      <div className="page">
+        <Header showBack />
+        <div className="settings-lead">
+          <h1>診断結果</h1>
+          <p>まだ診断結果がありません。</p>
+        </div>
+        <div className="footer-bar">
+          <button className="btn-primary" style={{ width: "100%" }} onClick={() => navigate("/")}>
+            診断をはじめる
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <DiagnosisResults
+      itemResults={itemResults}
+      onNext={() => navigate("/")}
+      footerLabel="もう一度診断する"
+      showBackHeader
+    />
   );
 }
 
@@ -585,6 +627,7 @@ export default function Diagnosis() {
     });
 
     localStorage.setItem("diagnosisProfile", JSON.stringify({ attack_action, pattern_action, warnings: {} }));
+    localStorage.setItem("lastDiagnosisResults", JSON.stringify(itemResults));
     setResultsData(itemResults);
     setStage("results");
   };
