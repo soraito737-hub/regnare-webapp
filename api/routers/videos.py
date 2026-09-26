@@ -256,32 +256,42 @@ def mark_comment(comment_id: str, body: MarkIn, request: Request):
         note=body.note,
         video_id=body.video_id,
     )
+    deleted_on_youtube = False
     if action == PersonalAction.HIDE_YOUTUBE:
         # 完全な削除なので元に戻せない。「本サイトだけの非表示に戻す」のような降格操作はない。
         try:
             delete_comment_on_youtube(credentials, comment_id)
+            deleted_on_youtube = True
         except Exception:
             pass
 
-    # このコメント自身の永続キャッシュを、今押した内容で上書きする。次に動画を
-    # 開いたときにAI分類・類似度チェックをやり直さず、この結果をそのまま使うため。
-    # reason="manual"は「自分でボタンを押した」ことを示し、own_mark_idを記録しておくと、
-    # 「視聴者コメントに戻す」で今作ったこのマーク自体を削除して完全に元通りにできる。
     cache = load_comment_cache(channel_id)
-    existing = cache.get(comment_id, {})
-    cache[comment_id] = {
-        **existing,
-        "comment": existing.get(
-            "comment", {"comment_id": comment_id, "text": body.text, "author_channel_id": body.author_channel_id}
-        ),
-        "tab": "hidden_youtube" if action == PersonalAction.HIDE_YOUTUBE else "hidden_regskip",
-        "reason": "manual",
-        "matched_mark_id": None,
-        "own_mark_id": new_mark_id,
-        "executed_on_youtube": action == PersonalAction.HIDE_YOUTUBE,
-    }
+    if deleted_on_youtube:
+        # 本当にYouTube上から削除できたコメントは、Regskip側にも残す意味がないので
+        # キャッシュから丸ごと消す。次にこの動画を開いたとき、そもそもYouTube API側の
+        # 一覧にも出てこなくなるはずだが、念のためこちら側でも確実に消しておく。
+        cache.pop(comment_id, None)
+    else:
+        # このコメント自身の永続キャッシュを、今押した内容で上書きする。次に動画を
+        # 開いたときにAI分類・類似度チェックをやり直さず、この結果をそのまま使うため。
+        # reason="manual"は「自分でボタンを押した」ことを示し、own_mark_idを記録しておくと、
+        # 「視聴者コメントに戻す」で今作ったこのマーク自体を削除して完全に元通りにできる。
+        existing = cache.get(comment_id, {})
+        cache[comment_id] = {
+            **existing,
+            "comment": existing.get(
+                "comment", {"comment_id": comment_id, "text": body.text, "author_channel_id": body.author_channel_id}
+            ),
+            # actionがHIDE_YOUTUBEなのに削除に失敗した場合は、保留(実行待ち)として
+            # hidden_youtubeタブに残す。ユーザーが「削除を実行する」でやり直せる。
+            "tab": "hidden_youtube" if action == PersonalAction.HIDE_YOUTUBE else "hidden_regskip",
+            "reason": "manual",
+            "matched_mark_id": None,
+            "own_mark_id": new_mark_id,
+            "executed_on_youtube": False,
+        }
     save_comment_cache(channel_id, cache)
-    return {"ok": True}
+    return {"ok": True, "deleted_on_youtube": deleted_on_youtube}
 
 
 class RestoreIn(BaseModel):

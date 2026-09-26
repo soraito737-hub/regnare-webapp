@@ -377,8 +377,9 @@ export default function Comments() {
     // AI判定が失敗したコメント(judgment===null)でも押せるように、その場合は
     // 「該当なし」扱いのフォールバック値を使う。
     const judgment = entry.judgment;
+    let result;
     try {
-      await api.markComment(c.comment_id, {
+      result = await api.markComment(c.comment_id, {
         action: newAction,
         text: c.text,
         categories: judgment?.categories ?? ["該当なし"],
@@ -394,11 +395,15 @@ export default function Comments() {
     }
     const tabs = { ...data.tabs };
     tabs[tabKey] = tabs[tabKey].filter((e) => e.comment.comment_id !== c.comment_id);
-    const newTab = newAction === "hide_youtube" ? "hidden_youtube" : "hidden_regskip";
-    // ボタンを押した(=mark_commentが呼ばれ、hide_youtubeなら実際にYouTube側も非表示にした)ので、
-    // 実行済みとしてマークする。
-    const movedEntry = newAction === "hide_youtube" ? { ...entry, executed_on_youtube: true } : entry;
-    tabs[newTab] = [...tabs[newTab], movedEntry];
+    // YouTube上で本当に削除できた場合は、本サイト側にも残す意味がないので
+    // どのタブにも入れず、そのまま表示から消す。
+    if (!result?.deleted_on_youtube) {
+      const newTab = newAction === "hide_youtube" ? "hidden_youtube" : "hidden_regskip";
+      // ボタンを押した(=mark_commentが呼ばれ、hide_youtubeなら実際にYouTube側も非表示にした)ので、
+      // 実行済みとしてマークする。
+      const movedEntry = newAction === "hide_youtube" ? { ...entry, executed_on_youtube: true } : entry;
+      tabs[newTab] = [...tabs[newTab], movedEntry];
+    }
     const next = { ...data, tabs };
     setProcessed(videoId, next);
     setData(next);
@@ -429,8 +434,9 @@ export default function Comments() {
   const executeYoutubeDelete = async (entry) => {
     const c = entry.comment;
     const judgment = entry.judgment;
+    let result;
     try {
-      await api.markComment(c.comment_id, {
+      result = await api.markComment(c.comment_id, {
         action: "hide_youtube",
         text: c.text,
         categories: judgment?.categories ?? ["該当なし"],
@@ -444,9 +450,12 @@ export default function Comments() {
       return;
     }
     const tabs = { ...data.tabs };
-    tabs.hidden_youtube = tabs.hidden_youtube.map((e) =>
-      e.comment.comment_id === c.comment_id ? { ...e, executed_on_youtube: true } : e
-    );
+    if (result?.deleted_on_youtube) {
+      // 実際にYouTube上から削除できたので、本サイト側の表示からも消す。
+      tabs.hidden_youtube = tabs.hidden_youtube.filter((e) => e.comment.comment_id !== c.comment_id);
+    } else {
+      alert("YouTube上での削除に失敗しました。しばらくしてからもう一度お試しください。");
+    }
     const next = { ...data, tabs };
     setProcessed(videoId, next);
     setData(next);
