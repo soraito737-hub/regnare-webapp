@@ -23,9 +23,8 @@ from config import GEMINI_API_KEY  # noqa: E402
 from profile_store import load_profile  # noqa: E402
 from routers.auth import get_credentials  # noqa: E402
 from youtube_service import (  # noqa: E402
-    MAX_COMMENTS_PER_VIDEO, ban_author_on_youtube, fetch_comments,
-    get_video_details, hide_comment_on_youtube, list_channel_videos,
-    reply_to_comment, unhide_comment_on_youtube,
+    MAX_COMMENTS_PER_VIDEO, ban_author_on_youtube, delete_comment_on_youtube,
+    fetch_comments, get_video_details, list_channel_videos, reply_to_comment,
 )
 
 router = APIRouter(prefix="/api", tags=["videos"])
@@ -87,13 +86,14 @@ def get_videos(request: Request, page_token: str | None = None):
 def _process_single_comment(comment: dict, channel_id: str, profile) -> dict:
     judgment = get_classifier().classify(comment["text"])
 
+    matched_mark_index = None
     if is_emergency(judgment):
         display = DisplayAction(hide=True, escalate_to_youtube=False, reason="emergency")
         sim_score = 0.0
         tab = "privacy"
     else:
         similarity_list = get_similarity_list()
-        matched_action, sim_score = similarity_list.check_similarity(channel_id, comment["text"])
+        matched_action, sim_score, matched_mark_index = similarity_list.check_similarity(channel_id, comment["text"])
         display = resolve_display_action(judgment, profile, similarity_action=matched_action)
         if not display.hide:
             tab = "new"
@@ -111,6 +111,9 @@ def _process_single_comment(comment: dict, channel_id: str, profile) -> dict:
         # 「AIが今の内容だけで判定した」のか「過去に押した判断を覚えて再現した」のかが
         # 画面で分かるように、フロントに渡す。
         "reason": display.reason,
+        # reason="personal_similarity"のとき、原因になったマークのindex。
+        # 「元に戻す」でこのマークにだけ例外を追記して育てるために使う。
+        "matched_mark_index": matched_mark_index,
         # 自動処理(process_video)では実際のYouTube側の非表示APIは一切呼ばないため、
         # tab="hidden_youtube"になったコメントも、この時点ではまだ実行されていない。
         # フロント側でボタンを押して個別に実行するまでFalseのまま。
@@ -168,6 +171,7 @@ class MarkIn(BaseModel):
     surface_level: int
     author_channel_id: str | None = None
     note: str | None = None  # ユーザーが書いた「見たくない理由」。類似度マッチの精度向上に使う。
+    video_id: str | None = None  # 学習データ管理画面でサムネイルを出すために保持する。
 
 
 @router.post("/comments/{comment_id}/mark")
@@ -183,20 +187,63 @@ def mark_comment(comment_id: str, body: MarkIn, request: Request):
         surface_level=SurfaceLevel(body.surface_level),
         author_channel_id=body.author_channel_id,
         note=body.note,
+        video_id=body.video_id,
     )
     if action == PersonalAction.HIDE_YOUTUBE:
+        # 完全な削除なので元に戻せない。「本サイトだけの非表示に戻す」のような降格操作はない。
         try:
-            hide_comment_on_youtube(credentials, comment_id)
+            delete_comment_on_youtube(credentials, comment_id)
         except Exception:
             pass
-    elif action == PersonalAction.HIDE_REGSKIP:
-        # 「YouTubeにも報告して非表示」から「Regskipだけの非表示」へ降格されたケースを含む。
-        # 元々YouTube側で保留にしていなかったコメントに対しても呼ばれるが、
-        # setModerationStatusの失敗は握りつぶすだけなので実害はない。
-        try:
-            unhide_comment_on_youtube(credentials, comment_id)
-        except Exception:
-            pass
+    return {"ok": True}
+
+
+@router.get("/similarity-marks")
+def list_similarity_marks(request: Request):
+    """『見たくない』と学習させたマークの一覧(学習データ管理画面用)。"""
+    _, channel_id = _require_session(request)
+    marks = get_similarity_list().list_marks(channel_id)
+    return {
+        "marks": [
+            {
+                "index": i,
+                "comment": m.comment,
+                "note": m.note,
+                "action": m.action.value,
+                "categories": [c.value for c in m.categories],
+                "tatemae_pattern": m.tatemae_pattern.value,
+                "author_channel_id": m.author_channel_id,
+                "video_id": m.video_id,
+            }
+            for i, m in enumerate(marks)
+        ]
+    }
+
+
+@router.delete("/similarity-marks/{index}")
+def delete_similarity_mark(index: int, request: Request):
+    _, channel_id = _require_session(request)
+    get_similarity_list().delete_mark(channel_id, index)
+    return {"ok": True}
+
+
+class RefineMarkIn(BaseModel):
+    exception_note: str  # 「元に戻す」で書いてもらった、なぜ違うと思ったかの理由
+
+
+@router.post("/similarity-marks/{index}/refine")
+def refine_similarity_mark(index: int, body: RefineMarkIn, request: Request):
+    """『元に戻す』で指定されたコメントの原因マークに例外を追記し、再埋め込みする。
+    マークは削除せず、次から同じ間違いを繰り返しにくくする(育てる)。"""
+    _, channel_id = _require_session(request)
+    get_similarity_list().refine_mark(channel_id, index, body.exception_note)
+    return {"ok": True}
+
+
+@router.delete("/similarity-marks")
+def reset_similarity_marks(request: Request):
+    _, channel_id = _require_session(request)
+    get_similarity_list().reset(channel_id)
     return {"ok": True}
 
 

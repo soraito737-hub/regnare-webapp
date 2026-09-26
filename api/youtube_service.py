@@ -141,17 +141,10 @@ def fetch_comments(credentials: Credentials, video_id: str, max_results: int = M
     return comments[:max_results]
 
 
-def hide_comment_on_youtube(credentials: Credentials, comment_id: str) -> None:
+def delete_comment_on_youtube(credentials: Credentials, comment_id: str) -> None:
+    """YouTube上からコメントを完全に削除する。setModerationStatus(保留)と違い、元に戻せない。"""
     service = build_youtube_service(credentials)
-    execute_with_retry(service.comments().setModerationStatus(id=comment_id, moderationStatus="heldForReview"))
-
-
-def unhide_comment_on_youtube(credentials: Credentials, comment_id: str) -> None:
-    """YouTube側で保留(非表示)にしていたコメントを、通常公開の状態に戻す。
-    「YouTubeにも報告して非表示」から「Regskipだけの非表示」へ降格する際に使う。
-    """
-    service = build_youtube_service(credentials)
-    execute_with_retry(service.comments().setModerationStatus(id=comment_id, moderationStatus="published"))
+    execute_with_retry(service.comments().delete(id=comment_id))
 
 
 def reply_to_comment(credentials: Credentials, comment_id: str, text: str) -> dict:

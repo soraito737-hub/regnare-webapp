@@ -9,9 +9,9 @@ import { api } from "../api.js";
 const OTHER_PATTERN = "該当なし";
 
 // 各行(攻撃的な言い方/その他/個別パターン)は、それぞれ独立に
-// 「非表示にしない/本サイトで非表示/YouTube上で非表示」を選ぶ。カテゴリ単位で
-// まとめてYouTube上の非表示を決めてしまうと、AIの判定だけで広い範囲を
-// 自動的にYouTubeへ報告することになり得るため、行ごとに個別に選べるようにしている。
+// 「非表示にしない/本サイトで非表示/YouTube上で削除する」を選ぶ。カテゴリ単位で
+// まとめてYouTube上の削除を決めてしまうと、AIの判定だけで広い範囲を
+// 自動的に(元に戻せない)削除することになり得るため、行ごとに個別に選べるようにしている。
 function emptyProfile() {
   const attackAction = {};
   const patternAction = {};
@@ -77,10 +77,10 @@ function ActionRow({ label, example, value, onChange, master = false }) {
           onMouseEnter={() => setYtHover(true)}
           onMouseLeave={() => setYtHover(false)}
         >
-          YouTube上で非表示
+          YouTube上で削除する
           {ytHover && (
             <span className="tooltip">
-              選ぶと「見たくない」タブの中の別フォルダ(YouTube上で非表示)に振り分けられます
+              選ぶと、条件に一致したコメントがYouTube上から完全に削除されます(元に戻せません)
             </span>
           )}
         </button>
@@ -252,7 +252,7 @@ export default function InitialSettings() {
       <div className="settings-lead">
         <h1>初期設定</h1>
         <p>
-          攻撃的な言い方をされた時、どう扱ってほしいかをカテゴリごとに選んでください。「YouTube上で非表示」は、その言い回し・パターンごとに個別に選べます。あとからいつでも変更できます。
+          攻撃的な言い方をされた時、どう扱ってほしいかをカテゴリごとに選んでください。「YouTube上で削除する」は、その言い回し・パターンごとに個別に選べます。あとからいつでも変更できます。
         </p>
         {fromDiagnosis && (
           <p className="diagnosis-banner">

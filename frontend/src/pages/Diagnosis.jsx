@@ -119,7 +119,7 @@ const EXPLAIN_POINTS = [
     examples: [
       "容姿否定・人格否定などカテゴリごとに対応を選べる",
       "直接的な攻撃と、遠回しな言い方を分けて設定できる",
-      "「非表示にしない/本サイトで非表示/YouTube上で非表示」の3段階から選べる",
+      "「非表示にしない/本サイトで非表示/YouTube上で削除する」の3段階から選べる",
     ],
   },
   {
@@ -195,8 +195,8 @@ const STEP1_ITEMS = diagnosticData.step1_items;
 const IESR6_SCALE = diagnosticData.iesr6_scale;
 const IESR6_QUESTIONS = diagnosticData.iesr6_questions;
 
-// カテゴリ別IES-6スコア(0〜24点、修正済みの3段階)。YouTube上への実際の非表示APIの実行は、
-// このスコアだけでは行わない。「YouTube上で非表示」タブに振り分けるところまでで、実際に
+// カテゴリ別IES-6スコア(0〜24点、修正済みの3段階)。YouTube上への実際の削除APIの実行は、
+// このスコアだけでは行わない。「YouTube上で削除」タブに振り分けるところまでで、実際に
 // YouTube側を操作するのは既存の「実行する」ボタン+確認ダイアログでの人の操作を必須にする。
 function scoreToAction(total) {
   if (total <= 5) return "normal";
@@ -291,7 +291,7 @@ const SEVERITY_DESC = {
 // 実際に初期設定に反映される内容を、項目の種類ごとに文章にする。
 function appliedSettingText(item, action) {
   if (action === "normal") return `「${item.label}」については、特に設定を変更していません。`;
-  const actionLabel = action === "hide_youtube" ? "YouTube上で非表示" : "本サイトで非表示";
+  const actionLabel = action === "hide_youtube" ? "YouTube上で削除" : "本サイトで非表示";
   if (item.mapping.type === "category") {
     return `「${item.mapping.category}」に関する攻撃的なコメントを${actionLabel}にします。`;
   }

@@ -43,4 +43,11 @@ export const api = {
     request(`/api/comments/${commentId}/reply`, { method: "POST", body: JSON.stringify({ text }) }),
   rephrase: (text) =>
     request("/api/comments/rephrase", { method: "POST", body: JSON.stringify({ text }) }),
+  getSimilarityMarks: () => request("/api/similarity-marks"),
+  resetSimilarityMarks: () => request("/api/similarity-marks", { method: "DELETE" }),
+  refineSimilarityMark: (index, exceptionNote) =>
+    request(`/api/similarity-marks/${index}/refine`, {
+      method: "POST",
+      body: JSON.stringify({ exception_note: exceptionNote }),
+    }),
 };

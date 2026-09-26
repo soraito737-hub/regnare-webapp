@@ -11,6 +11,14 @@ export function setProcessed(videoId, data) {
   processed.set(videoId, data);
 }
 
+// 学習データ(similarity mark)を削除・リセットした直後に呼ぶ。
+// このキャッシュが残っていると、削除前のマークで振り分けた結果が
+// 動画を開き直しても再利用されてしまうため、丸ごと消して次回開いたときに
+// 必ず判定をやり直させる。
+export function clearProcessed() {
+  processed.clear();
+}
+
 // 「どこまで見たか」をブラウザに保存しておくための永続キャッシュ(localStorage)。
 // YouTube側のコメント総数(comment_count)との差分だけで「新着あり」を判定するので、
 // AI判定(Gemini)を呼ばずにホーム画面で新着バッジを出せる。

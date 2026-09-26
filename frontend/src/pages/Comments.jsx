@@ -23,23 +23,23 @@ const REASON_LABELS = {
   error: "AI判定でエラーが発生したため、念のため非表示にしています",
 };
 
-// 実際にYouTube側のコメントを操作するボタンだけ、誤クリック防止の確認を挟む。
-const YOUTUBE_HIDE_CONFIRM = "このコメントをYouTube上でも非表示にします。よろしいですか?";
-function confirmYoutubeHide(action) {
-  if (window.confirm(YOUTUBE_HIDE_CONFIRM)) action();
+// YouTube側のコメントを完全に削除する(元に戻せない)ボタンだけ、誤クリック防止の確認を挟む。
+const YOUTUBE_DELETE_CONFIRM = "このコメントをYouTube上から完全に削除します。この操作は元に戻せません。よろしいですか?";
+function confirmYoutubeDelete(action) {
+  if (window.confirm(YOUTUBE_DELETE_CONFIRM)) action();
 }
 
 // トップレベルのタブ。「非表示」はYouTubeへの報告有無で分かれる「見たくない」の下位区分なので、
 // ここには出さずhiddenタブの中でサブタブとして出す。プライバシーは「新着」の中に統合して選べるようにする。
 const TABS = [
-  { key: "new", label: "新着コメント" },
-  { key: "hidden", label: "見たくない" },
+  { key: "new", label: "視聴者コメント" },
+  { key: "hidden", label: "見たくないコメント" },
   { key: "flagged", label: "要注意ユーザー" },
 ];
 
 const HIDDEN_SUB_TABS = [
   { key: "hidden_regskip", label: "本サイトで非表示" },
-  { key: "hidden_youtube", label: "YouTube上で非表示" },
+  { key: "hidden_youtube", label: "YouTube上で削除" },
 ];
 
 function OpenCommentCard({ entry, tabKey, urgent, openMenuId, setOpenMenuId, onBan, onMove, onReply }) {
@@ -52,16 +52,25 @@ function OpenCommentCard({ entry, tabKey, urgent, openMenuId, setOpenMenuId, onB
   const [postedReply, setPostedReply] = useState(null);
   const [pendingHideAction, setPendingHideAction] = useState(null); // null | "hide_regskip" | "hide_youtube"
   const [hideNote, setHideNote] = useState("");
+  const [hidingAction, setHidingAction] = useState(null); // null | "hide_regskip" | "hide_youtube"
 
   const confirmHide = () => {
     const action = pendingHideAction;
     const note = hideNote.trim();
     setPendingHideAction(null);
     setHideNote("");
+    const run = async () => {
+      setHidingAction(action);
+      try {
+        await onMove(tabKey, entry, action, note);
+      } finally {
+        setHidingAction(null);
+      }
+    };
     if (action === "hide_youtube") {
-      confirmYoutubeHide(() => onMove(tabKey, entry, action, note));
+      confirmYoutubeDelete(run);
     } else {
-      onMove(tabKey, entry, action, note);
+      run();
     }
   };
 
@@ -102,6 +111,7 @@ function OpenCommentCard({ entry, tabKey, urgent, openMenuId, setOpenMenuId, onB
           {openMenuId === c.comment_id && (
             <div className="card comment-menu-dropdown">
               <button
+                className="menu-item-danger"
                 onClick={() => {
                   onBan(c.comment_id);
                   setOpenMenuId(null);
@@ -115,9 +125,16 @@ function OpenCommentCard({ entry, tabKey, urgent, openMenuId, setOpenMenuId, onB
       </div>
       <div className="comment-text">{c.text}</div>
       {tier === "grey" && <div className="comment-warning">⚠️ 似たコメントに反応したことがあります</div>}
-      {pendingHideAction ? (
+      {hidingAction ? (
+        <div className="hide-loading">
+          <span className="spinner" />
+          {hidingAction === "hide_youtube" ? "削除しています…" : "非表示にしています…"}
+        </div>
+      ) : pendingHideAction ? (
         <div className="hide-note-box">
-          <p className="hide-note-label">見たくない理由があれば教えてください(任意・精度アップに使われます)</p>
+          <p className="hide-note-label">
+            見たくない理由があれば教えてください(任意)。できるだけしっかり書くと、精度が上がります
+          </p>
           <textarea
             value={hideNote}
             onChange={(e) => setHideNote(e.target.value)}
@@ -135,7 +152,7 @@ function OpenCommentCard({ entry, tabKey, urgent, openMenuId, setOpenMenuId, onB
               キャンセル
             </button>
             <button className="btn-primary" onClick={confirmHide}>
-              非表示にする
+              {pendingHideAction === "hide_youtube" ? "削除する" : "非表示にする"}
             </button>
           </div>
         </div>
@@ -145,7 +162,7 @@ function OpenCommentCard({ entry, tabKey, urgent, openMenuId, setOpenMenuId, onB
             本サイトで非表示
           </button>
           <button className="btn-primary" onClick={() => setPendingHideAction("hide_youtube")}>
-            YouTube上で非表示
+            YouTube上で削除する
           </button>
         </div>
       )}
@@ -188,16 +205,66 @@ function OpenCommentCard({ entry, tabKey, urgent, openMenuId, setOpenMenuId, onB
 
 // 「見たくない」に分類したコメントは、YouTubeへの報告有無に関わらず本文を表示しない。
 // 元の言い方が気になる場合のみ「言い換えて見る」で穏やかな要約を見られるようにする。
-function HiddenCommentCard({ entry, rephrased, onRephrase, onEscalate, onUnescalate, onExecute }) {
+function HiddenCommentCard({ entry, rephrased, onRephrase, onEscalate, onExecute, onRestore, onBan }) {
   const c = entry.comment;
   const judgment = entry.judgment;
   const [showOriginal, setShowOriginal] = useState(false);
-  // onExecuteが渡されている(=YouTube上で非表示タブにいる)のに、まだ実行済みでない場合。
-  // 類似コメント判定で自動的にこのタブに来ただけで、実際のYouTube側の非表示はまだ行われていない。
+  const [restoring, setRestoring] = useState(false);
+  const [restoreOpen, setRestoreOpen] = useState(false);
+  const [restoreNote, setRestoreNote] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
+  // onExecuteが渡されている(=YouTube上で削除タブにいる)のに、まだ実行済みでない場合。
+  // 類似コメント判定で自動的にこのタブに来ただけで、実際のYouTube側の削除はまだ行われていない。
   const needsExecution = !!onExecute && !entry.executed_on_youtube;
+  // 過去のマークとの類似度一致で自動的にここへ来た場合のみ、原因のマークを特定できる。
+  const canRestore = entry.reason === "personal_similarity" && entry.matched_mark_index != null;
+
+  const submitRestore = async () => {
+    setRestoring(true);
+    try {
+      await onRestore(entry, restoreNote.trim());
+      setRestoreOpen(false);
+      setRestoreNote("");
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setRestoring(false);
+    }
+  };
+
   return (
     <div className="card comment-card">
-      <div className="comment-author">{c.author}</div>
+      <div className="comment-header">
+        <div className="comment-author">{c.author}</div>
+        <div className="comment-menu">
+          <button className="icon-btn" aria-label="メニュー" onClick={() => setMenuOpen((v) => !v)}>
+            ⋮
+          </button>
+          {menuOpen && (
+            <div className="card comment-menu-dropdown">
+              {canRestore && (
+                <button
+                  onClick={() => {
+                    setRestoreOpen(true);
+                    setMenuOpen(false);
+                  }}
+                >
+                  視聴者コメントに戻す
+                </button>
+              )}
+              <button
+                className="menu-item-danger"
+                onClick={() => {
+                  onBan(c.comment_id);
+                  setMenuOpen(false);
+                }}
+              >
+                ユーザーを非表示にする
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
       {judgment && (
         <div className="category-tag">
           {judgment.categories.join("・")} / {judgment.tatemae_pattern}
@@ -208,7 +275,7 @@ function HiddenCommentCard({ entry, rephrased, onRephrase, onEscalate, onUnescal
       )}
       {needsExecution && (
         <div className="pending-tag">
-          まだYouTube上では非表示になっていません(似たコメントとして自動で振り分けられただけです)
+          まだYouTube上では削除されていません(似たコメントとして自動で振り分けられただけです)
         </div>
       )}
       {showOriginal && <div className="comment-text">{c.text}</div>}
@@ -220,21 +287,43 @@ function HiddenCommentCard({ entry, rephrased, onRephrase, onEscalate, onUnescal
           言い換えて見る
         </button>
         {needsExecution && (
-          <button className="btn-primary" onClick={() => confirmYoutubeHide(onExecute)}>
-            実行する
+          <button className="btn-primary" onClick={() => confirmYoutubeDelete(onExecute)}>
+            削除を実行する
           </button>
         )}
         {onEscalate && (
-          <button className="btn-primary" onClick={() => confirmYoutubeHide(onEscalate)}>
-            YouTube上でも非表示にする
-          </button>
-        )}
-        {onUnescalate && (
-          <button className="btn-secondary" onClick={onUnescalate}>
-            本サイトだけの非表示に戻す
+          <button className="btn-primary" onClick={() => confirmYoutubeDelete(onEscalate)}>
+            YouTube上でも削除する
           </button>
         )}
       </div>
+      {canRestore && restoreOpen && (
+        <div className="hide-note-box">
+          <p className="hide-note-label">
+            このコメントをもとに戻す理由を記入してください(任意)。書いてもらうと、今後同じ間違いを減らせます
+          </p>
+          <textarea
+            value={restoreNote}
+            onChange={(e) => setRestoreNote(e.target.value)}
+            placeholder="例:容姿の話には当てはまらない"
+            rows={2}
+          />
+          <div className="hide-note-actions">
+            <button
+              className="btn-secondary"
+              onClick={() => {
+                setRestoreOpen(false);
+                setRestoreNote("");
+              }}
+            >
+              キャンセル
+            </button>
+            <button className="btn-dark" disabled={restoring} onClick={submitRestore}>
+              {restoring ? "戻しています…" : "視聴者コメントに戻す"}
+            </button>
+          </div>
+        </div>
+      )}
       {rephrased[c.comment_id] && <div className="rephrase-box">{rephrased[c.comment_id]}</div>}
     </div>
   );
@@ -331,6 +420,7 @@ export default function Comments() {
         surface_level: judgment?.surface_level ?? 1,
         author_channel_id: c.author_channel_id,
         note: note || null,
+        video_id: videoId,
       });
     } catch (err) {
       alert(err.message);
@@ -348,9 +438,24 @@ export default function Comments() {
     setData(next);
   };
 
-  // 「見たくない」タブのYouTube上で非表示サブタブで、類似判定により自動で来ただけの
-  // (まだ実際にはYouTube側で非表示になっていない)コメントを、その場で実際に非表示にする。
-  const executeYoutubeHide = async (entry) => {
+  // 過去のマークとの類似度一致で自動的に非表示になったコメントを、間違いだったとして戻す。
+  // マーク自体は削除せず、書いてもらった理由を追記して再埋め込みすることで、
+  // 同じ間違いを繰り返しにくくする(このコメント1件だけをその場で通常表示に戻す)。
+  const restoreComment = async (entry, note) => {
+    await api.refineSimilarityMark(entry.matched_mark_index, note || "この一致は間違いだった");
+    const tabs = { ...data.tabs };
+    for (const key of Object.keys(tabs)) {
+      tabs[key] = tabs[key].filter((e) => e.comment.comment_id !== entry.comment.comment_id);
+    }
+    tabs.new = [...tabs.new, { ...entry, reason: "none", matched_mark_index: null, similarity_score: 0 }];
+    const next = { ...data, tabs };
+    setProcessed(videoId, next);
+    setData(next);
+  };
+
+  // 「見たくない」タブのYouTube上で削除サブタブで、類似判定により自動で来ただけの
+  // (まだ実際にはYouTube側で削除されていない)コメントを、その場で実際に削除する。
+  const executeYoutubeDelete = async (entry) => {
     const c = entry.comment;
     const judgment = entry.judgment;
     try {
@@ -361,6 +466,7 @@ export default function Comments() {
         tatemae_pattern: judgment?.tatemae_pattern ?? "該当なし",
         surface_level: judgment?.surface_level ?? 1,
         author_channel_id: c.author_channel_id,
+        video_id: videoId,
       });
     } catch (err) {
       alert(err.message);
@@ -452,7 +558,7 @@ export default function Comments() {
         (data.tabs.privacy.length + data.tabs.new.length ? (
           <>
             <div className="new-tab-note">
-              本サイトで非表示/YouTube上で非表示を選ぶと、似た言い回しのコメントは新着ではなく選んだ方のタブに直接振り分けられます
+              本サイトで非表示/YouTube上で削除を選ぶと、似た言い回しのコメントは新着ではなく選んだ方のタブに直接振り分けられます
             </div>
             {data.tabs.privacy.map((entry) => (
               <OpenCommentCard
@@ -481,7 +587,7 @@ export default function Comments() {
             ))}
           </>
         ) : (
-          <div className="empty-state">新着コメントはありません</div>
+          <div className="empty-state">視聴者コメントはありません</div>
         ))}
 
       {activeTab === "hidden" && (
@@ -509,12 +615,9 @@ export default function Comments() {
                     ? () => moveComment("hidden_regskip", entry, "hide_youtube")
                     : undefined
                 }
-                onUnescalate={
-                  hiddenSubTab === "hidden_youtube"
-                    ? () => moveComment("hidden_youtube", entry, "hide_regskip")
-                    : undefined
-                }
-                onExecute={hiddenSubTab === "hidden_youtube" ? () => executeYoutubeHide(entry) : undefined}
+                onExecute={hiddenSubTab === "hidden_youtube" ? () => executeYoutubeDelete(entry) : undefined}
+                onRestore={restoreComment}
+                onBan={handleBan}
               />
             ))
           ) : (

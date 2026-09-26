@@ -73,11 +73,11 @@ def resolve_display_action(
     profile: PersonalProfile,
     similarity_action: Optional[PersonalAction] = None,  # PersonalSimilarityList.check_similarityの結果
 ) -> DisplayAction:
-    # 【重要】YouTube側の実際の非表示(hide_comment_on_youtube)につながる
+    # 【重要】YouTube側の実際の削除(delete_comment_on_youtube)につながる
     # 「hidden_youtube」タブへの自動振り分けは、次の2通りだけに限定する。
     #   1. コメント画面でユーザーがそのコメント自体を個別に選んでボタンを押した場合
     #      (mark_commentへの直接リクエスト。resolve_display_actionを経由しない)
-    #   2. 過去にユーザーが「YouTube上で非表示」を押した実際のコメントと、
+    #   2. 過去にユーザーが「YouTube上で削除する」を押した実際のコメントと、
     #      エンベディングで似ていると判定された場合(= 実質的に同じ判断の再現)
     # 一方、初期設定のカテゴリ×パターン一致・攻撃レベル一致は、個別のコメント文を
     # 一度も人が見ていないAIだけの分類なので、自動ではYouTube上へは絶対に escalate せず、
@@ -157,6 +157,7 @@ class SimilarityMark:
     surface_level: SurfaceLevel  # 【仕様書からの変更点】ユーザー指示によりレベルも記憶・再現の対象に追加
     author_channel_id: str | None = None  # 要注意ユーザー機能(投稿者単位の集計)のために保持
     note: str | None = None  # ユーザーが書いた「見たくない理由」。埋め込みにも混ぜて精度を上げる。
+    video_id: str | None = None  # 学習データ管理画面でサムネイルを出すために保持する。
 
 
 def _similarity_store_path(user_id: str) -> Path:
@@ -184,15 +185,22 @@ class PersonalSimilarityList:
                 raw_categories = r.get("categories")
                 if raw_categories is None:
                     raw_categories = [r["category"]]
+                try:
+                    tatemae_pattern = TatemaePattern(r["tatemae_pattern"])
+                except ValueError:
+                    # 建前パターンの選択肢を削除した後も残っている旧データ
+                    # (例:「自己満足アドバイス」等)を、読み込みごと落とさず救済する。
+                    tatemae_pattern = TatemaePattern.NONE
                 marks.append(SimilarityMark(
                     comment=r["comment"],
                     embedding=r["embedding"],
                     action=PersonalAction(r["action"]),
                     categories=[Category(c) for c in raw_categories],
-                    tatemae_pattern=TatemaePattern(r["tatemae_pattern"]),
+                    tatemae_pattern=tatemae_pattern,
                     surface_level=SurfaceLevel(r["surface_level"]),
                     author_channel_id=r.get("author_channel_id"),
                     note=r.get("note"),
+                    video_id=r.get("video_id"),
                 ))
         self._marks[user_id] = marks
         return marks
@@ -210,6 +218,7 @@ class PersonalSimilarityList:
                 "surface_level": m.surface_level.value,
                 "author_channel_id": m.author_channel_id,
                 "note": m.note,
+                "video_id": m.video_id,
             }
             for m in self._marks.get(user_id, [])
         ]
@@ -226,10 +235,14 @@ class PersonalSimilarityList:
         surface_level: SurfaceLevel,
         author_channel_id: str | None = None,
         note: str | None = None,
+        video_id: str | None = None,
     ) -> None:
         marks = self._load(user_id)
-        # 理由(note)が書かれている場合は、コメント本文と一緒に埋め込むことで、
-        # 表現は違っても同じ理由に基づくコメントを拾いやすくする。
+        # 【実測結果】理由(note)をコメント本文と一緒に埋め込むと、無関係なコメントとの
+        # 誤マッチはむしろ減る(実測: 理由なし0.81→しっかり書いた理由0.80)。一方、
+        # 元のコメント自体が持つ強い表面的一致(例:「5人が」等)による誤マッチは、
+        # 理由の有無や詳しさに関係なく残る。総合すると理由を混ぜる方が精度に有利なため、
+        # コメント本文+理由をまとめて埋め込む。
         text_for_embedding = comment if not note else f"{comment}\n(見たくない理由: {note})"
         embedding = embed_text(self._client, text_for_embedding)
         marks.append(SimilarityMark(
@@ -241,20 +254,48 @@ class PersonalSimilarityList:
             surface_level=surface_level,
             author_channel_id=author_channel_id,
             note=note,
+            video_id=video_id,
         ))
         self._save(user_id)
 
-    def check_similarity(self, user_id: str, new_comment: str) -> tuple[Optional[PersonalAction], float]:
+    def list_marks(self, user_id: str) -> list[SimilarityMark]:
+        """マーク一覧の管理画面用。保存順(=このリストのindex)がdelete_markのキーになる。"""
+        return list(self._load(user_id))
+
+    def delete_mark(self, user_id: str, index: int) -> None:
+        marks = self._load(user_id)
+        if 0 <= index < len(marks):
+            marks.pop(index)
+            self._save(user_id)
+
+    def reset(self, user_id: str) -> None:
+        self._marks[user_id] = []
+        self._save(user_id)
+
+    def check_similarity(self, user_id: str, new_comment: str) -> tuple[Optional[PersonalAction], float, Optional[int]]:
+        """一致した場合、原因のマークのindexも返す(「元に戻す」で該当マークを育てるのに使う)。"""
         marks = self._load(user_id)
         if not marks:
-            return None, 0.0
+            return None, 0.0, None
         vec = embed_text(self._client, new_comment)
         sims = cosine_similarity([vec], [m.embedding for m in marks])[0]
         idx = int(sims.argmax())
         best_score = float(sims[idx])
         if best_score < MID_SIMILARITY_THRESHOLD:
-            return None, 0.0
-        return marks[idx].action, best_score
+            return None, 0.0, None
+        return marks[idx].action, best_score, idx
+
+    def refine_mark(self, user_id: str, index: int, exception_note: str) -> None:
+        """『元に戻す』で書いてもらった理由を、原因になったマークに追記して再埋め込みする。
+        マークを消すのではなく、次からその例外を踏まえて判定できるように育てる。"""
+        marks = self._load(user_id)
+        if not (0 <= index < len(marks)):
+            return
+        mark = marks[index]
+        mark.note = exception_note if not mark.note else f"{mark.note}\n(例外: {exception_note})"
+        text_for_embedding = f"{mark.comment}\n(見たくない理由: {mark.note})"
+        mark.embedding = embed_text(self._client, text_for_embedding)
+        self._save(user_id)
 
 
 def similarity_tier(score: float) -> str:

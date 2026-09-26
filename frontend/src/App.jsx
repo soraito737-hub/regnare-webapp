@@ -5,6 +5,7 @@ import Connect from "./pages/Connect.jsx";
 import Home from "./pages/Home.jsx";
 import Loading from "./pages/Loading.jsx";
 import Comments from "./pages/Comments.jsx";
+import SimilarityMarks from "./pages/SimilarityMarks.jsx";
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
       <Route path="/home" element={<Home />} />
       <Route path="/videos/:videoId/loading" element={<Loading />} />
       <Route path="/videos/:videoId/comments" element={<Comments />} />
+      <Route path="/learned-marks" element={<SimilarityMarks />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

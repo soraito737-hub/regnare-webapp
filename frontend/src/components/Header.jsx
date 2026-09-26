@@ -30,6 +30,11 @@ export default function Header({ showBack = false, onBack, showMenu = false, onM
     navigate("/diagnosis-result");
   };
 
+  const goLearnedMarks = () => {
+    setMenuOpen(false);
+    navigate("/learned-marks");
+  };
+
   const handleLogout = async () => {
     setMenuOpen(false);
     try {
@@ -87,6 +92,7 @@ export default function Header({ showBack = false, onBack, showMenu = false, onM
               <div className="card header-menu-dropdown">
                 <button onClick={goSettings}>初期設定</button>
                 <button onClick={goDiagnosisResult}>診断結果</button>
+                <button onClick={goLearnedMarks}>本サイトのコメント管理</button>
                 <button onClick={handleLogout}>ログアウト</button>
               </div>
             )}
