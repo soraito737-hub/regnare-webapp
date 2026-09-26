@@ -158,6 +158,7 @@ class SimilarityMark:
     author_channel_id: str | None = None  # 要注意ユーザー機能(投稿者単位の集計)のために保持
     note: str | None = None  # ユーザーが書いた「見たくない理由」。埋め込みにも混ぜて精度を上げる。
     video_id: str | None = None  # 学習データ管理画面でサムネイルを出すために保持する。
+    threshold: float = MID_SIMILARITY_THRESHOLD  # このマークだけの必要一致度。「視聴者コメントに戻す」で個別に上げる。
 
 
 def _similarity_store_path(user_id: str) -> Path:
@@ -201,6 +202,7 @@ class PersonalSimilarityList:
                     author_channel_id=r.get("author_channel_id"),
                     note=r.get("note"),
                     video_id=r.get("video_id"),
+                    threshold=r.get("threshold", MID_SIMILARITY_THRESHOLD),
                 ))
         self._marks[user_id] = marks
         return marks
@@ -219,6 +221,7 @@ class PersonalSimilarityList:
                 "author_channel_id": m.author_channel_id,
                 "note": m.note,
                 "video_id": m.video_id,
+                "threshold": m.threshold,
             }
             for m in self._marks.get(user_id, [])
         ]
@@ -273,21 +276,29 @@ class PersonalSimilarityList:
         self._save(user_id)
 
     def check_similarity(self, user_id: str, new_comment: str) -> tuple[Optional[PersonalAction], float, Optional[int]]:
-        """一致した場合、原因のマークのindexも返す(「元に戻す」で該当マークを育てるのに使う)。"""
+        """一致した場合、原因のマークのindexも返す(「元に戻す」で該当マークを育てるのに使う)。
+        マークごとに必要な一致度(threshold)が違うことがあるため、まず各マーク自身の
+        thresholdを満たしているかで絞り込み、満たしたものの中で一番近いものを採用する。"""
         marks = self._load(user_id)
         if not marks:
             return None, 0.0, None
         vec = embed_text(self._client, new_comment)
         sims = cosine_similarity([vec], [m.embedding for m in marks])[0]
-        idx = int(sims.argmax())
-        best_score = float(sims[idx])
-        if best_score < MID_SIMILARITY_THRESHOLD:
+        qualifying = [(i, float(s)) for i, s in enumerate(sims) if s >= marks[i].threshold]
+        if not qualifying:
             return None, 0.0, None
+        idx, best_score = max(qualifying, key=lambda pair: pair[1])
         return marks[idx].action, best_score, idx
 
+    # 「視聴者コメントに戻す」を押すたびに、このマークの必要一致度を段階的に上げる。
+    # HIGH_SIMILARITY_THRESHOLDを上限にする(これを超えると本当の言い換えすら
+    # 拾えなくなるため)。
+    THRESHOLD_STEP = 0.05
+
     def refine_mark(self, user_id: str, index: int, exception_note: str) -> None:
-        """『元に戻す』で書いてもらった理由を、原因になったマークに追記して再埋め込みする。
-        マークを消すのではなく、次からその例外を踏まえて判定できるように育てる。"""
+        """『視聴者コメントに戻す』で書いてもらった理由を、原因になったマークに追記して
+        再埋め込みし、そのマークだけ必要な一致度を上げる。マークを消すのではなく、
+        次からその例外を踏まえて判定できるように育てる。"""
         marks = self._load(user_id)
         if not (0 <= index < len(marks)):
             return
@@ -295,6 +306,15 @@ class PersonalSimilarityList:
         mark.note = exception_note if not mark.note else f"{mark.note}\n(例外: {exception_note})"
         text_for_embedding = f"{mark.comment}\n(見たくない理由: {mark.note})"
         mark.embedding = embed_text(self._client, text_for_embedding)
+        mark.threshold = min(mark.threshold + self.THRESHOLD_STEP, HIGH_SIMILARITY_THRESHOLD)
+        self._save(user_id)
+
+    def reset_threshold(self, user_id: str, index: int) -> None:
+        """個別に上げた必要一致度を、共通の初期値に戻す。"""
+        marks = self._load(user_id)
+        if not (0 <= index < len(marks)):
+            return
+        marks[index].threshold = MID_SIMILARITY_THRESHOLD
         self._save(user_id)
 
 

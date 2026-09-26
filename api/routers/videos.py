@@ -214,6 +214,7 @@ def list_similarity_marks(request: Request):
                 "tatemae_pattern": m.tatemae_pattern.value,
                 "author_channel_id": m.author_channel_id,
                 "video_id": m.video_id,
+                "threshold": m.threshold,
             }
             for i, m in enumerate(marks)
         ]
@@ -234,9 +235,18 @@ class RefineMarkIn(BaseModel):
 @router.post("/similarity-marks/{index}/refine")
 def refine_similarity_mark(index: int, body: RefineMarkIn, request: Request):
     """『元に戻す』で指定されたコメントの原因マークに例外を追記し、再埋め込みする。
-    マークは削除せず、次から同じ間違いを繰り返しにくくする(育てる)。"""
+    マークは削除せず、次から同じ間違いを繰り返しにくくする(育てる)。
+    合わせて、そのマークだけ必要な一致度(threshold)を段階的に上げる。"""
     _, channel_id = _require_session(request)
     get_similarity_list().refine_mark(channel_id, index, body.exception_note)
+    return {"ok": True}
+
+
+@router.post("/similarity-marks/{index}/reset-threshold")
+def reset_similarity_mark_threshold(index: int, request: Request):
+    """個別に上げた必要一致度を、共通の初期値(0.85)に戻す。"""
+    _, channel_id = _require_session(request)
+    get_similarity_list().reset_threshold(channel_id, index)
     return {"ok": True}
 
 

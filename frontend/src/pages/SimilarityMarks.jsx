@@ -10,10 +10,14 @@ const MARK_TABS = [
   { key: "hide_youtube", label: "YouTube上で削除" },
 ];
 
-function MarkCard({ mark, onRefine }) {
+const DEFAULT_THRESHOLD = 0.85;
+
+function MarkCard({ mark, onRefine, onResetThreshold }) {
   const [refineOpen, setRefineOpen] = useState(false);
   const [exceptionNote, setExceptionNote] = useState("");
   const [refining, setRefining] = useState(false);
+  const [resettingThreshold, setResettingThreshold] = useState(false);
+  const isStricter = mark.threshold > DEFAULT_THRESHOLD;
 
   const submitRefine = async () => {
     const note = exceptionNote.trim();
@@ -27,6 +31,17 @@ function MarkCard({ mark, onRefine }) {
       alert(err.message);
     } finally {
       setRefining(false);
+    }
+  };
+
+  const handleResetThreshold = async () => {
+    setResettingThreshold(true);
+    try {
+      await onResetThreshold(mark.index);
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setResettingThreshold(false);
     }
   };
 
@@ -47,6 +62,9 @@ function MarkCard({ mark, onRefine }) {
               {mark.categories.join("・")} / {mark.tatemae_pattern}
             </span>
             <span className="mark-card-action">{ACTION_LABEL[mark.action]}</span>
+            {isStricter && (
+              <span className="category-tag mark-card-strict">必要な一致度 {mark.threshold.toFixed(2)}</span>
+            )}
           </div>
           <p className="mark-card-comment">「{mark.comment}」</p>
           {mark.note && <p className="mark-card-note">見たくない理由: {mark.note}</p>}
@@ -80,9 +98,16 @@ function MarkCard({ mark, onRefine }) {
           </div>
         </div>
       ) : (
-        <button className="btn-secondary" onClick={() => setRefineOpen(true)}>
-          視聴者コメントに戻す
-        </button>
+        <div className="mark-card-actions">
+          <button className="btn-secondary" onClick={() => setRefineOpen(true)}>
+            視聴者コメントに戻す
+          </button>
+          {isStricter && (
+            <button className="btn-text" disabled={resettingThreshold} onClick={handleResetThreshold}>
+              {resettingThreshold ? "戻しています…" : "厳しさを元に戻す"}
+            </button>
+          )}
+        </div>
       )}
     </div>
   );
@@ -115,6 +140,12 @@ export default function SimilarityMarks() {
   const handleRefine = async (index, exceptionNote) => {
     await api.refineSimilarityMark(index, exceptionNote);
     // マークの中身が変わったので、次に動画を開いたときに判定をやり直させる。
+    clearProcessed();
+    await load();
+  };
+
+  const handleResetThreshold = async (index) => {
+    await api.resetSimilarityMarkThreshold(index);
     clearProcessed();
     await load();
   };
@@ -176,7 +207,14 @@ export default function SimilarityMarks() {
           ) : (
             marks
               .filter((m) => m.action === markTab)
-              .map((mark) => <MarkCard key={mark.index} mark={mark} onRefine={handleRefine} />)
+              .map((mark) => (
+                <MarkCard
+                  key={mark.index}
+                  mark={mark}
+                  onRefine={handleRefine}
+                  onResetThreshold={handleResetThreshold}
+                />
+              ))
           )}
         </>
       )}

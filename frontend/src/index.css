@@ -1103,6 +1103,10 @@ p {
   padding: 0.5rem 0.7rem;
   margin-bottom: 0.7rem;
 }
+.mark-card-strict {
+  background: var(--violet-soft);
+  color: var(--violet);
+}
 .mark-card-actions {
   display: flex;
   align-items: center;

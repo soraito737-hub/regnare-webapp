@@ -50,4 +50,6 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ exception_note: exceptionNote }),
     }),
+  resetSimilarityMarkThreshold: (index) =>
+    request(`/api/similarity-marks/${index}/reset-threshold`, { method: "POST" }),
 };
