@@ -45,11 +45,13 @@ export const api = {
     request("/api/comments/rephrase", { method: "POST", body: JSON.stringify({ text }) }),
   getSimilarityMarks: () => request("/api/similarity-marks"),
   resetSimilarityMarks: () => request("/api/similarity-marks", { method: "DELETE" }),
-  refineSimilarityMark: (index, exceptionNote) =>
-    request(`/api/similarity-marks/${index}/refine`, {
+  refineSimilarityMark: (markId, exceptionNote) =>
+    request(`/api/similarity-marks/${markId}/refine`, {
       method: "POST",
       body: JSON.stringify({ exception_note: exceptionNote }),
     }),
-  resetSimilarityMarkThreshold: (index) =>
-    request(`/api/similarity-marks/${index}/reset-threshold`, { method: "POST" }),
+  resetSimilarityMarkThreshold: (markId) =>
+    request(`/api/similarity-marks/${markId}/reset-threshold`, { method: "POST" }),
+  restoreComment: (commentId, note = "") =>
+    request(`/api/comments/${commentId}/restore`, { method: "POST", body: JSON.stringify({ note }) }),
 };

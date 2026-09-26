@@ -210,21 +210,19 @@ function HiddenCommentCard({ entry, rephrased, onRephrase, onEscalate, onExecute
   const judgment = entry.judgment;
   const [showOriginal, setShowOriginal] = useState(false);
   const [restoring, setRestoring] = useState(false);
-  const [restoreOpen, setRestoreOpen] = useState(false);
-  const [restoreNote, setRestoreNote] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   // onExecuteが渡されている(=YouTube上で削除タブにいる)のに、まだ実行済みでない場合。
   // 類似コメント判定で自動的にこのタブに来ただけで、実際のYouTube側の削除はまだ行われていない。
   const needsExecution = !!onExecute && !entry.executed_on_youtube;
-  // 過去のマークとの類似度一致で自動的にここへ来た場合のみ、原因のマークを特定できる。
-  const canRestore = entry.reason === "personal_similarity" && entry.matched_mark_index != null;
+  // 「視聴者コメントに戻す」は、自分でボタンを押して非表示にした場合だけ出す。
+  // AIが過去のマークと自動で一致させた場合は、そのマークの閾値が上がる副作用があるため対象外。
+  const canRestore = entry.reason === "manual";
 
   const submitRestore = async () => {
+    setMenuOpen(false);
     setRestoring(true);
     try {
-      await onRestore(entry, restoreNote.trim());
-      setRestoreOpen(false);
-      setRestoreNote("");
+      await onRestore(entry, "");
     } catch (err) {
       alert(err.message);
     } finally {
@@ -243,13 +241,8 @@ function HiddenCommentCard({ entry, rephrased, onRephrase, onEscalate, onExecute
           {menuOpen && (
             <div className="card comment-menu-dropdown">
               {canRestore && (
-                <button
-                  onClick={() => {
-                    setRestoreOpen(true);
-                    setMenuOpen(false);
-                  }}
-                >
-                  視聴者コメントに戻す
+                <button disabled={restoring} onClick={submitRestore}>
+                  {restoring ? "戻しています…" : "視聴者コメントに戻す"}
                 </button>
               )}
               <button
@@ -297,33 +290,6 @@ function HiddenCommentCard({ entry, rephrased, onRephrase, onEscalate, onExecute
           </button>
         )}
       </div>
-      {canRestore && restoreOpen && (
-        <div className="hide-note-box">
-          <p className="hide-note-label">
-            このコメントをもとに戻す理由を記入してください(任意)。書いてもらうと、今後同じ間違いを減らせます
-          </p>
-          <textarea
-            value={restoreNote}
-            onChange={(e) => setRestoreNote(e.target.value)}
-            placeholder="例:容姿の話には当てはまらない"
-            rows={2}
-          />
-          <div className="hide-note-actions">
-            <button
-              className="btn-secondary"
-              onClick={() => {
-                setRestoreOpen(false);
-                setRestoreNote("");
-              }}
-            >
-              キャンセル
-            </button>
-            <button className="btn-dark" disabled={restoring} onClick={submitRestore}>
-              {restoring ? "戻しています…" : "視聴者コメントに戻す"}
-            </button>
-          </div>
-        </div>
-      )}
       {rephrased[c.comment_id] && <div className="rephrase-box">{rephrased[c.comment_id]}</div>}
     </div>
   );
@@ -441,13 +407,18 @@ export default function Comments() {
   // 過去のマークとの類似度一致で自動的に非表示になったコメントを、間違いだったとして戻す。
   // マーク自体は削除せず、書いてもらった理由を追記して再埋め込みすることで、
   // 同じ間違いを繰り返しにくくする(このコメント1件だけをその場で通常表示に戻す)。
+  // 「視聴者コメントに戻す」。原因(自分で押した/過去のマークと一致/初期設定のルールのみ)に
+  // 応じた対応はバックエンド側(restore_comment)で行う。ここでは結果をその場の表示に反映するだけ。
   const restoreComment = async (entry, note) => {
-    await api.refineSimilarityMark(entry.matched_mark_index, note || "この一致は間違いだった");
+    await api.restoreComment(entry.comment.comment_id, note);
     const tabs = { ...data.tabs };
     for (const key of Object.keys(tabs)) {
       tabs[key] = tabs[key].filter((e) => e.comment.comment_id !== entry.comment.comment_id);
     }
-    tabs.new = [...tabs.new, { ...entry, reason: "none", matched_mark_index: null, similarity_score: 0 }];
+    tabs.new = [
+      ...tabs.new,
+      { ...entry, reason: "none", matched_mark_id: null, own_mark_id: null, similarity_score: 0 },
+    ];
     const next = { ...data, tabs };
     setProcessed(videoId, next);
     setData(next);

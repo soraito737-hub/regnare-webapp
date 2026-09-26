@@ -24,7 +24,7 @@ function MarkCard({ mark, onRefine, onResetThreshold }) {
     if (!note) return;
     setRefining(true);
     try {
-      await onRefine(mark.index, note);
+      await onRefine(mark.id, note);
       setRefineOpen(false);
       setExceptionNote("");
     } catch (err) {
@@ -37,7 +37,7 @@ function MarkCard({ mark, onRefine, onResetThreshold }) {
   const handleResetThreshold = async () => {
     setResettingThreshold(true);
     try {
-      await onResetThreshold(mark.index);
+      await onResetThreshold(mark.id);
     } catch (err) {
       alert(err.message);
     } finally {
@@ -137,15 +137,15 @@ export default function SimilarityMarks() {
     load();
   }, []);
 
-  const handleRefine = async (index, exceptionNote) => {
-    await api.refineSimilarityMark(index, exceptionNote);
+  const handleRefine = async (markId, exceptionNote) => {
+    await api.refineSimilarityMark(markId, exceptionNote);
     // マークの中身が変わったので、次に動画を開いたときに判定をやり直させる。
     clearProcessed();
     await load();
   };
 
-  const handleResetThreshold = async (index) => {
-    await api.resetSimilarityMarkThreshold(index);
+  const handleResetThreshold = async (markId) => {
+    await api.resetSimilarityMarkThreshold(markId);
     clearProcessed();
     await load();
   };
@@ -209,7 +209,7 @@ export default function SimilarityMarks() {
               .filter((m) => m.action === markTab)
               .map((mark) => (
                 <MarkCard
-                  key={mark.index}
+                  key={mark.id}
                   mark={mark}
                   onRefine={handleRefine}
                   onResetThreshold={handleResetThreshold}

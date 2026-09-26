@@ -19,6 +19,7 @@ __pycache__/
 data/user_feedback.json
 data/personal_similarity_*.json
 data/personal_profile_*.json
+data/comment_cache_*.json
 
 # React (frontend/)
 frontend/node_modules/

@@ -7,6 +7,7 @@ personal_classifier.py の CommentJudgment を受け取り、
 """
 
 import json
+import uuid
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -159,6 +160,11 @@ class SimilarityMark:
     note: str | None = None  # ユーザーが書いた「見たくない理由」。埋め込みにも混ぜて精度を上げる。
     video_id: str | None = None  # 学習データ管理画面でサムネイルを出すために保持する。
     threshold: float = MID_SIMILARITY_THRESHOLD  # このマークだけの必要一致度。「視聴者コメントに戻す」で個別に上げる。
+    # 【重要】リスト上の位置(index)ではなく、この固定IDで個々のマークを参照する。
+    # コメント判定キャッシュ(comment_cache_store.py)がmatched_mark_id/own_mark_idとして
+    # マークを長期間参照し続けるため、他のマークを削除してもindexがずれて指し先を
+    # 誤ることがないようにするため。
+    id: str = field(default_factory=lambda: uuid.uuid4().hex)
 
 
 def _similarity_store_path(user_id: str) -> Path:
@@ -203,6 +209,7 @@ class PersonalSimilarityList:
                     note=r.get("note"),
                     video_id=r.get("video_id"),
                     threshold=r.get("threshold", MID_SIMILARITY_THRESHOLD),
+                    id=r.get("id") or uuid.uuid4().hex,
                 ))
         self._marks[user_id] = marks
         return marks
@@ -222,6 +229,7 @@ class PersonalSimilarityList:
                 "note": m.note,
                 "video_id": m.video_id,
                 "threshold": m.threshold,
+                "id": m.id,
             }
             for m in self._marks.get(user_id, [])
         ]
@@ -239,7 +247,9 @@ class PersonalSimilarityList:
         author_channel_id: str | None = None,
         note: str | None = None,
         video_id: str | None = None,
-    ) -> None:
+    ) -> str:
+        """作成したマークのid(固定・不変)を返す。呼び出し側はこのidを保存しておき、
+        後で『視聴者コメントに戻す』でこのマークだけを指定して削除・育てるのに使う。"""
         marks = self._load(user_id)
         # 【実測結果】理由(note)をコメント本文と一緒に埋め込むと、無関係なコメントとの
         # 誤マッチはむしろ減る(実測: 理由なし0.81→しっかり書いた理由0.80)。一方、
@@ -248,7 +258,7 @@ class PersonalSimilarityList:
         # コメント本文+理由をまとめて埋め込む。
         text_for_embedding = comment if not note else f"{comment}\n(見たくない理由: {note})"
         embedding = embed_text(self._client, text_for_embedding)
-        marks.append(SimilarityMark(
+        mark = SimilarityMark(
             comment=comment,
             embedding=embedding,
             action=action,
@@ -258,25 +268,36 @@ class PersonalSimilarityList:
             author_channel_id=author_channel_id,
             note=note,
             video_id=video_id,
-        ))
+        )
+        marks.append(mark)
         self._save(user_id)
+        return mark.id
 
     def list_marks(self, user_id: str) -> list[SimilarityMark]:
-        """マーク一覧の管理画面用。保存順(=このリストのindex)がdelete_markのキーになる。"""
+        """マーク一覧の管理画面用。"""
         return list(self._load(user_id))
 
-    def delete_mark(self, user_id: str, index: int) -> None:
+    def _find(self, user_id: str, mark_id: str) -> Optional[SimilarityMark]:
+        return next((m for m in self._load(user_id) if m.id == mark_id), None)
+
+    def get_mark(self, user_id: str, mark_id: str) -> Optional[SimilarityMark]:
+        """指定idのマークを取得する(初期設定変更時の再判定で、エンベディングを
+        呼ばずにマークの現在のactionだけを再利用するために使う)。"""
+        return self._find(user_id, mark_id)
+
+    def delete_mark(self, user_id: str, mark_id: str) -> None:
         marks = self._load(user_id)
-        if 0 <= index < len(marks):
-            marks.pop(index)
+        remaining = [m for m in marks if m.id != mark_id]
+        if len(remaining) != len(marks):
+            self._marks[user_id] = remaining
             self._save(user_id)
 
     def reset(self, user_id: str) -> None:
         self._marks[user_id] = []
         self._save(user_id)
 
-    def check_similarity(self, user_id: str, new_comment: str) -> tuple[Optional[PersonalAction], float, Optional[int]]:
-        """一致した場合、原因のマークのindexも返す(「元に戻す」で該当マークを育てるのに使う)。
+    def check_similarity(self, user_id: str, new_comment: str) -> tuple[Optional[PersonalAction], float, Optional[str]]:
+        """一致した場合、原因のマークのidも返す(「元に戻す」で該当マークを育てるのに使う)。
         マークごとに必要な一致度(threshold)が違うことがあるため、まず各マーク自身の
         thresholdを満たしているかで絞り込み、満たしたものの中で一番近いものを採用する。"""
         marks = self._load(user_id)
@@ -288,33 +309,32 @@ class PersonalSimilarityList:
         if not qualifying:
             return None, 0.0, None
         idx, best_score = max(qualifying, key=lambda pair: pair[1])
-        return marks[idx].action, best_score, idx
+        return marks[idx].action, best_score, marks[idx].id
 
     # 「視聴者コメントに戻す」を押すたびに、このマークの必要一致度を段階的に上げる。
     # HIGH_SIMILARITY_THRESHOLDを上限にする(これを超えると本当の言い換えすら
     # 拾えなくなるため)。
     THRESHOLD_STEP = 0.05
 
-    def refine_mark(self, user_id: str, index: int, exception_note: str) -> None:
+    def refine_mark(self, user_id: str, mark_id: str, exception_note: str) -> None:
         """『視聴者コメントに戻す』で書いてもらった理由を、原因になったマークに追記して
         再埋め込みし、そのマークだけ必要な一致度を上げる。マークを消すのではなく、
         次からその例外を踏まえて判定できるように育てる。"""
-        marks = self._load(user_id)
-        if not (0 <= index < len(marks)):
+        mark = self._find(user_id, mark_id)
+        if mark is None:
             return
-        mark = marks[index]
         mark.note = exception_note if not mark.note else f"{mark.note}\n(例外: {exception_note})"
         text_for_embedding = f"{mark.comment}\n(見たくない理由: {mark.note})"
         mark.embedding = embed_text(self._client, text_for_embedding)
         mark.threshold = min(mark.threshold + self.THRESHOLD_STEP, HIGH_SIMILARITY_THRESHOLD)
         self._save(user_id)
 
-    def reset_threshold(self, user_id: str, index: int) -> None:
+    def reset_threshold(self, user_id: str, mark_id: str) -> None:
         """個別に上げた必要一致度を、共通の初期値に戻す。"""
-        marks = self._load(user_id)
-        if not (0 <= index < len(marks)):
+        mark = self._find(user_id, mark_id)
+        if mark is None:
             return
-        marks[index].threshold = MID_SIMILARITY_THRESHOLD
+        mark.threshold = MID_SIMILARITY_THRESHOLD
         self._save(user_id)
 
 

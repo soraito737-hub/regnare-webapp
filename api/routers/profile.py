@@ -11,6 +11,7 @@ from personal_profile import PatternSetting, PersonalAction, PersonalProfile  # 
 
 from profile_store import load_profile, save_profile  # noqa: E402
 from routers.auth import get_credentials  # noqa: E402
+from routers.videos import reapply_profile_to_cache  # noqa: E402
 
 router = APIRouter(prefix="/api/profile", tags=["profile"])
 
@@ -57,4 +58,7 @@ def post_profile(request: Request, body: ProfileIn):
 
     profile = PersonalProfile(user_id=channel_id, attack_action=attack_action, pattern_action=pattern_action)
     save_profile(profile)
+    # 保存した新しい設定を、すでに判定済みのコメントにも(LLM・エンベディングを呼ばずに)
+    # 反映しなおす。自分で押した/緊急判定のコメントは対象外(reapply_profile_to_cache参照)。
+    reapply_profile_to_cache(channel_id, profile)
     return {"ok": True}
