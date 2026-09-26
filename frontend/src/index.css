@@ -910,11 +910,40 @@ p {
   cursor: pointer;
   padding: 0.5rem 0 0;
 }
-.reply-box {
+.reply-box,
+.hide-note-box {
   margin-top: 0.7rem;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+}
+.hide-note-label {
+  font-size: 0.8rem;
+  color: var(--text-soft);
+}
+.hide-note-box textarea {
+  width: 100%;
+  resize: vertical;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.7rem;
+  font-family: inherit;
+  font-size: 0.85rem;
+  color: var(--text);
+}
+.hide-note-box textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.hide-note-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+}
+.hide-note-actions .btn-primary,
+.hide-note-actions .btn-secondary {
+  padding: 0.5rem 1rem;
+  font-size: 0.82rem;
 }
 .reply-box textarea {
   width: 100%;

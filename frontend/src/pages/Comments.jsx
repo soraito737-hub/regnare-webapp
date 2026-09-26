@@ -50,6 +50,20 @@ function OpenCommentCard({ entry, tabKey, urgent, openMenuId, setOpenMenuId, onB
   const [replyText, setReplyText] = useState("");
   const [replySending, setReplySending] = useState(false);
   const [postedReply, setPostedReply] = useState(null);
+  const [pendingHideAction, setPendingHideAction] = useState(null); // null | "hide_regskip" | "hide_youtube"
+  const [hideNote, setHideNote] = useState("");
+
+  const confirmHide = () => {
+    const action = pendingHideAction;
+    const note = hideNote.trim();
+    setPendingHideAction(null);
+    setHideNote("");
+    if (action === "hide_youtube") {
+      confirmYoutubeHide(() => onMove(tabKey, entry, action, note));
+    } else {
+      onMove(tabKey, entry, action, note);
+    }
+  };
 
   const submitReply = async () => {
     const text = replyText.trim();
@@ -101,17 +115,40 @@ function OpenCommentCard({ entry, tabKey, urgent, openMenuId, setOpenMenuId, onB
       </div>
       <div className="comment-text">{c.text}</div>
       {tier === "grey" && <div className="comment-warning">⚠️ 似たコメントに反応したことがあります</div>}
-      <div className="comment-actions">
-        <button className="btn-secondary" onClick={() => onMove(tabKey, entry, "hide_regskip")}>
-          本サイトで非表示
-        </button>
-        <button
-          className="btn-primary"
-          onClick={() => confirmYoutubeHide(() => onMove(tabKey, entry, "hide_youtube"))}
-        >
-          YouTube上で非表示
-        </button>
-      </div>
+      {pendingHideAction ? (
+        <div className="hide-note-box">
+          <p className="hide-note-label">見たくない理由があれば教えてください(任意・精度アップに使われます)</p>
+          <textarea
+            value={hideNote}
+            onChange={(e) => setHideNote(e.target.value)}
+            placeholder="例:容姿について言われるのがつらい"
+            rows={2}
+          />
+          <div className="hide-note-actions">
+            <button
+              className="btn-secondary"
+              onClick={() => {
+                setPendingHideAction(null);
+                setHideNote("");
+              }}
+            >
+              キャンセル
+            </button>
+            <button className="btn-primary" onClick={confirmHide}>
+              非表示にする
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="comment-actions">
+          <button className="btn-secondary" onClick={() => setPendingHideAction("hide_regskip")}>
+            本サイトで非表示
+          </button>
+          <button className="btn-primary" onClick={() => setPendingHideAction("hide_youtube")}>
+            YouTube上で非表示
+          </button>
+        </div>
+      )}
       {postedReply ? (
         <div className="posted-reply">
           <span className="posted-reply-label">あなたの返信</span>
@@ -280,7 +317,7 @@ export default function Comments() {
 
   const allEntries = Object.values(data.tabs).flat();
 
-  const moveComment = async (tabKey, entry, newAction) => {
+  const moveComment = async (tabKey, entry, newAction, note = "") => {
     const c = entry.comment;
     // AI判定が失敗したコメント(judgment===null)でも押せるように、その場合は
     // 「該当なし」扱いのフォールバック値を使う。
@@ -293,6 +330,7 @@ export default function Comments() {
         tatemae_pattern: judgment?.tatemae_pattern ?? "該当なし",
         surface_level: judgment?.surface_level ?? 1,
         author_channel_id: c.author_channel_id,
+        note: note || null,
       });
     } catch (err) {
       alert(err.message);

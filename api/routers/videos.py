@@ -167,6 +167,7 @@ class MarkIn(BaseModel):
     tatemae_pattern: str
     surface_level: int
     author_channel_id: str | None = None
+    note: str | None = None  # ユーザーが書いた「見たくない理由」。類似度マッチの精度向上に使う。
 
 
 @router.post("/comments/{comment_id}/mark")
@@ -181,6 +182,7 @@ def mark_comment(comment_id: str, body: MarkIn, request: Request):
         tatemae_pattern=TatemaePattern(body.tatemae_pattern),
         surface_level=SurfaceLevel(body.surface_level),
         author_channel_id=body.author_channel_id,
+        note=body.note,
     )
     if action == PersonalAction.HIDE_YOUTUBE:
         try:

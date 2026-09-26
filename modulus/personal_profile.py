@@ -156,6 +156,7 @@ class SimilarityMark:
     tatemae_pattern: TatemaePattern
     surface_level: SurfaceLevel  # 【仕様書からの変更点】ユーザー指示によりレベルも記憶・再現の対象に追加
     author_channel_id: str | None = None  # 要注意ユーザー機能(投稿者単位の集計)のために保持
+    note: str | None = None  # ユーザーが書いた「見たくない理由」。埋め込みにも混ぜて精度を上げる。
 
 
 def _similarity_store_path(user_id: str) -> Path:
@@ -191,6 +192,7 @@ class PersonalSimilarityList:
                     tatemae_pattern=TatemaePattern(r["tatemae_pattern"]),
                     surface_level=SurfaceLevel(r["surface_level"]),
                     author_channel_id=r.get("author_channel_id"),
+                    note=r.get("note"),
                 ))
         self._marks[user_id] = marks
         return marks
@@ -207,6 +209,7 @@ class PersonalSimilarityList:
                 "tatemae_pattern": m.tatemae_pattern.value,
                 "surface_level": m.surface_level.value,
                 "author_channel_id": m.author_channel_id,
+                "note": m.note,
             }
             for m in self._marks.get(user_id, [])
         ]
@@ -222,9 +225,13 @@ class PersonalSimilarityList:
         tatemae_pattern: TatemaePattern,
         surface_level: SurfaceLevel,
         author_channel_id: str | None = None,
+        note: str | None = None,
     ) -> None:
         marks = self._load(user_id)
-        embedding = embed_text(self._client, comment)
+        # 理由(note)が書かれている場合は、コメント本文と一緒に埋め込むことで、
+        # 表現は違っても同じ理由に基づくコメントを拾いやすくする。
+        text_for_embedding = comment if not note else f"{comment}\n(見たくない理由: {note})"
+        embedding = embed_text(self._client, text_for_embedding)
         marks.append(SimilarityMark(
             comment=comment,
             embedding=embedding,
@@ -233,6 +240,7 @@ class PersonalSimilarityList:
             tatemae_pattern=tatemae_pattern,
             surface_level=surface_level,
             author_channel_id=author_channel_id,
+            note=note,
         ))
         self._save(user_id)
 
