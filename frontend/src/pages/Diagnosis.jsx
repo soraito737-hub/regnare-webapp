@@ -727,7 +727,9 @@ export default function Diagnosis() {
               </span>
               <div>
                 <p className="intro-stat-label">対象のコメント</p>
-                <p className="intro-stat-value">8種類</p>
+                <p className="intro-stat-value">
+                  {STEP1_ITEMS.filter((it) => it.group !== "hidden").length}種類
+                </p>
               </div>
             </div>
             <div className="intro-stat-detail">

@@ -117,34 +117,6 @@ def reapply_profile_to_cache(channel_id: str, profile) -> None:
         save_comment_cache(channel_id, cache)
 
 
-@router.get("/debug/state")
-def debug_state(request: Request):
-    """【調査用・一時的】本番環境で実際に保存されているprofile/キャッシュの内容を
-    直接確認するための一時エンドポイント。原因調査が終わったら削除する。"""
-    _, channel_id = _require_session(request)
-    profile = load_profile(channel_id)
-    cache = load_comment_cache(channel_id)
-    return {
-        "channel_id": channel_id,
-        "attack_action": {k.value: v.value for k, v in profile.attack_action.items()},
-        "pattern_action": {
-            f"{k[0].value}|{k[1].value}": {"action": v.action.value, "source": v.source}
-            for k, v in profile.pattern_action.items()
-        },
-        "cache_entries": {
-            cid: {
-                "categories": e.get("judgment", {}).get("categories") if e.get("judgment") else None,
-                "tatemae_pattern": e.get("judgment", {}).get("tatemae_pattern") if e.get("judgment") else None,
-                "surface_level": e.get("judgment", {}).get("surface_level") if e.get("judgment") else None,
-                "tab": e.get("tab"),
-                "reason": e.get("reason"),
-                "matched_mark_id": e.get("matched_mark_id"),
-            }
-            for cid, e in cache.items()
-        },
-    }
-
-
 @router.get("/videos")
 def get_videos(request: Request, page_token: str | None = None):
     credentials, _ = _require_session(request)
