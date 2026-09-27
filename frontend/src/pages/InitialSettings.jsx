@@ -80,7 +80,7 @@ function ActionRow({ label, example, value, onChange, master = false }) {
           YouTube上で削除する
           {ytHover && (
             <span className="tooltip">
-              選ぶと、条件に一致したコメントがYouTube上から完全に削除されます(元に戻せません)
+              選ぶと、条件に一致したコメントが「YouTube上で削除」タブに振り分けられます。実際にYouTube上から削除するには、そのタブで個別に「実行する」を押す必要があります(実行すると元に戻せません)
             </span>
           )}
         </button>

@@ -74,15 +74,12 @@ def resolve_display_action(
     profile: PersonalProfile,
     similarity_action: Optional[PersonalAction] = None,  # PersonalSimilarityList.check_similarityの結果
 ) -> DisplayAction:
-    # 【重要】YouTube側の実際の削除(delete_comment_on_youtube)につながる
-    # 「hidden_youtube」タブへの自動振り分けは、次の2通りだけに限定する。
-    #   1. コメント画面でユーザーがそのコメント自体を個別に選んでボタンを押した場合
-    #      (mark_commentへの直接リクエスト。resolve_display_actionを経由しない)
-    #   2. 過去にユーザーが「YouTube上で削除する」を押した実際のコメントと、
-    #      エンベディングで似ていると判定された場合(= 実質的に同じ判断の再現)
-    # 一方、初期設定のカテゴリ×パターン一致・攻撃レベル一致は、個別のコメント文を
-    # 一度も人が見ていないAIだけの分類なので、自動ではYouTube上へは絶対に escalate せず、
-    # 「本サイトで非表示(hidden_regskip)」止まりにする。
+    # 【重要】ここでのescalate_to_youtubeは「YouTube上で削除タブに振り分ける」ことしか
+    # 意味しない。実際にYouTube上からコメントを削除するAPI(delete_comment_on_youtube)は、
+    # どの理由でこのタブに来た場合でも、ユーザーが個別に「実行する」ボタンを押すまで
+    # 絶対に自動実行されない(mark_comment/executeYoutubeDelete経由のみ)。
+    # そのため、AIの分類だけによる自動判定(personal_pattern・attack_level)でも、
+    # 初期設定でユーザー自身が選んだ振り分け先(hide_regskip/hide_youtube)にそのまま従ってよい。
 
     # 最優先: 個人用の類似検索リストに該当があれば、それを採用する
     # (実際のコメントに対する、最も具体的で新しい意思表示のため。NORMALの明示も含めて最優先)
@@ -94,7 +91,6 @@ def resolve_display_action(
         )
 
     # 個人ルール: カテゴリ×建前パターンの組み合わせに、通常表示以外の設定があれば従う
-    # (AIの分類だけによる自動判定のため、YouTube上へのescalateはしない)
     # 1コメントが複数カテゴリに該当することがあるため、該当する全カテゴリ分の設定を見て、
     # 一番強い(範囲が広い)ものを採用する。
     pattern_action = _strongest_action([
@@ -103,18 +99,17 @@ def resolve_display_action(
     if pattern_action != PersonalAction.NORMAL:
         return DisplayAction(
             hide=True,
-            escalate_to_youtube=False,
+            escalate_to_youtube=(pattern_action == PersonalAction.HIDE_YOUTUBE),
             reason="personal_pattern",
         )
 
     # 攻撃レベル(侮蔑語等を含む)は、カテゴリごとの3択設定に従う
-    # (同じく、AIの分類だけによる自動判定のため、YouTube上へのescalateはしない)
     if judgment.surface_level == SurfaceLevel.LEVEL_2:
         attack_action = _strongest_action([profile.get_attack_action(cat) for cat in judgment.categories])
         if attack_action != PersonalAction.NORMAL:
             return DisplayAction(
                 hide=True,
-                escalate_to_youtube=False,
+                escalate_to_youtube=(attack_action == PersonalAction.HIDE_YOUTUBE),
                 reason="attack_level",
             )
 
