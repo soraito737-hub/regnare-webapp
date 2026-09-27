@@ -33,18 +33,25 @@
       "mapping": { "type": "category", "category": "活動クオリティ" }
     },
     {
-      "id": "moral_lecture",
-      "label": "マナー・モラルへの説教",
-      "examples": ["社会人としてその発言はどうかと思う", "いい大人がその態度はありえない", "常識なさすぎて見てられない"],
+      "id": "political",
+      "label": "政治的見解・イデオロギーへの批判",
+      "examples": ["その思想を発信するのはどうかと思う", "そんな考え方の人を応援してる自分が恥ずかしい", "政治的に偏った発言はチャンネルの評判を落とすだけ"],
       "group": "category",
-      "mapping": { "type": "category", "category": "社会モラルマナー説教" }
+      "mapping": { "type": "attack_all" }
     },
     {
-      "id": "mockery",
-      "label": "揶揄・あざけり",
-      "examples": ["それ本人ですか?(笑)", "よくこんな内容で続けられるね(笑)", "本当に自然な仕上がりですね(笑)"],
+      "id": "false_consensus",
+      "label": "思い込み(偏ってる正義)による攻撃",
+      "examples": ["みんな不快に思ってるよ", "視聴者全員が呆れてると思う", "界隈全体がドン引きしてるよ"],
+      "group": "category",
+      "mapping": { "type": "pattern", "patterns": ["主語肥大化"] }
+    },
+    {
+      "id": "group_disguise",
+      "label": "集団意見の偽装",
+      "examples": ["こっそりみんなで話してるけどあなたのこと嫌いだよ", "コメント欄みんな同じこと思ってるよ", "ファンの間でもあなたの評判悪いよ"],
       "group": "context",
-      "mapping": { "type": "pattern", "patterns": ["疑問形", "褒め殺し型"] }
+      "mapping": { "type": "attack_all" }
     },
     {
       "id": "comparison",
@@ -54,18 +61,32 @@
       "mapping": { "type": "pattern", "patterns": ["他者比較"] }
     },
     {
-      "id": "false_consensus",
-      "label": "正義感・主語肥大化攻撃",
-      "examples": ["みんな不快に思ってるよ", "視聴者全員が呆れてると思う", "界隈全体がドン引きしてるよ"],
+      "id": "mockery",
+      "label": "揶揄・あざけり",
+      "examples": ["それ本人ですか?(笑)", "よくこんな内容で続けられるね(笑)", "本当に自然な仕上がりですね(笑)"],
       "group": "context",
-      "mapping": { "type": "pattern", "patterns": ["主語肥大化"] }
+      "mapping": { "type": "pattern", "patterns": ["疑問形", "褒め殺し型"] }
+    },
+    {
+      "id": "threat",
+      "label": "脅迫",
+      "examples": ["次はもっとひどい目に合うよ", "見てろよ、痛い目見せてやるから", "こんな発言タダで済むと思うなよ"],
+      "group": "context",
+      "mapping": { "type": "attack_all" }
     },
     {
       "id": "abuse",
-      "label": "暴言・活動停止要求",
+      "label": "暴言・粗野な言葉遣い",
       "examples": ["才能ないから消えろ、やめろ", "二度と配信するな", "見てるだけで気持ち悪い、消えろ"],
       "group": "context",
       "mapping": { "type": "attack_all" }
+    },
+    {
+      "id": "moral_lecture",
+      "label": "マナー・モラルへの説教",
+      "examples": ["社会人としてその発言はどうかと思う", "いい大人がその態度はありえない", "常識なさすぎて見てられない"],
+      "group": "hidden",
+      "mapping": { "type": "category", "category": "社会モラルマナー説教" }
     }
   ],
   "iesr6_questions": [

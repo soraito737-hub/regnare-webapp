@@ -45,11 +45,8 @@ export const api = {
     request("/api/comments/rephrase", { method: "POST", body: JSON.stringify({ text }) }),
   getSimilarityMarks: () => request("/api/similarity-marks"),
   resetSimilarityMarks: () => request("/api/similarity-marks", { method: "DELETE" }),
-  refineSimilarityMark: (markId, exceptionNote) =>
-    request(`/api/similarity-marks/${markId}/refine`, {
-      method: "POST",
-      body: JSON.stringify({ exception_note: exceptionNote }),
-    }),
+  deleteSimilarityMark: (markId) =>
+    request(`/api/similarity-marks/${markId}`, { method: "DELETE" }),
   resetSimilarityMarkThreshold: (markId) =>
     request(`/api/similarity-marks/${markId}/reset-threshold`, { method: "POST" }),
   restoreComment: (commentId, note = "") =>

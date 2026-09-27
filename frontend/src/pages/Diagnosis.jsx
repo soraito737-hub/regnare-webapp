@@ -363,8 +363,8 @@ function StepDots({ step }) {
 
 // STEP1: 攻撃分類の複数選択画面。
 const STEP1_GROUPS = [
-  { key: "category", title: "何について言われたか", items: STEP1_ITEMS.filter((it) => it.group === "category") },
-  { key: "context", title: "どんな言い方をされたか", items: STEP1_ITEMS.filter((it) => it.group === "context") },
+  { key: "category", title: "なにをいわれているか", items: STEP1_ITEMS.filter((it) => it.group === "category") },
+  { key: "context", title: "どういわれているか", items: STEP1_ITEMS.filter((it) => it.group === "context") },
 ];
 
 function Step1Select({ selected, onToggle, onNext }) {

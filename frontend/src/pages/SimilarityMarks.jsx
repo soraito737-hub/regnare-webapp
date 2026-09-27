@@ -12,25 +12,19 @@ const MARK_TABS = [
 
 const DEFAULT_THRESHOLD = 0.85;
 
-function MarkCard({ mark, onRefine, onResetThreshold }) {
-  const [refineOpen, setRefineOpen] = useState(false);
-  const [exceptionNote, setExceptionNote] = useState("");
-  const [refining, setRefining] = useState(false);
+function MarkCard({ mark, onRestore, onResetThreshold }) {
+  const [restoring, setRestoring] = useState(false);
   const [resettingThreshold, setResettingThreshold] = useState(false);
   const isStricter = mark.threshold > DEFAULT_THRESHOLD;
 
-  const submitRefine = async () => {
-    const note = exceptionNote.trim();
-    if (!note) return;
-    setRefining(true);
+  const submitRestore = async () => {
+    setRestoring(true);
     try {
-      await onRefine(mark.id, note);
-      setRefineOpen(false);
-      setExceptionNote("");
+      await onRestore(mark.id);
     } catch (err) {
       alert(err.message);
     } finally {
-      setRefining(false);
+      setRestoring(false);
     }
   };
 
@@ -71,44 +65,16 @@ function MarkCard({ mark, onRefine, onResetThreshold }) {
         </div>
       </div>
 
-      {refineOpen ? (
-        <div className="hide-note-box">
-          <p className="hide-note-label">
-            このコメントをもとに戻す理由を記入してください(任意)
-          </p>
-          <textarea
-            value={exceptionNote}
-            onChange={(e) => setExceptionNote(e.target.value)}
-            placeholder="例:容姿の話には当てはまらない"
-            rows={2}
-          />
-          <div className="hide-note-actions">
-            <button
-              className="btn-secondary"
-              onClick={() => {
-                setRefineOpen(false);
-                setExceptionNote("");
-              }}
-            >
-              キャンセル
-            </button>
-            <button className="btn-primary" disabled={refining || !exceptionNote.trim()} onClick={submitRefine}>
-              {refining ? "更新しています…" : "この内容で直す"}
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="mark-card-actions">
-          <button className="btn-secondary" onClick={() => setRefineOpen(true)}>
-            視聴者コメントに戻す
+      <div className="mark-card-actions">
+        <button className="btn-secondary" disabled={restoring} onClick={submitRestore}>
+          {restoring ? "戻しています…" : "視聴者コメントに戻す"}
+        </button>
+        {isStricter && (
+          <button className="btn-text" disabled={resettingThreshold} onClick={handleResetThreshold}>
+            {resettingThreshold ? "戻しています…" : "厳しさを元に戻す"}
           </button>
-          {isStricter && (
-            <button className="btn-text" disabled={resettingThreshold} onClick={handleResetThreshold}>
-              {resettingThreshold ? "戻しています…" : "厳しさを元に戻す"}
-            </button>
-          )}
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
@@ -137,9 +103,9 @@ export default function SimilarityMarks() {
     load();
   }, []);
 
-  const handleRefine = async (markId, exceptionNote) => {
-    await api.refineSimilarityMark(markId, exceptionNote);
-    // マークの中身が変わったので、次に動画を開いたときに判定をやり直させる。
+  const handleRestore = async (markId) => {
+    await api.deleteSimilarityMark(markId);
+    // マークが無くなったので、次に動画を開いたときに判定をやり直させる。
     clearProcessed();
     await load();
   };
@@ -172,7 +138,7 @@ export default function SimilarityMarks() {
         <p>
           「本サイトで非表示」「YouTube上で削除する」を押すと、そのコメントの内容をRegskipが記録し、
           次に似た言い回しのコメントが来たときに同じ判断を自動で繰り返せるようにします。
-          関係のないコメントまで同じ扱いになってしまった場合は、それぞれの記録から「視聴者コメントに戻す」で修正できます。
+          関係のないコメントまで同じ扱いになってしまった場合は、それぞれの記録から「視聴者コメントに戻す」で記録ごと削除できます。
         </p>
       </div>
 
@@ -211,7 +177,7 @@ export default function SimilarityMarks() {
                 <MarkCard
                   key={mark.id}
                   mark={mark}
-                  onRefine={handleRefine}
+                  onRestore={handleRestore}
                   onResetThreshold={handleResetThreshold}
                 />
               ))
