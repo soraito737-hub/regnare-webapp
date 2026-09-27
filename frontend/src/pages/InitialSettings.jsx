@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Header from "../components/Header.jsx";
 import { ATTACK_EXAMPLE, CATEGORIES, OTHER_EXAMPLE, PATTERN_GROUPS, PATTERNS, PATTERN_UI } from "../patternData.js";
 import { api } from "../api.js";
+import { clearProcessed } from "../videoCache.js";
 
 // 「その他」= 7パターンのどれにも当てはまらないが、軽い言い方でも隠したい場合の受け皿。
 // personal_classifier.py の TatemaePattern.NONE ("該当なし") をそのまま流用する。
@@ -188,18 +189,16 @@ export default function InitialSettings() {
     return values.every((v) => v === values[0]) ? values[0] : null;
   };
 
-  // 「特定の言い回し」内の一括操作(5パターン+その他)。YouTube報告は行ごとに
-  // 個別判断してほしいため、ここでまとめて選べるのは「本サイトで非表示」までにとどめる。
-  const arePatternsAllRegskip = (category) =>
-    PATTERNS.every((pattern) => profile.patternAction[`${category}|${pattern}`] === "hide_regskip") &&
-    profile.patternAction[`${category}|${OTHER_PATTERN}`] === "hide_regskip";
+  // 「特定の言い回し」内の一括操作(5パターン+その他)。
+  const arePatternsAll = (category, action) =>
+    PATTERNS.every((pattern) => profile.patternAction[`${category}|${pattern}`] === action) &&
+    profile.patternAction[`${category}|${OTHER_PATTERN}`] === action;
 
-  const togglePatternsAll = (category) => {
-    const next = arePatternsAllRegskip(category) ? "normal" : "hide_regskip";
+  const setPatternsAll = (category, action) => {
     setProfile((p) => {
-      const patternAction = { ...p.patternAction, [`${category}|${OTHER_PATTERN}`]: next };
+      const patternAction = { ...p.patternAction, [`${category}|${OTHER_PATTERN}`]: action };
       PATTERNS.forEach((pattern) => {
-        patternAction[`${category}|${pattern}`] = next;
+        patternAction[`${category}|${pattern}`] = action;
       });
       return { ...p, patternAction };
     });
@@ -225,6 +224,10 @@ export default function InitialSettings() {
     try {
       if (loggedIn) {
         await api.saveProfile(payload);
+        // 保存によりバックエンド側のキャッシュ済み判定(tab/reason)が変わるため、
+        // ブラウザ内に残っている古い判定結果もここで消し、次に動画を開いたときに
+        // 必ず最新の判定結果を取得させる。
+        clearProcessed();
         navigate("/home");
       } else {
         localStorage.setItem("pendingProfile", JSON.stringify(payload));
@@ -286,9 +289,22 @@ export default function InitialSettings() {
               <div className="pattern-note">
                 建前・遠回しな言い方の種類ごとに、個別に選べます。強さに関わらず、この言い回し自体が出たら対応したいものがあれば選んでください
               </div>
-              <button type="button" className="select-all-btn" onClick={() => togglePatternsAll(category)}>
-                {arePatternsAllRegskip(category) ? "すべて解除" : "すべて本サイトで非表示にする"}
-              </button>
+              <div className="select-all-row">
+                <button
+                  type="button"
+                  className="select-all-btn"
+                  onClick={() => setPatternsAll(category, arePatternsAll(category, "hide_regskip") ? "normal" : "hide_regskip")}
+                >
+                  {arePatternsAll(category, "hide_regskip") ? "すべて解除" : "すべて本サイトで非表示にする"}
+                </button>
+                <button
+                  type="button"
+                  className="select-all-btn select-all-btn--youtube"
+                  onClick={() => setPatternsAll(category, arePatternsAll(category, "hide_youtube") ? "normal" : "hide_youtube")}
+                >
+                  {arePatternsAll(category, "hide_youtube") ? "すべて解除" : "すべてYouTube上で削除するにする"}
+                </button>
+              </div>
               {PATTERN_GROUPS.map((group) => {
                 const example = group.patterns.map((pattern) => PATTERN_UI[category][pattern][1]).join(" / ");
                 return (

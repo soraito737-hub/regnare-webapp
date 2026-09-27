@@ -407,6 +407,19 @@ p {
   background: var(--accent);
   color: #fff;
 }
+.select-all-row {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.select-all-btn--youtube {
+  background: color-mix(in srgb, var(--warm) 15%, transparent);
+  color: var(--warm);
+}
+.select-all-btn--youtube:hover {
+  background: var(--warm);
+  color: #fff;
+}
 
 /* 行ごとに「隠さない/Regskipで非表示/YouTubeにも報告」を選ぶボタン列 */
 .action-row {
