@@ -597,6 +597,69 @@ p {
   margin-bottom: 1.6rem;
   line-height: 1.7;
 }
+.privacy-guarantee {
+  text-align: left;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  padding: 0.9rem 1.1rem;
+  margin-bottom: 1rem;
+}
+.privacy-guarantee-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--accent-strong);
+  margin: 0 0 0.6rem;
+}
+.privacy-guarantee ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--text);
+  font-size: 0.82rem;
+  line-height: 1.65;
+}
+.privacy-guarantee li {
+  padding-left: 1.3rem;
+  position: relative;
+}
+.privacy-guarantee li::before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  color: var(--accent);
+  font-weight: 700;
+}
+.privacy-guarantee li + li {
+  margin-top: 0.5rem;
+}
+.privacy-guarantee strong {
+  color: var(--accent-strong);
+}
+.privacy-detail {
+  text-align: left;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.9rem 1.1rem;
+  margin-bottom: 1.6rem;
+}
+.privacy-detail-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 0.5rem;
+}
+.privacy-detail ul {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: var(--text-soft);
+  font-size: 0.82rem;
+  line-height: 1.65;
+}
+.privacy-detail li + li {
+  margin-top: 0.4rem;
+}
 .error-text {
   color: var(--warm);
   font-size: 0.85rem;

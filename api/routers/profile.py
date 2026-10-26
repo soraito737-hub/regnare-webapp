@@ -48,11 +48,20 @@ def post_profile(request: Request, body: ProfileIn):
     if channel_id is None:
         raise HTTPException(status_code=401, detail="ログインしていません")
 
-    attack_action = {Category(k): PersonalAction(v) for k, v in body.attack_action.items()}
+    attack_action = {}
+    for k, v in body.attack_action.items():
+        try:
+            attack_action[Category(k)] = PersonalAction(v)
+        except ValueError:
+            continue
     pattern_action = {}
     for key, value in body.pattern_action.items():
         cat_value, pat_value = key.split("|", 1)
-        pattern_action[(Category(cat_value), TatemaePattern(pat_value))] = PatternSetting(
+        try:
+            cat_key, pat_key = Category(cat_value), TatemaePattern(pat_value)
+        except ValueError:
+            continue
+        pattern_action[(cat_key, pat_key)] = PatternSetting(
             action=PersonalAction(value["action"]), source=value.get("source", "manual")
         )
 
