@@ -5,7 +5,7 @@ import { ATTACK_EXAMPLE, CATEGORIES, OTHER_EXAMPLE, PATTERN_GROUPS, PATTERNS, PA
 import { api } from "../api.js";
 import { clearProcessed } from "../videoCache.js";
 
-// 「その他」= 7パターンのどれにも当てはまらないが、軽い言い方でも隠したい場合の受け皿。
+// 「その他」= 6パターンのどれにも当てはまらないが、軽い言い方でも隠したい場合の受け皿。
 // personal_classifier.py の TatemaePattern.NONE ("該当なし") をそのまま流用する。
 const OTHER_PATTERN = "該当なし";
 
@@ -146,8 +146,7 @@ export default function InitialSettings() {
     setProfile((p) => ({ ...p, patternAction: { ...p.patternAction, [key]: action } }));
   };
 
-  // 初期設定画面では「疑問形」「褒め殺し型」を1行(揶揄・あざけり)にまとめて表示・操作する
-  // (PATTERN_GROUPS参照)。保存データ上は今まで通り2つの別キーとして持つ。
+  // PATTERN_GROUPSは文脈(1項目=1行)をそのまま表示する。
   const getGroupAction = (category, group) => {
     const values = group.patterns.map((pattern) => profile.patternAction[`${category}|${pattern}`]);
     return values.every((v) => v === values[0]) ? values[0] : null;

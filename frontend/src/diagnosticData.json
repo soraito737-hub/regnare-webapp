@@ -1,100 +1,93 @@
 {
   "_meta": {
-    "description": "「Regskip 初期診断アセスメントおよびAI非表示制御ロジックの設計」に基づく診断(v3)。STEP1: James & Preeth (2023)をもとにした8つの攻撃分類から受けた経験のあるものを複数選択。STEP2: 選択した項目ごとにIES-6(Creamer, Bell & Failla, 2003の心理測定研究およびThoresen et al., 2010のIES-6短縮化研究に準拠した6項目簡易版, 侵入2・回避2・過覚醒2)で直近7日間の心理状況を測定。カテゴリ別スコアの3段階(0〜5/6〜14/15〜24)で、本サイトでの非表示・YouTube上で削除タブへの振り分けの初期値を決める。YouTube上への実際の削除APIの実行は、この診断だけでは行わず、既存の「実行する」ボタン+確認ダイアログでの人の操作を必須とする。",
-    "categories": "James & Preeth (2023)の8分類のうち、②⑤⑦はRegskipの既存カテゴリではなく建前パターンに対応する(2枚目の確認資料の対応表を参照)。⑥は元の「脅迫・プライベート侵入」から「暴言・活動停止要求」に変更済み。実際の危害を示唆する脅迫はRegskip側のemergency経路(SAFETY_THREAT等)が常時自動対応する別軸であり、LEVEL_2(侮蔑語・命令形・活動停止要求)とは異なるため、この項目はLEVEL_2に一致する内容に揃え、診断結果を「攻撃的な言い方」(attack_action)として全カテゴリ共通に反映する。"
+    "description": "「Regskip 初期診断アセスメントおよびAI非表示制御ロジックの設計」に基づく診断(v4、改善バージョン)。STEP1: ヒアリングを踏まえた5カテゴリー×6文脈の攻撃分類から、受けた経験のあるものを複数選択。STEP2: 選択した項目ごとに、そのようなコメントを不意に目にした場合にどれくらい動揺するかを、PANAS(状態感情尺度)の質問形式を参考にした1〜5点の即時反応評定で測定する(過去のトラウマ症状の有無を問う尺度ではなく、不意打ちによる1次被害の受けやすさをその場で測る)。スコアの3段階(1〜3/4/5)で、本サイトでの非表示・YouTube上で削除タブへの振り分けの初期値を決める。YouTube上への実際の削除APIの実行は、この診断だけでは行わず、既存の「実行する」ボタン+確認ダイアログでの人の操作を必須とする。",
+    "categories": "カテゴリ(what)はmodulus/personal_classifier.pyのCategory(5分類)、文脈(how)はTatemaePattern(6分類)にそれぞれ対応する。"
   },
-  "iesr6_scale": [
-    { "value": 0, "label": "まったくない" },
-    { "value": 1, "label": "少し" },
-    { "value": 2, "label": "中くらい" },
-    { "value": 3, "label": "かなり" },
-    { "value": 4, "label": "非常に" }
+  "shock_scale": [
+    { "value": 1, "label": "全く動揺しない" },
+    { "value": 2, "label": "少し動揺する" },
+    { "value": 3, "label": "中くらい動揺する" },
+    { "value": 4, "label": "かなり動揺する" },
+    { "value": 5, "label": "強く動揺する、見たくない" }
   ],
+  "shock_question": "こういう内容のコメントを、不意に目にしたら、どれくらい動揺すると思いますか?",
   "step1_items": [
     {
-      "id": "appearance",
-      "label": "容姿・外見への攻撃",
-      "examples": ["その髪型、正直微妙だと思う", "その体型で自撮りするの?", "顔立ち、昔と変わったよね"],
+      "id": "appearance_voice",
+      "label": "容姿・声への攻撃",
+      "examples": ["ブスすぎ、声も聞き苦しい", "その髪型、正直微妙だと思う", "老けたね普通に"],
       "group": "category",
-      "mapping": { "type": "category", "category": "容姿否定" }
+      "mapping": { "type": "category", "category": "容姿・声" }
     },
     {
       "id": "personality",
-      "label": "人格・属性への攻撃",
-      "examples": ["性格終わってるだろ", "そういう育ちだから仕方ないね", "学歴のわりに中身がないね"],
+      "label": "人格への攻撃",
+      "examples": ["性格終わってるだろ、消えろ", "そういうところ、直した方がいいと思うけど", "どうせ裏では性格悪いんでしょ"],
       "group": "category",
-      "mapping": { "type": "category", "category": "人格否定" }
+      "mapping": { "type": "category", "category": "人格" }
     },
     {
-      "id": "quality",
-      "label": "クオリティへの過剰攻撃",
-      "examples": ["つまらない、ゴミ", "内容が薄すぎて時間の無駄だった", "編集下手すぎて見てられない"],
+      "id": "content",
+      "label": "動画の内容への攻撃",
+      "examples": ["才能なさすぎ、今すぐやめろ", "もっと工夫の余地あると思うな", "編集下手すぎて見てられない"],
       "group": "category",
-      "mapping": { "type": "category", "category": "活動クオリティ" }
+      "mapping": { "type": "category", "category": "動画の内容" }
     },
     {
       "id": "political",
-      "label": "政治的見解・イデオロギーへの批判",
-      "examples": ["その思想を発信するのはどうかと思う", "そんな考え方の人を応援してる自分が恥ずかしい", "政治的に偏った発言はチャンネルの評判を落とすだけ"],
+      "label": "政治的・イデオロギーへの批判",
+      "examples": ["その思想を発信するのはどうかと思う", "そんな思想の人間、気持ち悪い", "政治的に偏った発言はチャンネルの評判を落とすだけ"],
       "group": "category",
-      "mapping": { "type": "attack_all" }
+      "mapping": { "type": "category", "category": "政治的・イデオロギーへの批判" }
     },
     {
-      "id": "false_consensus",
-      "label": "思い込み(偏ってる正義)による攻撃",
-      "examples": ["みんな不快に思ってるよ", "視聴者全員が呆れてると思う", "界隈全体がドン引きしてるよ"],
+      "id": "community",
+      "label": "関係者・コラボ・ファンへの攻撃",
+      "examples": ["リスナーの層が悪すぎ、民度最低", "スタッフの質が悪いって聞きましたけど", "コラボ相手に失礼すぎるだろ"],
       "group": "category",
-      "mapping": { "type": "pattern", "patterns": ["主語肥大化"] }
-    },
-    {
-      "id": "group_disguise",
-      "label": "集団意見の偽装",
-      "examples": ["こっそりみんなで話してるけどあなたのこと嫌いだよ", "コメント欄みんな同じこと思ってるよ", "ファンの間でもあなたの評判悪いよ"],
-      "group": "context",
-      "mapping": { "type": "attack_all" }
-    },
-    {
-      "id": "comparison",
-      "label": "他者比較による蔑み",
-      "examples": ["〇〇さんの方がうまいよね", "他の配信者はもっとちゃんとしてるのに", "〇〇さんと比べると見劣りするね"],
-      "group": "context",
-      "mapping": { "type": "pattern", "patterns": ["他者比較"] }
+      "mapping": { "type": "category", "category": "関係者・コラボ・ファン" }
     },
     {
       "id": "mockery",
-      "label": "揶揄・あざけり",
-      "examples": ["それ本人ですか?(笑)", "よくこんな内容で続けられるね(笑)", "本当に自然な仕上がりですね(笑)"],
+      "label": "揶揄・あざけり(皮肉っぽく小馬鹿にされる)",
+      "examples": ["よくこんな内容で続けられるね(笑)", "さすがですね(笑)", "本当に自然な仕上がりですね(笑)"],
       "group": "context",
-      "mapping": { "type": "pattern", "patterns": ["疑問形", "褒め殺し型"] }
-    },
-    {
-      "id": "threat",
-      "label": "脅迫",
-      "examples": ["次はもっとひどい目に合うよ", "見てろよ、痛い目見せてやるから", "こんな発言タダで済むと思うなよ"],
-      "group": "context",
-      "mapping": { "type": "attack_all" }
+      "mapping": { "type": "pattern", "patterns": ["揶揄・あざけり"] }
     },
     {
       "id": "abuse",
       "label": "暴言・粗野な言葉遣い",
       "examples": ["才能ないから消えろ、やめろ", "二度と配信するな", "見てるだけで気持ち悪い、消えろ"],
       "group": "context",
-      "mapping": { "type": "attack_all" }
+      "mapping": { "type": "pattern", "patterns": ["暴言・粗野な言葉遣い"] }
     },
     {
-      "id": "moral_lecture",
-      "label": "マナー・モラルへの説教",
-      "examples": ["社会人としてその発言はどうかと思う", "いい大人がその態度はありえない", "常識なさすぎて見てられない"],
-      "group": "hidden",
-      "mapping": { "type": "category", "category": "社会モラルマナー説教" }
+      "id": "threat",
+      "label": "脅迫",
+      "examples": ["次はもっとひどい目に合うよ", "見てろよ、痛い目見せてやるから", "こんな発言タダで済むと思うなよ"],
+      "group": "context",
+      "mapping": { "type": "pattern", "patterns": ["脅迫"] }
+    },
+    {
+      "id": "biased_belief",
+      "label": "思い込みによる攻撃(根拠のない決めつけ)",
+      "examples": ["どうせお金のためにやってるんでしょ", "どうせ再生数稼ぎでしょ", "どうせ整形でしょ"],
+      "group": "context",
+      "mapping": { "type": "pattern", "patterns": ["思い込みによる攻撃"] }
+    },
+    {
+      "id": "fake_consensus",
+      "label": "集団意見の偽装",
+      "examples": ["みんな不快に思ってるよ", "視聴者全員が呆れてると思う", "界隈全体がドン引きしてるよ"],
+      "group": "context",
+      "mapping": { "type": "pattern", "patterns": ["集団意見の偽装"] }
+    },
+    {
+      "id": "comparison",
+      "label": "他者比較による蔑み",
+      "examples": ["〇〇さんの方がうまいよね", "他の配信者はもっとちゃんとしてるのに", "〇〇さんと比べると見劣りするね"],
+      "group": "context",
+      "mapping": { "type": "pattern", "patterns": ["他者比較による蔑み"] }
     }
-  ],
-  "iesr6_questions": [
-    { "text": "何かのきっかけで、その出来事についての気持ちがよみがえった", "subscale": "侵入" },
-    { "text": "その出来事についての映像が、ふと頭に浮かんだ", "subscale": "侵入" },
-    { "text": "その出来事を思い出させるものを避けようとした", "subscale": "回避" },
-    { "text": "その出来事について話さないようにした", "subscale": "回避" },
-    { "text": "睡眠を継続するのが難しかった", "subscale": "過覚醒" },
-    { "text": "物事に集中するのが難しかった", "subscale": "過覚醒" }
   ]
 }

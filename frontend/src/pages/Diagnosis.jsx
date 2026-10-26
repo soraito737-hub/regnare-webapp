@@ -105,8 +105,8 @@ const EXPLAIN_POINTS = [
     body: "いくつかの質問に答えるだけで、あなたが見たくないコメントの基準を診断できます",
     examplesTitle: "診断でわかること",
     examples: [
-      "容姿否定・人格否定など、攻撃の種類ごとに経験を選ぶ",
-      "つらさの度合いを測定する",
+      "外見・人間性など、攻撃の種類ごとに経験を選ぶ",
+      "不意に見たときの動揺の度合いを測定する",
       "結果からカテゴリごとのおすすめ設定を提案する",
     ],
   },
@@ -117,7 +117,7 @@ const EXPLAIN_POINTS = [
     body: "見たくないコメントの初期設定と、実際のコメントの中から見たくないものを選ぶことで、自分だけのコメント欄を作ることができます",
     examplesTitle: "設定できる項目",
     examples: [
-      "容姿否定・人格否定などカテゴリごとに対応を選べる",
+      "外見・人間性などカテゴリごとに対応を選べる",
       "直接的な攻撃と、遠回しな言い方を分けて設定できる",
       "「非表示にしない/本サイトで非表示/YouTube上で削除する」の3段階から選べる",
     ],
@@ -188,91 +188,23 @@ function Explain({ onNext }) {
   );
 }
 
-// ---- 「Regskip 初期診断アセスメントおよびAI非表示制御ロジックの設計」に基づく診断(v3) ----
-// STEP1: James & Preeth (2023)をもとにした8つの攻撃分類から、受けた経験のあるものを複数選択。
-// STEP2: 選択した項目ごとにIES-6(6項目簡易版, 侵入2・回避2・過覚醒2)で直近7日間の状態を測定。
+// ---- 「Regskip 初期診断アセスメントおよびAI非表示制御ロジックの設計」に基づく診断(v4) ----
+// STEP1: James & Preeth (2023)をもとにした攻撃分類から、受けた経験のあるものを複数選択。
+// STEP2: 選択した項目ごとに、不意に目にした場合の動揺度をPANAS的な1〜5点の即時評定で測定。
+// (過去のトラウマ症状を測るIES-6から、不意打ちによる1次被害の受けやすさを測る方式に変更済み)
 const STEP1_ITEMS = diagnosticData.step1_items;
-const IESR6_SCALE = diagnosticData.iesr6_scale;
-const IESR6_QUESTIONS = diagnosticData.iesr6_questions;
+const SHOCK_SCALE = diagnosticData.shock_scale;
+const SHOCK_QUESTION = diagnosticData.shock_question;
 
-// カテゴリ別IES-6スコア(0〜24点、修正済みの3段階)。YouTube上への実際の削除APIの実行は、
-// このスコアだけでは行わない。「YouTube上で削除」タブに振り分けるところまでで、実際に
-// YouTube側を操作するのは既存の「実行する」ボタン+確認ダイアログでの人の操作を必須にする。
-function scoreToAction(total) {
-  if (total <= 5) return "normal";
-  if (total <= 14) return "hide_regskip";
+// 動揺度(1〜5点)の3段階。YouTube上への実際の削除APIの実行は、このスコアだけでは行わない。
+// 「YouTube上で削除」タブに振り分けるところまでで、実際にYouTube側を操作するのは既存の
+// 「実行する」ボタン+確認ダイアログでの人の操作を必須にする。
+function scoreToAction(value) {
+  if (value <= 3) return "normal";
+  if (value === 4) return "hide_regskip";
   return "hide_youtube";
 }
-const SCORE_BAND_LABEL = { normal: "低ストレス(スルー可能)", hide_regskip: "中ストレス(不快・引きずる)", hide_youtube: "高ストレス(トラウマ・休止リスク)" };
-// 侵入・回避・過覚醒という言葉だけでは伝わらないため、結果画面の最初に1回だけ説明を出す。
-const SUBSCALE_INFO = [
-  {
-    key: "侵入",
-    en: "Intrusion",
-    color: "var(--warm)",
-    short: "ネガティブなコメントが心の中に入り込み、考え続けてしまう傾向があります。",
-    lead: "「思い出したくないのに、勝手に思い出してしまう」状態です。",
-    points: ["そのコメントについて、考えていないのに、ふと考えてしまう", "そのときの場面が、頭の中に映像として浮かんでくる", "何か別のことがきっかけで、突然そのコメントを思い出してしまう"],
-    summary: "記憶が、自分の意思とは関係なく「侵入」してくるイメージです。",
-  },
-  {
-    key: "回避",
-    en: "Avoidance",
-    color: "var(--accent)",
-    short: "つらいコメントを見ないようにしたり、投稿を控えたりする傾向があります。",
-    lead: "「思い出さないように、自分から避けようとする」状態です。",
-    points: ["そのコメントを思い出させるもの(似たような言葉、その動画のコメント欄など)を避ける", "あえて考えないようにする", "そのことについて話さないようにする"],
-    summary: "辛い記憶から、自分を「守ろう」として距離を取るイメージです。",
-  },
-  {
-    key: "過覚醒",
-    en: "Hyperarousal",
-    color: "var(--violet)",
-    short: "常に警戒し、疲れやすく、小さなことでも強く反応してしまう傾向があります。",
-    lead: "「神経が張り詰めて、警戒モードになっている」状態です。",
-    points: ["イライラしたり、怒りっぽくなったりする", "集中するのが難しい", "眠れない、または眠り続けられない"],
-    summary: "常に気を張っていて、休めていないイメージです。",
-  },
-];
-
-function SubscaleLegend() {
-  return (
-    <details className="card diagnosis-result-card diagnosis-legend-teaser">
-      <summary>
-        <span className="diagnosis-legend-teaser-text">
-          <span className="diagnosis-legend-teaser-icon">ⓘ</span>
-          <span>
-            <span className="diagnosis-result-item">「侵入・回避・過覚醒」とは?</span>
-            <br />
-            <span className="diagnosis-result-votes">詳しい内容や、それぞれの特徴について知りたい方はこちらから確認できます。</span>
-          </span>
-        </span>
-        <span className="diagnosis-legend-teaser-more">詳しく見る ›</span>
-      </summary>
-      <div className="diagnosis-result-list" style={{ marginTop: "0.8rem" }}>
-        {SUBSCALE_INFO.map((s) => (
-          <div key={s.key}>
-            <p className="diagnosis-result-item">
-              {s.key}({s.en})
-            </p>
-            <p className="diagnosis-legend-lead">{s.lead}</p>
-            <ul className="diagnosis-example-list" style={{ margin: "0.4rem 0" }}>
-              {s.points.map((p) => (
-                <li key={p} style={{ color: "var(--text-soft)" }}>
-                  {p}
-                </li>
-              ))}
-            </ul>
-            <p className="diagnosis-result-reason">→ {s.summary}</p>
-          </div>
-        ))}
-        <p className="diagnosis-result-votes">
-          それぞれ2つの質問(0〜4点)の合計で、0〜8点。点数が高いほど、その反応が強く出ていることを示します。
-        </p>
-      </div>
-    </details>
-  );
-}
+const SCORE_BAND_LABEL = { normal: "低ショック(許容範囲)", hide_regskip: "中ショック(不快に感じる)", hide_youtube: "高ショック(見たくない)" };
 
 const ACTION_RANK = { normal: 0, hide_regskip: 1, hide_youtube: 2 };
 // 同じattack_action[category]に複数のSTEP1項目(カテゴリ項目+脅迫)が結果を書き込む場合、
@@ -283,9 +215,9 @@ function strongerAction(a, b) {
 }
 
 const SEVERITY_DESC = {
-  normal: "特に大きな負担なく受け止められている",
-  hide_regskip: "受け止めやすく、心理的な負担を感じやすい",
-  hide_youtube: "強く受け止めやすく、心理的な負担を感じやすい",
+  normal: "不意に見ても、大きな動揺なく受け止められそう",
+  hide_regskip: "不意に見ると、動揺しやすい",
+  hide_youtube: "不意に見ると、強く動揺しやすい",
 };
 
 // 実際に初期設定に反映される内容を、項目の種類ごとに文章にする。
@@ -302,7 +234,7 @@ function appliedSettingText(item, action) {
 }
 
 function ScoreGauge({ total, action }) {
-  const pct = Math.min(100, Math.round((total / 24) * 100));
+  const pct = Math.min(100, Math.round((total / 5) * 100));
   const radius = 42;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference * (1 - pct / 100);
@@ -326,24 +258,24 @@ function ScoreGauge({ total, action }) {
         {total}
       </text>
       <text x="50" y="64" textAnchor="middle" fontSize="10" fill="var(--text-faint)">
-        / 24
+        / 5
       </text>
     </svg>
   );
 }
 
 function StressMeter({ total }) {
-  const pct = Math.min(100, Math.round((total / 24) * 100));
+  const pct = Math.min(100, Math.round((total / 5) * 100));
   return (
     <div className="diagnosis-stress-meter">
-      <p className="diagnosis-summary-label">ストレスレベルの目安</p>
+      <p className="diagnosis-summary-label">動揺の強さの目安</p>
       <div className="diagnosis-stress-track">
         <div className="diagnosis-stress-dot" style={{ left: `${pct}%` }} />
       </div>
       <div className="diagnosis-stress-scale">
-        <span>0(低)</span>
+        <span>1(低)</span>
         <span>{total}(現在)</span>
-        <span>24(高)</span>
+        <span>5(高)</span>
       </div>
     </div>
   );
@@ -403,25 +335,10 @@ function Step1Select({ selected, onToggle, onNext }) {
   );
 }
 
-function Transition({ itemLabel, onNext }) {
-  return (
-    <div className="page">
-      <Header />
-      <div className="card intro chapter-break">
-        <p className="chapter-break-done">ここまでのご回答、ありがとうございます</p>
-        <h1>「{itemLabel}」を受けたときの、ご自身の状態を教えてください</h1>
-        <button className="btn-primary" onClick={onNext}>
-          次へ
-        </button>
-      </div>
-    </div>
-  );
-}
-
 // 診断結果画面: 選んだ攻撃分類ごとに、IES-6のスコアと反映結果を一覧で見せる。
 const RESULT_GROUP_TITLES = { category: "何について言われたか", context: "どんな言い方をされたか" };
 
-function ResultItemCard({ item, total, action, subscales }) {
+function ResultItemCard({ item, total, action }) {
   return (
     <div className="card diagnosis-result-card" key={item.id}>
       <div className="diagnosis-result-top">
@@ -435,37 +352,10 @@ function ResultItemCard({ item, total, action, subscales }) {
             {item.label}
           </p>
           <p className="diagnosis-result-reason" style={{ marginTop: "0.3rem" }}>
-            あなたは、「{item.label}」に関するコメントを{SEVERITY_DESC[action]}状態です。
+            あなたは、「{item.label}」に関するコメントを{SEVERITY_DESC[action]}ようです。
           </p>
         </div>
         <StressMeter total={total} />
-      </div>
-
-      <div className="diagnosis-result-breakdown">
-        <p className="diagnosis-summary-label">負担の内訳</p>
-        <p className="diagnosis-result-votes" style={{ marginBottom: "0.5rem" }}>
-          3つの観点から、あなたの負担の強さを測定しました。
-        </p>
-        <div className="diagnosis-result-list">
-          {SUBSCALE_INFO.map((s) => (
-            <div className="diagnosis-subscale-row" key={s.key}>
-              <div className="diagnosis-subscale-body">
-                <p className="diagnosis-result-item">
-                  <span className="diagnosis-subscale-dot" style={{ background: s.color }} />
-                  {s.key}
-                </p>
-                <p className="diagnosis-result-votes">{s.short}</p>
-                <div className="diagnosis-subscale-bar">
-                  <div
-                    className="diagnosis-subscale-bar-fill"
-                    style={{ width: `${(subscales[s.key] / 8) * 100}%`, background: s.color }}
-                  />
-                </div>
-              </div>
-              <span className="diagnosis-subscale-score">{subscales[s.key]} / 8</span>
-            </div>
-          ))}
-        </div>
       </div>
 
       <div className="diagnosis-recommend">
@@ -493,14 +383,12 @@ function DiagnosisResults({ itemResults, onNext, footerLabel = "初期設定に�
         <h1>診断結果</h1>
         <p className="diagnosis-summary-lead">
           {top ? (
-            <>あなたは「{top.item.label}」で、特に心理的な負担を感じているようです</>
+            <>あなたは「{top.item.label}」で、特に強い動揺を感じやすいようです</>
           ) : (
-            "今回は、特に負担を感じているコメントの分類は見つかりませんでした。"
+            "今回は、特に強い動揺を感じるコメントの分類は見つかりませんでした。"
           )}
         </p>
       </div>
-
-      <SubscaleLegend />
 
       {["category", "context"].map((groupKey) =>
         byGroup[groupKey].length > 0 ? (
@@ -568,11 +456,11 @@ export function DiagnosisResultPage() {
 
 export default function Diagnosis() {
   const navigate = useNavigate();
-  const [stage, setStage] = useState("splash"); // splash | explain | start | step1 | transition | quiz | results
+  const [stage, setStage] = useState("splash"); // splash | explain | start | step1 | quiz | results
   const [selectedStep1, setSelectedStep1] = useState(() => new Set());
-  const [queue, setQueue] = useState([]); // {itemId, subIndex, text, subscale}[]
+  const [queue, setQueue] = useState([]); // 選んだ STEP1_ITEMS の配列(1項目=1問)
   const [qIndex, setQIndex] = useState(0);
-  const [answers, setAnswers] = useState({}); // `${itemId}|${subIndex}` -> 0〜4
+  const [answers, setAnswers] = useState({}); // itemId -> 1〜5
   const [resultsData, setResultsData] = useState(null);
 
   const toggleStep1 = (id) => {
@@ -591,21 +479,9 @@ export default function Diagnosis() {
 
     STEP1_ITEMS.forEach((item) => {
       if (!selectedIds.has(item.id)) return;
-      let total = 0;
-      const subVals = { 侵入: [], 回避: [], 過覚醒: [] };
-      IESR6_QUESTIONS.forEach((q, i) => {
-        const value = finalAnswers[`${item.id}|${i}`] ?? 0;
-        total += value;
-        subVals[q.subscale].push(value);
-      });
-      const action = scoreToAction(total);
-      const sum = (arr) => arr.reduce((a, b) => a + b, 0);
-      itemResults.push({
-        item,
-        total,
-        action,
-        subscales: { 侵入: sum(subVals.侵入), 回避: sum(subVals.回避), 過覚醒: sum(subVals.過覚醒) },
-      });
+      const value = finalAnswers[item.id] ?? 1;
+      const action = scoreToAction(value);
+      itemResults.push({ item, total: value, action });
 
       if (item.mapping.type === "category") {
         const category = item.mapping.category;
@@ -638,30 +514,22 @@ export default function Diagnosis() {
       finish({});
       return;
     }
-    const newQueue = [];
-    selectedItems.forEach((item) => {
-      IESR6_QUESTIONS.forEach((q, i) => newQueue.push({ itemId: item.id, subIndex: i, text: q.text, subscale: q.subscale }));
-    });
-    setQueue(newQueue);
+    setQueue(selectedItems);
     setQIndex(0);
-    setStage("transition");
+    setStage("quiz");
   };
 
-  const currentQ = queue[qIndex];
-  const currentItem = currentQ ? STEP1_ITEMS.find((it) => it.id === currentQ.itemId) : null;
+  const currentItem = queue[qIndex] ?? null;
   const currentItemLabel = currentItem ? currentItem.label : "";
 
   const handleAnswer = (value) => {
-    const key = `${currentQ.itemId}|${currentQ.subIndex}`;
-    const nextAnswers = { ...answers, [key]: value };
+    const nextAnswers = { ...answers, [currentItem.id]: value };
     setAnswers(nextAnswers);
     if (qIndex + 1 >= queue.length) {
       finish(nextAnswers);
       return;
     }
-    const nextIndex = qIndex + 1;
-    setQIndex(nextIndex);
-    setStage(queue[nextIndex].itemId !== currentQ.itemId ? "transition" : "quiz");
+    setQIndex(qIndex + 1);
   };
 
   const goBack = () => {
@@ -670,7 +538,6 @@ export default function Diagnosis() {
       return;
     }
     setQIndex(qIndex - 1);
-    setStage("quiz");
   };
 
   // 開発中の確認用: 手で押さなくても、ランダムな回答で結果画面をすぐ見られるようにする
@@ -680,9 +547,7 @@ export default function Diagnosis() {
     if (sampleSelected.size === 0) sampleSelected.add(STEP1_ITEMS[0].id);
     const sampleAnswers = {};
     sampleSelected.forEach((id) => {
-      IESR6_QUESTIONS.forEach((_, i) => {
-        sampleAnswers[`${id}|${i}`] = Math.floor(Math.random() * 5);
-      });
+      sampleAnswers[id] = 1 + Math.floor(Math.random() * 5);
     });
     setSelectedStep1(sampleSelected);
     finish(sampleAnswers, sampleSelected);
@@ -714,9 +579,9 @@ export default function Diagnosis() {
             <IconClipboard />
             診断ツール
           </span>
-          <h1>どんなコメントに傷ついているか、診断できます</h1>
+          <h1>どんなコメントに動揺しやすいか、診断できます</h1>
           <p>
-            過去に受けたことのあるコメントの種類と、それぞれについてのそのときのご自身の状態を、
+            過去に受けたことのあるコメントの種類と、それを不意に目にしたらどれくらい動揺するかを、
             <br />
             いくつか質問に答えるだけで、あなた専用の「見たくないコメント」の基準が自動でできあがります。
           </p>
@@ -738,7 +603,7 @@ export default function Diagnosis() {
               </span>
               <div>
                 <p className="intro-stat-label">所要時間</p>
-                <p className="intro-stat-value">約2〜3分</p>
+                <p className="intro-stat-value">約1〜2分</p>
               </div>
             </div>
           </div>
@@ -770,10 +635,6 @@ export default function Diagnosis() {
     return <Step1Select selected={selectedStep1} onToggle={toggleStep1} onNext={confirmStep1} />;
   }
 
-  if (stage === "transition") {
-    return <Transition itemLabel={currentItemLabel} onNext={() => setStage("quiz")} />;
-  }
-
   if (stage === "results") {
     return <DiagnosisResults itemResults={resultsData} onNext={() => navigate("/settings")} />;
   }
@@ -784,11 +645,13 @@ export default function Diagnosis() {
       <div className="settings-lead">
         <StepDots step={2} />
         <h1>「{currentItemLabel}」について</h1>
-        <p>選んだ分類を振り返って、過去7日間、以下のようなことがどのくらいありましたか。</p>
+        <p>
+          {qIndex + 1} / {queue.length}問目
+        </p>
       </div>
       <div className="card diagnosis-example-card">
         <p className="diagnosis-summary-label" style={{ marginBottom: "0.4rem" }}>
-          こんなコメントを思い出しながら答えてください
+          こんなコメントを思い浮かべながら答えてください
         </p>
         <ul className="diagnosis-example-list">
           {currentItem.examples.map((ex) => (
@@ -797,9 +660,9 @@ export default function Diagnosis() {
         </ul>
       </div>
       <div className="card">
-        <p className="diagnosis-question">「{currentQ.text}」</p>
+        <p className="diagnosis-question">{SHOCK_QUESTION}</p>
         <div className="diagnosis-options">
-          {IESR6_SCALE.map((opt) => (
+          {SHOCK_SCALE.map((opt) => (
             <button key={opt.value} type="button" className="diagnosis-option" onClick={() => handleAnswer(opt.value)}>
               {opt.label}
             </button>

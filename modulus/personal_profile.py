@@ -187,17 +187,29 @@ class PersonalSimilarityList:
                 raw_categories = r.get("categories")
                 if raw_categories is None:
                     raw_categories = [r["category"]]
+                # カテゴリ体系の改訂で削除・改名された旧値(例:「容姿否定」等)が
+                # 残っていても、読み込みごと落とさず該当分だけ除外して救済する。
+                categories = []
+                for c in raw_categories:
+                    try:
+                        parsed = Category(c)
+                    except ValueError:
+                        continue
+                    if parsed not in categories:
+                        categories.append(parsed)
+                if not categories:
+                    categories = [Category.NONE]
                 try:
                     tatemae_pattern = TatemaePattern(r["tatemae_pattern"])
                 except ValueError:
-                    # 建前パターンの選択肢を削除した後も残っている旧データ
+                    # 建前パターン/文脈の選択肢を変更した後も残っている旧データ
                     # (例:「自己満足アドバイス」等)を、読み込みごと落とさず救済する。
                     tatemae_pattern = TatemaePattern.NONE
                 marks.append(SimilarityMark(
                     comment=r["comment"],
                     embedding=r["embedding"],
                     action=PersonalAction(r["action"]),
-                    categories=[Category(c) for c in raw_categories],
+                    categories=categories,
                     tatemae_pattern=tatemae_pattern,
                     surface_level=SurfaceLevel(r["surface_level"]),
                     author_channel_id=r.get("author_channel_id"),
