@@ -1,7 +1,7 @@
 {
   "_meta": {
-    "description": "「Regskip 初期診断アセスメントおよびAI非表示制御ロジックの設計」に基づく診断(v4、改善バージョン)。STEP1: ヒアリングを踏まえた5カテゴリー×6文脈の攻撃分類から、受けた経験のあるものを複数選択。STEP2: 選択した項目ごとに、そのようなコメントを不意に目にした場合にどれくらい動揺するかを、PANAS(状態感情尺度)の質問形式を参考にした1〜5点の即時反応評定で測定する(過去のトラウマ症状の有無を問う尺度ではなく、不意打ちによる1次被害の受けやすさをその場で測る)。スコアの3段階(1〜3/4/5)で、本サイトでの非表示・YouTube上で削除タブへの振り分けの初期値を決める。YouTube上への実際の削除APIの実行は、この診断だけでは行わず、既存の「実行する」ボタン+確認ダイアログでの人の操作を必須とする。",
-    "categories": "カテゴリ(what)はmodulus/personal_classifier.pyのCategory(5分類)、文脈(how)はTatemaePattern(6分類)にそれぞれ対応する。"
+    "description": "「Regskip 初期診断アセスメントおよびAI非表示制御ロジックの設計」に基づく診断(v5、改善バージョン)。STEP1: 5カテゴリー×6文脈=30パターンの組み合わせ刺激から、受けた経験のあるものを複数選択。STEP2: 選択した項目ごとに、そのようなコメントを不意に目にした場合にどれくらい動揺するかを、PANAS(状態感情尺度)の質問形式を参考にした1〜5点の即時反応評定で測定する(過去のトラウマ症状の有無を問う尺度ではなく、不意打ちによる1次被害の受けやすさをその場で測る)。スコアが1〜3点なら表示のまま、4〜5点なら本サイトで非表示にする(YouTube上の実際の削除は、この診断だけでは行わず、既存の「実行する」ボタン+確認ダイアログでの人の操作を必須とする)。",
+    "categories": "カテゴリ(what)×文脈(how)の組み合わせごとに1問。modulus/personal_classifier.pyのCategory(5分類)×TatemaePattern(6分類)にそれぞれ対応する。"
   },
   "shock_scale": [
     { "value": 1, "label": "全く動揺しない" },
@@ -12,82 +12,39 @@
   ],
   "shock_question": "こういう内容のコメントを、不意に目にしたら、どれくらい動揺すると思いますか?",
   "step1_items": [
-    {
-      "id": "appearance_voice",
-      "label": "容姿・声への攻撃",
-      "examples": ["ブスすぎ、声も聞き苦しい", "その髪型、正直微妙だと思う", "老けたね普通に"],
-      "group": "category",
-      "mapping": { "type": "category", "category": "容姿・声" }
-    },
-    {
-      "id": "personality",
-      "label": "人格への攻撃",
-      "examples": ["性格終わってるだろ、消えろ", "そういうところ、直した方がいいと思うけど", "どうせ裏では性格悪いんでしょ"],
-      "group": "category",
-      "mapping": { "type": "category", "category": "人格" }
-    },
-    {
-      "id": "content",
-      "label": "動画の内容への攻撃",
-      "examples": ["才能なさすぎ、今すぐやめろ", "もっと工夫の余地あると思うな", "編集下手すぎて見てられない"],
-      "group": "category",
-      "mapping": { "type": "category", "category": "動画の内容" }
-    },
-    {
-      "id": "political",
-      "label": "政治的・イデオロギーへの批判",
-      "examples": ["その思想を発信するのはどうかと思う", "そんな思想の人間、気持ち悪い", "政治的に偏った発言はチャンネルの評判を落とすだけ"],
-      "group": "category",
-      "mapping": { "type": "category", "category": "政治的・イデオロギーへの批判" }
-    },
-    {
-      "id": "community",
-      "label": "関係者・コラボ・ファンへの攻撃",
-      "examples": ["リスナーの層が悪すぎ、民度最低", "スタッフの質が悪いって聞きましたけど", "コラボ相手に失礼すぎるだろ"],
-      "group": "category",
-      "mapping": { "type": "category", "category": "関係者・コラボ・ファン" }
-    },
-    {
-      "id": "mockery",
-      "label": "揶揄・あざけり(皮肉っぽく小馬鹿にされる)",
-      "examples": ["よくこんな内容で続けられるね(笑)", "さすがですね(笑)", "本当に自然な仕上がりですね(笑)"],
-      "group": "context",
-      "mapping": { "type": "pattern", "patterns": ["揶揄・あざけり"] }
-    },
-    {
-      "id": "abuse",
-      "label": "暴言・粗野な言葉遣い",
-      "examples": ["才能ないから消えろ、やめろ", "二度と配信するな", "見てるだけで気持ち悪い、消えろ"],
-      "group": "context",
-      "mapping": { "type": "pattern", "patterns": ["暴言・粗野な言葉遣い"] }
-    },
-    {
-      "id": "threat",
-      "label": "脅迫",
-      "examples": ["次はもっとひどい目に合うよ", "見てろよ、痛い目見せてやるから", "こんな発言タダで済むと思うなよ"],
-      "group": "context",
-      "mapping": { "type": "pattern", "patterns": ["脅迫"] }
-    },
-    {
-      "id": "biased_belief",
-      "label": "思い込みによる攻撃(根拠のない決めつけ)",
-      "examples": ["どうせお金のためにやってるんでしょ", "どうせ再生数稼ぎでしょ", "どうせ整形でしょ"],
-      "group": "context",
-      "mapping": { "type": "pattern", "patterns": ["思い込みによる攻撃"] }
-    },
-    {
-      "id": "fake_consensus",
-      "label": "集団意見の偽装",
-      "examples": ["みんな不快に思ってるよ", "視聴者全員が呆れてると思う", "界隈全体がドン引きしてるよ"],
-      "group": "context",
-      "mapping": { "type": "pattern", "patterns": ["集団意見の偽装"] }
-    },
-    {
-      "id": "comparison",
-      "label": "他者比較による蔑み",
-      "examples": ["〇〇さんの方がうまいよね", "他の配信者はもっとちゃんとしてるのに", "〇〇さんと比べると見劣りするね"],
-      "group": "context",
-      "mapping": { "type": "pattern", "patterns": ["他者比較による蔑み"] }
-    }
+    { "id": "appearance_mockery", "category": "容姿・声", "pattern": "揶揄・あざけり", "label": "容姿・声を、皮肉っぽく言われる", "examples": ["本当に自然な仕上がりですね(笑)"], "mapping": { "type": "category_pattern", "category": "容姿・声", "pattern": "揶揄・あざけり" } },
+    { "id": "appearance_abuse", "category": "容姿・声", "pattern": "暴言・粗野な言葉遣い", "label": "容姿・声を、直接罵倒される", "examples": ["ブスすぎ、見てられない"], "mapping": { "type": "category_pattern", "category": "容姿・声", "pattern": "暴言・粗野な言葉遣い" } },
+    { "id": "appearance_threat", "category": "容姿・声", "pattern": "脅迫", "label": "容姿・声を理由に、実害を示唆される", "examples": ["その顔、覚えたから"], "mapping": { "type": "category_pattern", "category": "容姿・声", "pattern": "脅迫" } },
+    { "id": "appearance_belief", "category": "容姿・声", "pattern": "思い込みによる攻撃", "label": "容姿・声への手入れを、勝手に決めつけられる", "examples": ["どうせ整形でしょ"], "mapping": { "type": "category_pattern", "category": "容姿・声", "pattern": "思い込みによる攻撃" } },
+    { "id": "appearance_consensus", "category": "容姿・声", "pattern": "集団意見の偽装", "label": "容姿・声について、「みんな」が言ってると言われる", "examples": ["みんな老けたって言ってるよ"], "mapping": { "type": "category_pattern", "category": "容姿・声", "pattern": "集団意見の偽装" } },
+    { "id": "appearance_comparison", "category": "容姿・声", "pattern": "他者比較による蔑み", "label": "容姿・声を、他の人と比べられる", "examples": ["〇〇さんの方が可愛いのに"], "mapping": { "type": "category_pattern", "category": "容姿・声", "pattern": "他者比較による蔑み" } },
+
+    { "id": "personality_mockery", "category": "人格", "pattern": "揶揄・あざけり", "label": "人格を、遠回しに疑われる", "examples": ["良い人ぶるの上手ですね(笑)"], "mapping": { "type": "category_pattern", "category": "人格", "pattern": "揶揄・あざけり" } },
+    { "id": "personality_abuse", "category": "人格", "pattern": "暴言・粗野な言葉遣い", "label": "人格を、直接罵倒される", "examples": ["性格終わってるだろ、消えろ"], "mapping": { "type": "category_pattern", "category": "人格", "pattern": "暴言・粗野な言葉遣い" } },
+    { "id": "personality_threat", "category": "人格", "pattern": "脅迫", "label": "人格を理由に、実害を示唆される", "examples": ["そういう性格、痛い目見るよ"], "mapping": { "type": "category_pattern", "category": "人格", "pattern": "脅迫" } },
+    { "id": "personality_belief", "category": "人格", "pattern": "思い込みによる攻撃", "label": "性格を、勝手に決めつけられる", "examples": ["どうせ裏では性格悪いんでしょ"], "mapping": { "type": "category_pattern", "category": "人格", "pattern": "思い込みによる攻撃" } },
+    { "id": "personality_consensus", "category": "人格", "pattern": "集団意見の偽装", "label": "人格について、「みんな」が言ってると言われる", "examples": ["みんな性格悪いって言ってるよ"], "mapping": { "type": "category_pattern", "category": "人格", "pattern": "集団意見の偽装" } },
+    { "id": "personality_comparison", "category": "人格", "pattern": "他者比較による蔑み", "label": "人柄を、他の人と比べられる", "examples": ["〇〇さんの方が気さくで好き"], "mapping": { "type": "category_pattern", "category": "人格", "pattern": "他者比較による蔑み" } },
+
+    { "id": "content_mockery", "category": "動画の内容", "pattern": "揶揄・あざけり", "label": "動画の内容を、皮肉っぽく褒められる", "examples": ["よくこんな内容で続けられるね(笑)"], "mapping": { "type": "category_pattern", "category": "動画の内容", "pattern": "揶揄・あざけり" } },
+    { "id": "content_abuse", "category": "動画の内容", "pattern": "暴言・粗野な言葉遣い", "label": "動画の内容を、直接罵倒される", "examples": ["才能なさすぎ、今すぐやめろ"], "mapping": { "type": "category_pattern", "category": "動画の内容", "pattern": "暴言・粗野な言葉遣い" } },
+    { "id": "content_threat", "category": "動画の内容", "pattern": "脅迫", "label": "動画の内容を理由に、実害を示唆される", "examples": ["こんな動画出して、ただで済むと思うなよ"], "mapping": { "type": "category_pattern", "category": "動画の内容", "pattern": "脅迫" } },
+    { "id": "content_belief", "category": "動画の内容", "pattern": "思い込みによる攻撃", "label": "企画の意図を、勝手に決めつけられる", "examples": ["どうせ再生数稼ぎでしょ"], "mapping": { "type": "category_pattern", "category": "動画の内容", "pattern": "思い込みによる攻撃" } },
+    { "id": "content_consensus", "category": "動画の内容", "pattern": "集団意見の偽装", "label": "動画の内容について、「みんな」が言ってると言われる", "examples": ["みんな最近つまらないって言ってるよ"], "mapping": { "type": "category_pattern", "category": "動画の内容", "pattern": "集団意見の偽装" } },
+    { "id": "content_comparison", "category": "動画の内容", "pattern": "他者比較による蔑み", "label": "実力を、他の人と比べられる", "examples": ["〇〇さんの方が編集うまいよね"], "mapping": { "type": "category_pattern", "category": "動画の内容", "pattern": "他者比較による蔑み" } },
+
+    { "id": "political_mockery", "category": "政治的・イデオロギーへの批判", "pattern": "揶揄・あざけり", "label": "思想を、皮肉っぽく言われる", "examples": ["さすが意識高いですね(笑)"], "mapping": { "type": "category_pattern", "category": "政治的・イデオロギーへの批判", "pattern": "揶揄・あざけり" } },
+    { "id": "political_abuse", "category": "政治的・イデオロギーへの批判", "pattern": "暴言・粗野な言葉遣い", "label": "思想を、直接罵倒される", "examples": ["そんな思想の人間、気持ち悪い"], "mapping": { "type": "category_pattern", "category": "政治的・イデオロギーへの批判", "pattern": "暴言・粗野な言葉遣い" } },
+    { "id": "political_threat", "category": "政治的・イデオロギーへの批判", "pattern": "脅迫", "label": "思想を理由に、実害を示唆される", "examples": ["その発言、絶対後悔させてやる"], "mapping": { "type": "category_pattern", "category": "政治的・イデオロギーへの批判", "pattern": "脅迫" } },
+    { "id": "political_belief", "category": "政治的・イデオロギーへの批判", "pattern": "思い込みによる攻撃", "label": "政治的立場を、勝手に決めつけられる", "examples": ["どうせ〇〇党でしょ"], "mapping": { "type": "category_pattern", "category": "政治的・イデオロギーへの批判", "pattern": "思い込みによる攻撃" } },
+    { "id": "political_consensus", "category": "政治的・イデオロギーへの批判", "pattern": "集団意見の偽装", "label": "思想について、「みんな」が言ってると言われる", "examples": ["みんなドン引きしてるよ、その発言"], "mapping": { "type": "category_pattern", "category": "政治的・イデオロギーへの批判", "pattern": "集団意見の偽装" } },
+    { "id": "political_comparison", "category": "政治的・イデオロギーへの批判", "pattern": "他者比較による蔑み", "label": "思想・スタンスを、他の人と比べられる", "examples": ["〇〇さんは政治的な話しないのに"], "mapping": { "type": "category_pattern", "category": "政治的・イデオロギーへの批判", "pattern": "他者比較による蔑み" } },
+
+    { "id": "community_mockery", "category": "関係者・コラボ・ファン", "pattern": "揶揄・あざけり", "label": "関係者への対応を、皮肉っぽく言われる", "examples": ["本当にファン思いですね(笑)"], "mapping": { "type": "category_pattern", "category": "関係者・コラボ・ファン", "pattern": "揶揄・あざけり" } },
+    { "id": "community_abuse", "category": "関係者・コラボ・ファン", "pattern": "暴言・粗野な言葉遣い", "label": "関係者を、直接罵倒される", "examples": ["リスナーの層が悪すぎ、民度最低"], "mapping": { "type": "category_pattern", "category": "関係者・コラボ・ファン", "pattern": "暴言・粗野な言葉遣い" } },
+    { "id": "community_threat", "category": "関係者・コラボ・ファン", "pattern": "脅迫", "label": "関係者を理由に、実害を示唆される", "examples": ["スタッフにも迷惑かけてるって自覚した方がいいよ"], "mapping": { "type": "category_pattern", "category": "関係者・コラボ・ファン", "pattern": "脅迫" } },
+    { "id": "community_belief", "category": "関係者・コラボ・ファン", "pattern": "思い込みによる攻撃", "label": "関係者との関係を、勝手に決めつけられる", "examples": ["どうせスタッフとも揉めてるんでしょ"], "mapping": { "type": "category_pattern", "category": "関係者・コラボ・ファン", "pattern": "思い込みによる攻撃" } },
+    { "id": "community_consensus", "category": "関係者・コラボ・ファン", "pattern": "集団意見の偽装", "label": "関係者について、「みんな」が言ってると言われる", "examples": ["みんなスタッフの対応悪いって言ってるよ"], "mapping": { "type": "category_pattern", "category": "関係者・コラボ・ファン", "pattern": "集団意見の偽装" } },
+    { "id": "community_comparison", "category": "関係者・コラボ・ファン", "pattern": "他者比較による蔑み", "label": "ファン層・関係者を、他と比べられる", "examples": ["他の配信者のファンの方がまともだよね"], "mapping": { "type": "category_pattern", "category": "関係者・コラボ・ファン", "pattern": "他者比較による蔑み" } }
   ]
 }

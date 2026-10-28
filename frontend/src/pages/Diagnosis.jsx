@@ -201,10 +201,9 @@ const SHOCK_QUESTION = diagnosticData.shock_question;
 // 「実行する」ボタン+確認ダイアログでの人の操作を必須にする。
 function scoreToAction(value) {
   if (value <= 3) return "normal";
-  if (value === 4) return "hide_regskip";
-  return "hide_youtube";
+  return "hide_regskip";
 }
-const SCORE_BAND_LABEL = { normal: "低ショック(許容範囲)", hide_regskip: "中ショック(不快に感じる)", hide_youtube: "高ショック(見たくない)" };
+const SCORE_BAND_LABEL = { normal: "低〜中ショック(許容範囲)", hide_regskip: "高ショック(見たくない)" };
 
 const ACTION_RANK = { normal: 0, hide_regskip: 1, hide_youtube: 2 };
 // 同じattack_action[category]に複数のSTEP1項目(カテゴリ項目+脅迫)が結果を書き込む場合、
@@ -224,6 +223,9 @@ const SEVERITY_DESC = {
 function appliedSettingText(item, action) {
   if (action === "normal") return `「${item.label}」については、特に設定を変更していません。`;
   const actionLabel = action === "hide_youtube" ? "YouTube上で削除" : "本サイトで非表示";
+  if (item.mapping.type === "category_pattern") {
+    return `「${item.mapping.category}」×「${item.mapping.pattern}」の組み合わせのコメントを${actionLabel}にします。`;
+  }
   if (item.mapping.type === "category") {
     return `「${item.mapping.category}」に関する攻撃的なコメントを${actionLabel}にします。`;
   }
@@ -293,11 +295,12 @@ function StepDots({ step }) {
   );
 }
 
-// STEP1: 攻撃分類の複数選択画面。
-const STEP1_GROUPS = [
-  { key: "category", title: "なにをいわれているか", items: STEP1_ITEMS.filter((it) => it.group === "category") },
-  { key: "context", title: "どういわれているか", items: STEP1_ITEMS.filter((it) => it.group === "context") },
-];
+// STEP1: 攻撃分類の複数選択画面。カテゴリ×文脈の組み合わせ項目を、カテゴリごとにまとめて表示する。
+const STEP1_GROUPS = CATEGORIES.map((category) => ({
+  key: category,
+  title: category,
+  items: STEP1_ITEMS.filter((it) => it.category === category),
+}));
 
 function Step1Select({ selected, onToggle, onNext }) {
   return (
@@ -335,8 +338,7 @@ function Step1Select({ selected, onToggle, onNext }) {
   );
 }
 
-// 診断結果画面: 選んだ攻撃分類ごとに、IES-6のスコアと反映結果を一覧で見せる。
-const RESULT_GROUP_TITLES = { category: "何について言われたか", context: "どんな言い方をされたか" };
+// 診断結果画面: 選んだ攻撃分類ごとに、動揺度スコアと反映結果を一覧で見せる。
 
 function ResultItemCard({ item, total, action }) {
   return (
@@ -375,7 +377,10 @@ function ResultItemCard({ item, total, action }) {
 function DiagnosisResults({ itemResults, onNext, footerLabel = "初期設定に進む", showBackHeader = false }) {
   const sorted = [...itemResults].sort((a, b) => b.total - a.total);
   const top = sorted[0];
-  const byGroup = { category: sorted.filter((r) => r.item.group === "category"), context: sorted.filter((r) => r.item.group === "context") };
+  const byCategory = CATEGORIES.map((category) => ({
+    category,
+    results: sorted.filter((r) => r.item.category === category),
+  })).filter((g) => g.results.length > 0);
   return (
     <div className="page">
       {showBackHeader ? <Header showBack /> : <Header />}
@@ -390,18 +395,16 @@ function DiagnosisResults({ itemResults, onNext, footerLabel = "初期設定に�
         </p>
       </div>
 
-      {["category", "context"].map((groupKey) =>
-        byGroup[groupKey].length > 0 ? (
-          <div key={groupKey}>
-            <p className="diagnosis-summary-label" style={{ margin: "0.2rem 0 0.6rem" }}>
-              {RESULT_GROUP_TITLES[groupKey]}
-            </p>
-            {byGroup[groupKey].map((r) => (
-              <ResultItemCard key={r.item.id} {...r} />
-            ))}
-          </div>
-        ) : null
-      )}
+      {byCategory.map((g) => (
+        <div key={g.category}>
+          <p className="diagnosis-summary-label" style={{ margin: "0.2rem 0 0.6rem" }}>
+            {g.category}
+          </p>
+          {g.results.map((r) => (
+            <ResultItemCard key={r.item.id} {...r} />
+          ))}
+        </div>
+      ))}
 
       <div className="footer-bar">
         <button className="btn-primary" style={{ width: "100%" }} onClick={onNext}>
@@ -483,7 +486,11 @@ export default function Diagnosis() {
       const action = scoreToAction(value);
       itemResults.push({ item, total: value, action });
 
-      if (item.mapping.type === "category") {
+      if (item.mapping.type === "category_pattern") {
+        // カテゴリ×文脈の組み合わせ1問=pattern_actionの1キーに直接対応する、最も精密なマッピング。
+        const { category, pattern } = item.mapping;
+        pattern_action[`${category}|${pattern}`] = { action, source: "diagnosis" };
+      } else if (item.mapping.type === "category") {
         const category = item.mapping.category;
         attack_action[category] = strongerAction(attack_action[category], action);
         pattern_action[`${category}|該当なし`] = { action, source: "diagnosis" };
@@ -593,7 +600,7 @@ export default function Diagnosis() {
               <div>
                 <p className="intro-stat-label">対象のコメント</p>
                 <p className="intro-stat-value">
-                  {STEP1_ITEMS.filter((it) => it.group !== "hidden").length}種類
+                  {STEP1_ITEMS.length}種類
                 </p>
               </div>
             </div>
@@ -603,7 +610,7 @@ export default function Diagnosis() {
               </span>
               <div>
                 <p className="intro-stat-label">所要時間</p>
-                <p className="intro-stat-value">約1〜2分</p>
+                <p className="intro-stat-value">約3〜5分</p>
               </div>
             </div>
           </div>
