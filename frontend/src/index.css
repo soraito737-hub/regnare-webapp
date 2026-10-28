@@ -1588,7 +1588,8 @@ p {
   gap: 0.5rem;
 }
 .diagnosis-example-list li {
-  font-size: 1.1rem;
+  font-size: 1.45rem;
+  font-weight: 600;
   line-height: 1.5;
   color: var(--accent-strong);
 }
