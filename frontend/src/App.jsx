@@ -6,6 +6,8 @@ import Home from "./pages/Home.jsx";
 import Loading from "./pages/Loading.jsx";
 import Comments from "./pages/Comments.jsx";
 import SimilarityMarks from "./pages/SimilarityMarks.jsx";
+import Privacy from "./pages/Privacy.jsx";
+import Terms from "./pages/Terms.jsx";
 
 function App() {
   return (
@@ -18,6 +20,8 @@ function App() {
       <Route path="/videos/:videoId/loading" element={<Loading />} />
       <Route path="/videos/:videoId/comments" element={<Comments />} />
       <Route path="/learned-marks" element={<SimilarityMarks />} />
+      <Route path="/privacy" element={<Privacy />} />
+      <Route path="/terms" element={<Terms />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

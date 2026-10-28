@@ -1580,6 +1580,39 @@ p {
   background: var(--accent-soft);
   border: none;
 }
+.legal-doc section {
+  margin-bottom: 1.8rem;
+}
+.legal-doc section:last-child {
+  margin-bottom: 0;
+}
+.legal-doc h2 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 0.6rem;
+}
+.legal-doc p {
+  font-size: 0.95rem;
+  line-height: 1.7;
+  color: var(--text-soft);
+  margin-bottom: 0.6rem;
+}
+.legal-doc p:last-child {
+  margin-bottom: 0;
+}
+.legal-doc ul {
+  margin: 0;
+  padding-left: 1.3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.legal-doc li {
+  font-size: 0.95rem;
+  line-height: 1.7;
+  color: var(--text-soft);
+}
 .diagnosis-example-list {
   margin: 0;
   padding-left: 1.1rem;
