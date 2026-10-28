@@ -4,13 +4,13 @@
     "categories": "カテゴリ(what)×文脈(how)の組み合わせごとに1問。modulus/personal_classifier.pyのCategory(5分類)×TatemaePattern(6分類)にそれぞれ対応する。"
   },
   "shock_scale": [
-    { "value": 1, "label": "全く動揺しない" },
-    { "value": 2, "label": "少し動揺する" },
-    { "value": 3, "label": "中くらい動揺する" },
-    { "value": 4, "label": "かなり動揺する" },
-    { "value": 5, "label": "強く動揺する、見たくない" }
+    { "value": 1, "label": "まったく気にならない" },
+    { "value": 2, "label": "少し不快に感じる" },
+    { "value": 3, "label": "中程度に不快・ストレスを感じる" },
+    { "value": 4, "label": "かなり不快・ストレスを感じる" },
+    { "value": 5, "label": "非常に強く不快(一切見たくない)" }
   ],
-  "shock_question": "こういう内容のコメントを、不意に目にしたら、どれくらい動揺すると思いますか?",
+  "shock_question": "このようなコメントを不意に目にしたとき、どの程度【不快感や精神的ストレス】を感じますか?",
   "step1_items": [
     { "id": "appearance_mockery", "category": "容姿・声", "pattern": "揶揄・あざけり", "label": "容姿・声を、皮肉っぽく言われる", "examples": ["本当に自然な仕上がりですね(笑)"], "mapping": { "type": "category_pattern", "category": "容姿・声", "pattern": "揶揄・あざけり" } },
     { "id": "appearance_abuse", "category": "容姿・声", "pattern": "暴言・粗野な言葉遣い", "label": "容姿・声を、直接罵倒される", "examples": ["ブスすぎ、見てられない"], "mapping": { "type": "category_pattern", "category": "容姿・声", "pattern": "暴言・粗野な言葉遣い" } },

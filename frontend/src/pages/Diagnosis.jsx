@@ -106,7 +106,7 @@ const EXPLAIN_POINTS = [
     examplesTitle: "診断でわかること",
     examples: [
       "外見・人間性など、攻撃の種類ごとに経験を選ぶ",
-      "不意に見たときの動揺の度合いを測定する",
+      "不意に見たときの不快感・ストレスの度合いを測定する",
       "結果からカテゴリごとのおすすめ設定を提案する",
     ],
   },
@@ -200,10 +200,10 @@ const SHOCK_QUESTION = diagnosticData.shock_question;
 // 「YouTube上で削除」タブに振り分けるところまでで、実際にYouTube側を操作するのは既存の
 // 「実行する」ボタン+確認ダイアログでの人の操作を必須にする。
 function scoreToAction(value) {
-  if (value <= 3) return "normal";
+  if (value <= 2) return "normal";
   return "hide_regskip";
 }
-const SCORE_BAND_LABEL = { normal: "低〜中ショック(許容範囲)", hide_regskip: "高ショック(見たくない)" };
+const SCORE_BAND_LABEL = { normal: "気にならない(許容範囲)", hide_regskip: "不快・ストレスを感じる" };
 
 const ACTION_RANK = { normal: 0, hide_regskip: 1, hide_youtube: 2 };
 // 同じattack_action[category]に複数のSTEP1項目(カテゴリ項目+脅迫)が結果を書き込む場合、
@@ -214,9 +214,9 @@ function strongerAction(a, b) {
 }
 
 const SEVERITY_DESC = {
-  normal: "不意に見ても、大きな動揺なく受け止められそう",
-  hide_regskip: "不意に見ると、動揺しやすい",
-  hide_youtube: "不意に見ると、強く動揺しやすい",
+  normal: "不意に見ても、大きな不快感・ストレスなく受け止められそう",
+  hide_regskip: "不意に見ると、不快感・ストレスを感じやすい",
+  hide_youtube: "不意に見ると、強い不快感・ストレスを感じやすい",
 };
 
 // 実際に初期設定に反映される内容を、項目の種類ごとに文章にする。
@@ -270,7 +270,7 @@ function StressMeter({ total }) {
   const pct = Math.min(100, Math.round((total / 5) * 100));
   return (
     <div className="diagnosis-stress-meter">
-      <p className="diagnosis-summary-label">動揺の強さの目安</p>
+      <p className="diagnosis-summary-label">不快感・ストレスの強さの目安</p>
       <div className="diagnosis-stress-track">
         <div className="diagnosis-stress-dot" style={{ left: `${pct}%` }} />
       </div>
@@ -388,9 +388,9 @@ function DiagnosisResults({ itemResults, onNext, footerLabel = "初期設定に�
         <h1>診断結果</h1>
         <p className="diagnosis-summary-lead">
           {top ? (
-            <>あなたは「{top.item.label}」で、特に強い動揺を感じやすいようです</>
+            <>あなたは「{top.item.label}」で、特に強い不快感・ストレスを感じやすいようです</>
           ) : (
-            "今回は、特に強い動揺を感じるコメントの分類は見つかりませんでした。"
+            "今回は、特に強い不快感・ストレスを感じるコメントの分類は見つかりませんでした。"
           )}
         </p>
       </div>
@@ -586,9 +586,9 @@ export default function Diagnosis() {
             <IconClipboard />
             診断ツール
           </span>
-          <h1>どんなコメントに動揺しやすいか、診断できます</h1>
+          <h1>どんなコメントに不快感・ストレスを感じやすいか、診断できます</h1>
           <p>
-            過去に受けたことのあるコメントの種類と、それを不意に目にしたらどれくらい動揺するかを、
+            過去に受けたことのあるコメントの種類と、それを不意に目にしたらどれくらい不快感・ストレスを感じるかを、
             <br />
             いくつか質問に答えるだけで、あなた専用の「見たくないコメント」の基準が自動でできあがります。
           </p>
