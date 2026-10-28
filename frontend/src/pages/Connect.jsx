@@ -6,6 +6,7 @@ import { api } from "../api.js";
 export default function Connect() {
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState(null);
+  const [agreed, setAgreed] = useState(false);
   const [searchParams] = useSearchParams();
   const oauthError = searchParams.get("error");
 
@@ -30,7 +31,16 @@ export default function Connect() {
           コメントを取得・整理するために、YouTubeチャンネルへのアクセスを許可してください。
           設定した内容はこのあと自動的に反映されます。
         </p>
-        <button className="btn-primary" style={{ width: "100%" }} disabled={connecting} onClick={handleConnect}>
+        <label className="combo-checkbox" style={{ marginBottom: "1rem" }}>
+          <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
+          <span>
+            <a href="/terms" target="_blank" rel="noopener noreferrer">利用規約</a>
+            と
+            <a href="/privacy" target="_blank" rel="noopener noreferrer">プライバシーポリシー</a>
+            に同意します
+          </span>
+        </label>
+        <button className="btn-primary" style={{ width: "100%" }} disabled={connecting || !agreed} onClick={handleConnect}>
           {connecting ? "接続しています…" : "Googleで連携する"}
         </button>
         {(error || oauthError) && (
