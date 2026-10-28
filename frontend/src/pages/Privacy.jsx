@@ -1,9 +1,13 @@
+import { useNavigate } from "react-router-dom";
 import Header from "../components/Header.jsx";
 
 export default function Privacy() {
+  const navigate = useNavigate();
   return (
     <div className="page">
-      <Header showBack />
+      {/* このページは検索やGoogle審査からの直接アクセスもあるため、ブラウザ履歴に
+          依存するnavigate(-1)ではなく、明示的にトップへ戻す。 */}
+      <Header showBack onBack={() => navigate("/")} />
       <div className="settings-lead">
         <h1>プライバシーポリシー</h1>
       </div>
