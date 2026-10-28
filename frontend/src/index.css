@@ -1580,6 +1580,14 @@ p {
   background: var(--accent-soft);
   border: none;
 }
+.legal-scrollbox {
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 1rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  background: var(--surface-soft, var(--accent-soft));
+}
 .legal-doc section {
   margin-bottom: 1.8rem;
 }
