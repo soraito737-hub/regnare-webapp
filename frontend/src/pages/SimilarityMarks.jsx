@@ -3,12 +3,7 @@ import Header from "../components/Header.jsx";
 import { api } from "../api.js";
 import { clearProcessed } from "../videoCache.js";
 
-const ACTION_LABEL = { normal: "非表示にしない", hide_regskip: "本サイトで非表示", hide_youtube: "YouTube上で削除" };
-
-const MARK_TABS = [
-  { key: "hide_regskip", label: "本サイトで非表示" },
-  { key: "hide_youtube", label: "YouTube上で削除" },
-];
+const ACTION_LABEL = { normal: "非表示にしない", hide_regskip: "本サイトで非表示" };
 
 const DEFAULT_THRESHOLD = 0.85;
 
@@ -84,7 +79,6 @@ export default function SimilarityMarks() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [resetting, setResetting] = useState(false);
-  const [markTab, setMarkTab] = useState("hide_regskip");
 
   const load = async () => {
     setLoading(true);
@@ -136,7 +130,7 @@ export default function SimilarityMarks() {
       <div className="settings-lead">
         <h1>本サイトのコメント管理</h1>
         <p>
-          「本サイトで非表示」「YouTube上で削除する」を押すと、そのコメントの内容をRegskipが記録し、
+          「本サイトで非表示」を押すと、そのコメントの内容をRegskipが記録し、
           次に似た言い回しのコメントが来たときに同じ判断を自動で繰り返せるようにします。
           関係のないコメントまで同じ扱いになってしまった場合は、それぞれの記録から「視聴者コメントに戻す」で記録ごと削除できます。
         </p>
@@ -149,17 +143,6 @@ export default function SimilarityMarks() {
         <>
           {marks.length > 0 && (
             <div className="mark-toolbar">
-              <div className="subtabs">
-                {MARK_TABS.map((tab) => (
-                  <button
-                    key={tab.key}
-                    className={`subtab-btn ${markTab === tab.key ? "active" : ""}`}
-                    onClick={() => setMarkTab(tab.key)}
-                  >
-                    {tab.label} ({marks.filter((m) => m.action === tab.key).length})
-                  </button>
-                ))}
-              </div>
               <button className="btn-secondary" disabled={resetting} onClick={handleReset}>
                 {resetting ? "リセットしています…" : "全てリセットする"}
               </button>
@@ -168,19 +151,15 @@ export default function SimilarityMarks() {
 
           {marks.length === 0 ? (
             <div className="empty-state">まだ学習データはありません</div>
-          ) : marks.filter((m) => m.action === markTab).length === 0 ? (
-            <div className="empty-state">このタブにはまだ学習データはありません</div>
           ) : (
-            marks
-              .filter((m) => m.action === markTab)
-              .map((mark) => (
-                <MarkCard
-                  key={mark.id}
-                  mark={mark}
-                  onRestore={handleRestore}
-                  onResetThreshold={handleResetThreshold}
-                />
-              ))
+            marks.map((mark) => (
+              <MarkCard
+                key={mark.id}
+                mark={mark}
+                onRestore={handleRestore}
+                onResetThreshold={handleResetThreshold}
+              />
+            ))
           )}
         </>
       )}

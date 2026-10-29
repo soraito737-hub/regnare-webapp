@@ -119,7 +119,7 @@ const EXPLAIN_POINTS = [
     examples: [
       "容姿否定・人格否定などカテゴリごとに対応を選べる",
       "直接的な攻撃と、遠回しな言い方を分けて設定できる",
-      "「非表示にしない/本サイトで非表示/YouTube上で削除する」の3段階から選べる",
+      "「非表示にしない/本サイトで非表示」の2段階から選べる",
     ],
   },
   {
@@ -195,15 +195,12 @@ const STEP1_ITEMS = diagnosticData.step1_items;
 const IESR6_SCALE = diagnosticData.iesr6_scale;
 const IESR6_QUESTIONS = diagnosticData.iesr6_questions;
 
-// カテゴリ別IES-6スコア(0〜24点、修正済みの3段階)。YouTube上への実際の削除APIの実行は、
-// このスコアだけでは行わない。「YouTube上で削除」タブに振り分けるところまでで、実際に
-// YouTube側を操作するのは既存の「実行する」ボタン+確認ダイアログでの人の操作を必須にする。
+// カテゴリ別IES-6スコア(0〜24点)の2段階。
 function scoreToAction(total) {
   if (total <= 5) return "normal";
-  if (total <= 14) return "hide_regskip";
-  return "hide_youtube";
+  return "hide_regskip";
 }
-const SCORE_BAND_LABEL = { normal: "低ストレス(スルー可能)", hide_regskip: "中ストレス(不快・引きずる)", hide_youtube: "高ストレス(トラウマ・休止リスク)" };
+const SCORE_BAND_LABEL = { normal: "低ストレス(スルー可能)", hide_regskip: "中〜高ストレス(不快・引きずる)" };
 // 侵入・回避・過覚醒という言葉だけでは伝わらないため、結果画面の最初に1回だけ説明を出す。
 const SUBSCALE_INFO = [
   {
@@ -274,7 +271,7 @@ function SubscaleLegend() {
   );
 }
 
-const ACTION_RANK = { normal: 0, hide_regskip: 1, hide_youtube: 2 };
+const ACTION_RANK = { normal: 0, hide_regskip: 1 };
 // 同じattack_action[category]に複数のSTEP1項目(カテゴリ項目+脅迫)が結果を書き込む場合、
 // 後から処理した方が上書きしてしまわないよう、より強い(範囲の広い)方を採用する。
 function strongerAction(a, b) {
@@ -285,13 +282,12 @@ function strongerAction(a, b) {
 const SEVERITY_DESC = {
   normal: "特に大きな負担なく受け止められている",
   hide_regskip: "受け止めやすく、心理的な負担を感じやすい",
-  hide_youtube: "強く受け止めやすく、心理的な負担を感じやすい",
 };
 
 // 実際に初期設定に反映される内容を、項目の種類ごとに文章にする。
 function appliedSettingText(item, action) {
   if (action === "normal") return `「${item.label}」については、特に設定を変更していません。`;
-  const actionLabel = action === "hide_youtube" ? "YouTube上で削除" : "本サイトで非表示";
+  const actionLabel = "本サイトで非表示";
   if (item.mapping.type === "category") {
     return `「${item.mapping.category}」に関する攻撃的なコメントを${actionLabel}にします。`;
   }
@@ -306,7 +302,7 @@ function ScoreGauge({ total, action }) {
   const radius = 42;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference * (1 - pct / 100);
-  const color = action === "hide_youtube" ? "var(--warm)" : action === "hide_regskip" ? "var(--accent)" : "var(--text-faint)";
+  const color = action === "hide_regskip" ? "var(--accent)" : "var(--text-faint)";
   return (
     <svg viewBox="0 0 100 100" className="diagnosis-gauge">
       <circle cx="50" cy="50" r={radius} fill="none" stroke="var(--border-soft)" strokeWidth="10" />

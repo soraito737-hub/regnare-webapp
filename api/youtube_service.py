@@ -141,12 +141,6 @@ def fetch_comments(credentials: Credentials, video_id: str, max_results: int = M
     return comments[:max_results]
 
 
-def delete_comment_on_youtube(credentials: Credentials, comment_id: str) -> None:
-    """YouTube上からコメントを完全に削除する。setModerationStatus(保留)と違い、元に戻せない。"""
-    service = build_youtube_service(credentials)
-    execute_with_retry(service.comments().delete(id=comment_id))
-
-
 def reply_to_comment(credentials: Credentials, comment_id: str, text: str) -> dict:
     """トップレベルコメントに返信する。parentIdには返信先のトップレベルコメントIDを渡す
     (YouTube Data APIの仕様上、返信は常にスレッドの最上位コメントにぶら下がる)。

@@ -10,9 +10,7 @@ import { clearProcessed } from "../videoCache.js";
 const OTHER_PATTERN = "該当なし";
 
 // 各行(攻撃的な言い方/その他/個別パターン)は、それぞれ独立に
-// 「非表示にしない/本サイトで非表示/YouTube上で削除する」を選ぶ。カテゴリ単位で
-// まとめてYouTube上の削除を決めてしまうと、AIの判定だけで広い範囲を
-// 自動的に(元に戻せない)削除することになり得るため、行ごとに個別に選べるようにしている。
+// 「非表示にしない/本サイトで非表示」を選ぶ。
 function emptyProfile() {
   const attackAction = {};
   const patternAction = {};
@@ -45,7 +43,6 @@ function profileFromServer(json) {
 
 function ActionRow({ label, example, value, onChange, master = false }) {
   const [labelHover, setLabelHover] = useState(false);
-  const [ytHover, setYtHover] = useState(false);
   return (
     <div className={`action-row${master ? " action-row--master" : ""}`}>
       <span
@@ -70,20 +67,6 @@ function ActionRow({ label, example, value, onChange, master = false }) {
           onClick={() => onChange("hide_regskip")}
         >
           本サイトで非表示
-        </button>
-        <button
-          type="button"
-          className={`action-btn youtube ${value === "hide_youtube" ? "active" : ""}`}
-          onClick={() => onChange("hide_youtube")}
-          onMouseEnter={() => setYtHover(true)}
-          onMouseLeave={() => setYtHover(false)}
-        >
-          YouTube上で削除する
-          {ytHover && (
-            <span className="tooltip">
-              選ぶと、条件に一致したコメントが「YouTube上で削除」タブに振り分けられます。実際にYouTube上から削除するには、そのタブで個別に「実行する」を押す必要があります(実行すると元に戻せません)
-            </span>
-          )}
         </button>
       </div>
     </div>
@@ -255,7 +238,7 @@ export default function InitialSettings() {
       <div className="settings-lead">
         <h1>初期設定</h1>
         <p>
-          攻撃的な言い方をされた時、どう扱ってほしいかをカテゴリごとに選んでください。「YouTube上で削除する」は、その言い回し・パターンごとに個別に選べます。あとからいつでも変更できます。
+          攻撃的な言い方をされた時、どう扱ってほしいかをカテゴリごとに選んでください。あとからいつでも変更できます。
         </p>
         {fromDiagnosis && (
           <p className="diagnosis-banner">
@@ -296,13 +279,6 @@ export default function InitialSettings() {
                   onClick={() => setPatternsAll(category, arePatternsAll(category, "hide_regskip") ? "normal" : "hide_regskip")}
                 >
                   {arePatternsAll(category, "hide_regskip") ? "すべて解除" : "すべて本サイトで非表示にする"}
-                </button>
-                <button
-                  type="button"
-                  className="select-all-btn select-all-btn--youtube"
-                  onClick={() => setPatternsAll(category, arePatternsAll(category, "hide_youtube") ? "normal" : "hide_youtube")}
-                >
-                  {arePatternsAll(category, "hide_youtube") ? "すべて解除" : "すべてYouTube上で削除するにする"}
                 </button>
               </div>
               {PATTERN_GROUPS.map((group) => {

@@ -26,7 +26,7 @@ from config import GEMINI_API_KEY  # noqa: E402
 from profile_store import load_profile  # noqa: E402
 from routers.auth import get_credentials  # noqa: E402
 from youtube_service import (  # noqa: E402
-    MAX_COMMENTS_PER_VIDEO, ban_author_on_youtube, delete_comment_on_youtube,
+    MAX_COMMENTS_PER_VIDEO, ban_author_on_youtube,
     fetch_comments, get_video_details, list_channel_videos, reply_to_comment,
 )
 
@@ -102,12 +102,7 @@ def reapply_profile_to_cache(channel_id: str, profile) -> None:
             else:
                 mark_id = None  # マークが削除済みなら参照も消す
         display = resolve_display_action(judgment, profile, similarity_action=similarity_action)
-        if not display.hide:
-            new_tab = "new"
-        elif display.escalate_to_youtube:
-            new_tab = "hidden_youtube"
-        else:
-            new_tab = "hidden_regskip"
+        new_tab = "hidden_regskip" if display.hide else "new"
         if new_tab != entry.get("tab") or display.reason != entry.get("reason") or mark_id != entry.get("matched_mark_id"):
             entry["tab"] = new_tab
             entry["reason"] = display.reason
@@ -141,19 +136,14 @@ def _process_single_comment(comment: dict, channel_id: str, profile) -> dict:
 
     matched_mark_id = None
     if is_emergency(judgment):
-        display = DisplayAction(hide=True, escalate_to_youtube=False, reason="emergency")
+        display = DisplayAction(hide=True, reason="emergency")
         sim_score = 0.0
         tab = "privacy"
     else:
         similarity_list = get_similarity_list()
         matched_action, sim_score, matched_mark_id = similarity_list.check_similarity(channel_id, comment["text"])
         display = resolve_display_action(judgment, profile, similarity_action=matched_action)
-        if not display.hide:
-            tab = "new"
-        elif display.escalate_to_youtube:
-            tab = "hidden_youtube"
-        else:
-            tab = "hidden_regskip"
+        tab = "hidden_regskip" if display.hide else "new"
 
     return {
         "comment": comment,
@@ -171,10 +161,6 @@ def _process_single_comment(comment: dict, channel_id: str, profile) -> dict:
         # そのとき作られたマークのid。「視聴者コメントに戻す」でこのマーク自体を
         # 削除して完全に元通りにするために使う。自動処理では常にNone。
         "own_mark_id": None,
-        # 自動処理(process_video)では実際のYouTube側の削除APIは一切呼ばないため、
-        # tab="hidden_youtube"になったコメントも、この時点ではまだ実行されていない。
-        # フロント側でボタンを押して個別に実行するまでFalseのまま。
-        "executed_on_youtube": False,
     }
 
 
@@ -207,11 +193,10 @@ def process_video(video_id: str, request: Request):
                         "reason": "error",
                         "matched_mark_id": None,
                         "own_mark_id": None,
-                        "executed_on_youtube": False,
                     }
         save_comment_cache(channel_id, cache)
 
-    tabs: dict[str, list] = {"new": [], "hidden_regskip": [], "hidden_youtube": [], "privacy": []}
+    tabs: dict[str, list] = {"new": [], "hidden_regskip": [], "privacy": []}
     for c in comments:
         entry = cache[c["comment_id"]]
         # コメント本文・投稿者名などの表示情報だけは常に最新のものを使う
@@ -231,7 +216,7 @@ def process_video(video_id: str, request: Request):
 
 
 class MarkIn(BaseModel):
-    action: str  # "normal" | "hide_regskip" | "hide_youtube"
+    action: str  # "normal" | "hide_regskip"
     text: str
     categories: list[str]
     tatemae_pattern: str
@@ -256,42 +241,24 @@ def mark_comment(comment_id: str, body: MarkIn, request: Request):
         note=body.note,
         video_id=body.video_id,
     )
-    deleted_on_youtube = False
-    if action == PersonalAction.HIDE_YOUTUBE:
-        # 完全な削除なので元に戻せない。「本サイトだけの非表示に戻す」のような降格操作はない。
-        try:
-            delete_comment_on_youtube(credentials, comment_id)
-            deleted_on_youtube = True
-        except Exception:
-            pass
-
+    # このコメント自身の永続キャッシュを、今押した内容で上書きする。次に動画を
+    # 開いたときにAI分類・類似度チェックをやり直さず、この結果をそのまま使うため。
+    # reason="manual"は「自分でボタンを押した」ことを示し、own_mark_idを記録しておくと、
+    # 「視聴者コメントに戻す」で今作ったこのマーク自体を削除して完全に元通りにできる。
     cache = load_comment_cache(channel_id)
-    if deleted_on_youtube:
-        # 本当にYouTube上から削除できたコメントは、Regskip側にも残す意味がないので
-        # キャッシュから丸ごと消す。次にこの動画を開いたとき、そもそもYouTube API側の
-        # 一覧にも出てこなくなるはずだが、念のためこちら側でも確実に消しておく。
-        cache.pop(comment_id, None)
-    else:
-        # このコメント自身の永続キャッシュを、今押した内容で上書きする。次に動画を
-        # 開いたときにAI分類・類似度チェックをやり直さず、この結果をそのまま使うため。
-        # reason="manual"は「自分でボタンを押した」ことを示し、own_mark_idを記録しておくと、
-        # 「視聴者コメントに戻す」で今作ったこのマーク自体を削除して完全に元通りにできる。
-        existing = cache.get(comment_id, {})
-        cache[comment_id] = {
-            **existing,
-            "comment": existing.get(
-                "comment", {"comment_id": comment_id, "text": body.text, "author_channel_id": body.author_channel_id}
-            ),
-            # actionがHIDE_YOUTUBEなのに削除に失敗した場合は、保留(実行待ち)として
-            # hidden_youtubeタブに残す。ユーザーが「削除を実行する」でやり直せる。
-            "tab": "hidden_youtube" if action == PersonalAction.HIDE_YOUTUBE else "hidden_regskip",
-            "reason": "manual",
-            "matched_mark_id": None,
-            "own_mark_id": new_mark_id,
-            "executed_on_youtube": False,
-        }
+    existing = cache.get(comment_id, {})
+    cache[comment_id] = {
+        **existing,
+        "comment": existing.get(
+            "comment", {"comment_id": comment_id, "text": body.text, "author_channel_id": body.author_channel_id}
+        ),
+        "tab": "hidden_regskip",
+        "reason": "manual",
+        "matched_mark_id": None,
+        "own_mark_id": new_mark_id,
+    }
     save_comment_cache(channel_id, cache)
-    return {"ok": True, "deleted_on_youtube": deleted_on_youtube}
+    return {"ok": True}
 
 
 class RestoreIn(BaseModel):

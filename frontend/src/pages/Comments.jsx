@@ -23,23 +23,11 @@ const REASON_LABELS = {
   error: "AI判定でエラーが発生したため、念のため非表示にしています",
 };
 
-// YouTube側のコメントを完全に削除する(元に戻せない)ボタンだけ、誤クリック防止の確認を挟む。
-const YOUTUBE_DELETE_CONFIRM = "このコメントをYouTube上から完全に削除します。この操作は元に戻せません。よろしいですか?";
-function confirmYoutubeDelete(action) {
-  if (window.confirm(YOUTUBE_DELETE_CONFIRM)) action();
-}
-
-// トップレベルのタブ。「非表示」はYouTubeへの報告有無で分かれる「見たくない」の下位区分なので、
-// ここには出さずhiddenタブの中でサブタブとして出す。プライバシーは「新着」の中に統合して選べるようにする。
+// トップレベルのタブ。プライバシーは「新着」の中に統合して選べるようにする。
 const TABS = [
   { key: "new", label: "視聴者コメント" },
   { key: "hidden", label: "見たくないコメント" },
   { key: "flagged", label: "要注意ユーザー" },
-];
-
-const HIDDEN_SUB_TABS = [
-  { key: "hidden_regskip", label: "本サイトで非表示" },
-  { key: "hidden_youtube", label: "YouTube上で削除" },
 ];
 
 function OpenCommentCard({ entry, tabKey, urgent, openMenuId, setOpenMenuId, onBan, onMove, onReply }) {
@@ -50,27 +38,19 @@ function OpenCommentCard({ entry, tabKey, urgent, openMenuId, setOpenMenuId, onB
   const [replyText, setReplyText] = useState("");
   const [replySending, setReplySending] = useState(false);
   const [postedReply, setPostedReply] = useState(null);
-  const [pendingHideAction, setPendingHideAction] = useState(null); // null | "hide_regskip" | "hide_youtube"
+  const [pendingHide, setPendingHide] = useState(false);
   const [hideNote, setHideNote] = useState("");
-  const [hidingAction, setHidingAction] = useState(null); // null | "hide_regskip" | "hide_youtube"
+  const [hiding, setHiding] = useState(false);
 
-  const confirmHide = () => {
-    const action = pendingHideAction;
+  const confirmHide = async () => {
     const note = hideNote.trim();
-    setPendingHideAction(null);
+    setPendingHide(false);
     setHideNote("");
-    const run = async () => {
-      setHidingAction(action);
-      try {
-        await onMove(tabKey, entry, action, note);
-      } finally {
-        setHidingAction(null);
-      }
-    };
-    if (action === "hide_youtube") {
-      confirmYoutubeDelete(run);
-    } else {
-      run();
+    setHiding(true);
+    try {
+      await onMove(tabKey, entry, "hide_regskip", note);
+    } finally {
+      setHiding(false);
     }
   };
 
@@ -125,12 +105,12 @@ function OpenCommentCard({ entry, tabKey, urgent, openMenuId, setOpenMenuId, onB
       </div>
       <div className="comment-text">{c.text}</div>
       {tier === "grey" && <div className="comment-warning">⚠️ 似たコメントに反応したことがあります</div>}
-      {hidingAction ? (
+      {hiding ? (
         <div className="hide-loading">
           <span className="spinner" />
-          {hidingAction === "hide_youtube" ? "削除しています…" : "非表示にしています…"}
+          非表示にしています…
         </div>
-      ) : pendingHideAction ? (
+      ) : pendingHide ? (
         <div className="hide-note-box">
           <p className="hide-note-label">
             見たくない理由があれば教えてください(任意)。できるだけしっかり書くと、精度が上がります
@@ -145,24 +125,21 @@ function OpenCommentCard({ entry, tabKey, urgent, openMenuId, setOpenMenuId, onB
             <button
               className="btn-secondary"
               onClick={() => {
-                setPendingHideAction(null);
+                setPendingHide(false);
                 setHideNote("");
               }}
             >
               キャンセル
             </button>
             <button className="btn-primary" onClick={confirmHide}>
-              {pendingHideAction === "hide_youtube" ? "削除する" : "非表示にする"}
+              非表示にする
             </button>
           </div>
         </div>
       ) : (
         <div className="comment-actions">
-          <button className="btn-secondary" onClick={() => setPendingHideAction("hide_regskip")}>
+          <button className="btn-secondary" onClick={() => setPendingHide(true)}>
             本サイトで非表示
-          </button>
-          <button className="btn-primary" onClick={() => setPendingHideAction("hide_youtube")}>
-            YouTube上で削除する
           </button>
         </div>
       )}
@@ -203,17 +180,14 @@ function OpenCommentCard({ entry, tabKey, urgent, openMenuId, setOpenMenuId, onB
   );
 }
 
-// 「見たくない」に分類したコメントは、YouTubeへの報告有無に関わらず本文を表示しない。
+// 「見たくない」に分類したコメントは本文を表示しない。
 // 元の言い方が気になる場合のみ「言い換えて見る」で穏やかな要約を見られるようにする。
-function HiddenCommentCard({ entry, rephrased, onRephrase, onEscalate, onExecute, onRestore, onBan }) {
+function HiddenCommentCard({ entry, rephrased, onRephrase, onRestore, onBan }) {
   const c = entry.comment;
   const judgment = entry.judgment;
   const [showOriginal, setShowOriginal] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  // onExecuteが渡されている(=YouTube上で削除タブにいる)のに、まだ実行済みでない場合。
-  // 類似コメント判定で自動的にこのタブに来ただけで、実際のYouTube側の削除はまだ行われていない。
-  const needsExecution = !!onExecute && !entry.executed_on_youtube;
   // 「視聴者コメントに戻す」は、自分でボタンを押して非表示にした場合だけ出す。
   // AIが過去のマークと自動で一致させた場合は、そのマークの閾値が上がる副作用があるため対象外。
   const canRestore = entry.reason === "manual";
@@ -266,11 +240,6 @@ function HiddenCommentCard({ entry, rephrased, onRephrase, onEscalate, onExecute
       {REASON_LABELS[entry.reason] && (
         <div className="reason-tag">{REASON_LABELS[entry.reason]}</div>
       )}
-      {needsExecution && (
-        <div className="pending-tag">
-          まだYouTube上では削除されていません(似たコメントとして自動で振り分けられただけです)
-        </div>
-      )}
       {showOriginal && <div className="comment-text">{c.text}</div>}
       <div className="comment-actions">
         <button className="btn-secondary" onClick={() => setShowOriginal((v) => !v)}>
@@ -279,16 +248,6 @@ function HiddenCommentCard({ entry, rephrased, onRephrase, onEscalate, onExecute
         <button className="btn-secondary" onClick={() => onRephrase(c.comment_id, c.text)}>
           言い換えて見る
         </button>
-        {needsExecution && (
-          <button className="btn-primary" onClick={() => confirmYoutubeDelete(onExecute)}>
-            削除を実行する
-          </button>
-        )}
-        {onEscalate && (
-          <button className="btn-primary" onClick={() => confirmYoutubeDelete(onEscalate)}>
-            YouTube上でも削除する
-          </button>
-        )}
       </div>
       {rephrased[c.comment_id] && <div className="rephrase-box">{rephrased[c.comment_id]}</div>}
     </div>
@@ -346,7 +305,6 @@ export default function Comments() {
 
   const [data, setData] = useState(() => getProcessed(videoId));
   const [activeTab, setActiveTab] = useState("new");
-  const [hiddenSubTab, setHiddenSubTab] = useState("hidden_regskip");
   const [dismissed, setDismissed] = useState(() => new Set(dismissedAuthors));
   const [rephrased, setRephrased] = useState({});
   const [openMenuId, setOpenMenuId] = useState(null);
@@ -377,9 +335,8 @@ export default function Comments() {
     // AI判定が失敗したコメント(judgment===null)でも押せるように、その場合は
     // 「該当なし」扱いのフォールバック値を使う。
     const judgment = entry.judgment;
-    let result;
     try {
-      result = await api.markComment(c.comment_id, {
+      await api.markComment(c.comment_id, {
         action: newAction,
         text: c.text,
         categories: judgment?.categories ?? ["該当なし"],
@@ -395,15 +352,7 @@ export default function Comments() {
     }
     const tabs = { ...data.tabs };
     tabs[tabKey] = tabs[tabKey].filter((e) => e.comment.comment_id !== c.comment_id);
-    // YouTube上で本当に削除できた場合は、本サイト側にも残す意味がないので
-    // どのタブにも入れず、そのまま表示から消す。
-    if (!result?.deleted_on_youtube) {
-      const newTab = newAction === "hide_youtube" ? "hidden_youtube" : "hidden_regskip";
-      // ボタンを押した(=mark_commentが呼ばれ、hide_youtubeなら実際にYouTube側も非表示にした)ので、
-      // 実行済みとしてマークする。
-      const movedEntry = newAction === "hide_youtube" ? { ...entry, executed_on_youtube: true } : entry;
-      tabs[newTab] = [...tabs[newTab], movedEntry];
-    }
+    tabs.hidden_regskip = [...tabs.hidden_regskip, entry];
     const next = { ...data, tabs };
     setProcessed(videoId, next);
     setData(next);
@@ -424,38 +373,6 @@ export default function Comments() {
       ...tabs.new,
       { ...entry, reason: "none", matched_mark_id: null, own_mark_id: null, similarity_score: 0 },
     ];
-    const next = { ...data, tabs };
-    setProcessed(videoId, next);
-    setData(next);
-  };
-
-  // 「見たくない」タブのYouTube上で削除サブタブで、類似判定により自動で来ただけの
-  // (まだ実際にはYouTube側で削除されていない)コメントを、その場で実際に削除する。
-  const executeYoutubeDelete = async (entry) => {
-    const c = entry.comment;
-    const judgment = entry.judgment;
-    let result;
-    try {
-      result = await api.markComment(c.comment_id, {
-        action: "hide_youtube",
-        text: c.text,
-        categories: judgment?.categories ?? ["該当なし"],
-        tatemae_pattern: judgment?.tatemae_pattern ?? "該当なし",
-        surface_level: judgment?.surface_level ?? 1,
-        author_channel_id: c.author_channel_id,
-        video_id: videoId,
-      });
-    } catch (err) {
-      alert(err.message);
-      return;
-    }
-    const tabs = { ...data.tabs };
-    if (result?.deleted_on_youtube) {
-      // 実際にYouTube上から削除できたので、本サイト側の表示からも消す。
-      tabs.hidden_youtube = tabs.hidden_youtube.filter((e) => e.comment.comment_id !== c.comment_id);
-    } else {
-      alert("YouTube上での削除に失敗しました。しばらくしてからもう一度お試しください。");
-    }
     const next = { ...data, tabs };
     setProcessed(videoId, next);
     setData(next);
@@ -521,6 +438,7 @@ export default function Comments() {
           let count = null;
           if (tab.key === "flagged") count = data.flagged_authors.length;
           else if (tab.key === "new") count = data.tabs.new.length + data.tabs.privacy.length;
+          else if (tab.key === "hidden") count = data.tabs.hidden_regskip.length;
           return (
             <button
               key={tab.key}
@@ -538,7 +456,7 @@ export default function Comments() {
         (data.tabs.privacy.length + data.tabs.new.length ? (
           <>
             <div className="new-tab-note">
-              本サイトで非表示/YouTube上で削除を選ぶと、似た言い回しのコメントは新着ではなく選んだ方のタブに直接振り分けられます
+              本サイトで非表示を選ぶと、似た言い回しのコメントは新着ではなく見たくないコメントのタブに直接振り分けられます
             </div>
             {data.tabs.privacy.map((entry) => (
               <OpenCommentCard
@@ -570,43 +488,21 @@ export default function Comments() {
           <div className="empty-state">視聴者コメントはありません</div>
         ))}
 
-      {activeTab === "hidden" && (
-        <>
-          <div className="subtabs">
-            {HIDDEN_SUB_TABS.map((tab) => (
-              <button
-                key={tab.key}
-                className={`subtab-btn ${hiddenSubTab === tab.key ? "active" : ""}`}
-                onClick={() => setHiddenSubTab(tab.key)}
-              >
-                {tab.label} ({data.tabs[tab.key].length})
-              </button>
-            ))}
-          </div>
-          {data.tabs[hiddenSubTab].length ? (
-            data.tabs[hiddenSubTab].map((entry) => (
-              <HiddenCommentCard
-                key={entry.comment.comment_id}
-                entry={entry}
-                rephrased={rephrased}
-                onRephrase={handleRephrase}
-                onEscalate={
-                  hiddenSubTab === "hidden_regskip"
-                    ? () => moveComment("hidden_regskip", entry, "hide_youtube")
-                    : undefined
-                }
-                onExecute={hiddenSubTab === "hidden_youtube" ? () => executeYoutubeDelete(entry) : undefined}
-                onRestore={restoreComment}
-                onBan={handleBan}
-              />
-            ))
-          ) : (
-            <div className="empty-state">
-              {hiddenSubTab === "hidden_regskip" ? "見たくないコメントはありません" : "非表示にしたコメントはありません"}
-            </div>
-          )}
-        </>
-      )}
+      {activeTab === "hidden" &&
+        (data.tabs.hidden_regskip.length ? (
+          data.tabs.hidden_regskip.map((entry) => (
+            <HiddenCommentCard
+              key={entry.comment.comment_id}
+              entry={entry}
+              rephrased={rephrased}
+              onRephrase={handleRephrase}
+              onRestore={restoreComment}
+              onBan={handleBan}
+            />
+          ))
+        ) : (
+          <div className="empty-state">見たくないコメントはありません</div>
+        ))}
 
       {activeTab === "flagged" &&
         (visibleFlagged.length ? (
