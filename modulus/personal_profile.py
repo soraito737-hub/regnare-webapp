@@ -24,7 +24,7 @@ from personal_classifier import Category, CommentJudgment, EmergencyType, Surfac
 class PersonalAction(str, Enum):
     NORMAL = "normal"              # 通常表示
     HIDE_REGSKIP = "hide_regskip"  # 見たくない(Regskip内でのみ非表示、YouTube上は公開のまま)
-    HIDE_YOUTUBE = "hide_youtube"  # 非表示にしたい(setModerationStatusでYouTube上からも非表示)
+    # 【確定事項】YouTube上での実削除(旧HIDE_YOUTUBE)は機能ごと廃止済み。復活させないこと。
 
 
 @dataclass
@@ -55,15 +55,12 @@ class PersonalProfile:
 @dataclass
 class DisplayAction:
     hide: bool
-    escalate_to_youtube: bool  # Trueの場合、setModerationStatusを呼び出す
     reason: str  # "personal_similarity" | "personal_pattern" | "attack_level" | "none"(デバッグ・監査用)
 
 
 def _strongest_action(actions: list[PersonalAction]) -> PersonalAction:
     """複数カテゴリ分の設定をまとめる時、一番強い(範囲が広い)ものを採用する。
-    HIDE_YOUTUBE > HIDE_REGSKIP > NORMAL の順。"""
-    if PersonalAction.HIDE_YOUTUBE in actions:
-        return PersonalAction.HIDE_YOUTUBE
+    HIDE_REGSKIP > NORMAL の順。"""
     if PersonalAction.HIDE_REGSKIP in actions:
         return PersonalAction.HIDE_REGSKIP
     return PersonalAction.NORMAL
@@ -74,19 +71,11 @@ def resolve_display_action(
     profile: PersonalProfile,
     similarity_action: Optional[PersonalAction] = None,  # PersonalSimilarityList.check_similarityの結果
 ) -> DisplayAction:
-    # 【重要】ここでのescalate_to_youtubeは「YouTube上で削除タブに振り分ける」ことしか
-    # 意味しない。実際にYouTube上からコメントを削除するAPI(delete_comment_on_youtube)は、
-    # どの理由でこのタブに来た場合でも、ユーザーが個別に「実行する」ボタンを押すまで
-    # 絶対に自動実行されない(mark_comment/executeYoutubeDelete経由のみ)。
-    # そのため、AIの分類だけによる自動判定(personal_pattern・attack_level)でも、
-    # 初期設定でユーザー自身が選んだ振り分け先(hide_regskip/hide_youtube)にそのまま従ってよい。
-
     # 最優先: 個人用の類似検索リストに該当があれば、それを採用する
     # (実際のコメントに対する、最も具体的で新しい意思表示のため。NORMALの明示も含めて最優先)
     if similarity_action is not None:
         return DisplayAction(
             hide=(similarity_action != PersonalAction.NORMAL),
-            escalate_to_youtube=(similarity_action == PersonalAction.HIDE_YOUTUBE),
             reason="personal_similarity",
         )
 
@@ -97,23 +86,15 @@ def resolve_display_action(
         profile.get_pattern_setting(cat, judgment.tatemae_pattern).action for cat in judgment.categories
     ])
     if pattern_action != PersonalAction.NORMAL:
-        return DisplayAction(
-            hide=True,
-            escalate_to_youtube=(pattern_action == PersonalAction.HIDE_YOUTUBE),
-            reason="personal_pattern",
-        )
+        return DisplayAction(hide=True, reason="personal_pattern")
 
-    # 攻撃レベル(侮蔑語等を含む)は、カテゴリごとの3択設定に従う
+    # 攻撃レベル(侮蔑語等を含む)は、カテゴリごとの2択設定に従う
     if judgment.surface_level == SurfaceLevel.LEVEL_2:
         attack_action = _strongest_action([profile.get_attack_action(cat) for cat in judgment.categories])
         if attack_action != PersonalAction.NORMAL:
-            return DisplayAction(
-                hide=True,
-                escalate_to_youtube=(attack_action == PersonalAction.HIDE_YOUTUBE),
-                reason="attack_level",
-            )
+            return DisplayAction(hide=True, reason="attack_level")
 
-    return DisplayAction(hide=False, escalate_to_youtube=False, reason="none")
+    return DisplayAction(hide=False, reason="none")
 
 
 # ============ 5節: 緊急ルート ============

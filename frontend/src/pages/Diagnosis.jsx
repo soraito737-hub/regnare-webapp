@@ -119,7 +119,7 @@ const EXPLAIN_POINTS = [
     examples: [
       "外見・人間性などカテゴリごとに対応を選べる",
       "直接的な攻撃と、遠回しな言い方を分けて設定できる",
-      "「非表示にしない/本サイトで非表示/YouTube上で削除する」の3段階から選べる",
+      "「非表示にしない/本サイトで非表示」の2段階から選べる",
     ],
   },
   {
@@ -196,16 +196,14 @@ const STEP1_ITEMS = diagnosticData.step1_items;
 const SHOCK_SCALE = diagnosticData.shock_scale;
 const SHOCK_QUESTION = diagnosticData.shock_question;
 
-// 動揺度(1〜5点)の3段階。YouTube上への実際の削除APIの実行は、このスコアだけでは行わない。
-// 「YouTube上で削除」タブに振り分けるところまでで、実際にYouTube側を操作するのは既存の
-// 「実行する」ボタン+確認ダイアログでの人の操作を必須にする。
+// 動揺度(1〜5点)の2段階。
 function scoreToAction(value) {
   if (value <= 2) return "normal";
   return "hide_regskip";
 }
 const SCORE_BAND_LABEL = { normal: "気にならない(許容範囲)", hide_regskip: "不快・ストレスを感じる" };
 
-const ACTION_RANK = { normal: 0, hide_regskip: 1, hide_youtube: 2 };
+const ACTION_RANK = { normal: 0, hide_regskip: 1 };
 // 同じattack_action[category]に複数のSTEP1項目(カテゴリ項目+脅迫)が結果を書き込む場合、
 // 後から処理した方が上書きしてしまわないよう、より強い(範囲の広い)方を採用する。
 function strongerAction(a, b) {
@@ -216,13 +214,12 @@ function strongerAction(a, b) {
 const SEVERITY_DESC = {
   normal: "不意に見ても、大きな不快感・ストレスなく受け止められそう",
   hide_regskip: "不意に見ると、不快感・ストレスを感じやすい",
-  hide_youtube: "不意に見ると、強い不快感・ストレスを感じやすい",
 };
 
 // 実際に初期設定に反映される内容を、項目の種類ごとに文章にする。
 function appliedSettingText(item, action) {
   if (action === "normal") return `「${item.label}」については、特に設定を変更していません。`;
-  const actionLabel = action === "hide_youtube" ? "YouTube上で削除" : "本サイトで非表示";
+  const actionLabel = "本サイトで非表示";
   if (item.mapping.type === "category_pattern") {
     return `「${item.mapping.category}」×「${item.mapping.pattern}」の組み合わせのコメントを${actionLabel}にします。`;
   }
@@ -240,7 +237,7 @@ function ScoreGauge({ total, action }) {
   const radius = 42;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference * (1 - pct / 100);
-  const color = action === "hide_youtube" ? "var(--warm)" : action === "hide_regskip" ? "var(--accent)" : "var(--text-faint)";
+  const color = action === "hide_regskip" ? "var(--accent)" : "var(--text-faint)";
   return (
     <svg viewBox="0 0 100 100" className="diagnosis-gauge">
       <circle cx="50" cy="50" r={radius} fill="none" stroke="var(--border-soft)" strokeWidth="10" />
