@@ -183,6 +183,11 @@ function Explain({ onNext }) {
         <button className="btn-primary explain-next" onClick={onNext}>
           次へ
         </button>
+        <div className="explain-legal-links">
+          <a href="/privacy">プライバシーポリシー</a>
+          <span> ・ </span>
+          <a href="/terms">利用規約</a>
+        </div>
       </div>
     </div>
   );
