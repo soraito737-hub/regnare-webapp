@@ -26,7 +26,7 @@ from config import GEMINI_API_KEY  # noqa: E402
 from profile_store import load_profile  # noqa: E402
 from routers.auth import get_credentials  # noqa: E402
 from youtube_service import (  # noqa: E402
-    MAX_COMMENTS_PER_VIDEO, ban_author_on_youtube,
+    MAX_COMMENTS_PER_VIDEO, ban_author_on_youtube, delete_comment_on_youtube,
     fetch_comments, get_video_details, list_channel_videos, reply_to_comment,
 )
 
@@ -257,6 +257,24 @@ def mark_comment(comment_id: str, body: MarkIn, request: Request):
         "matched_mark_id": None,
         "own_mark_id": new_mark_id,
     }
+    save_comment_cache(channel_id, cache)
+    return {"ok": True}
+
+
+@router.post("/comments/{comment_id}/delete-youtube")
+def delete_comment_youtube(comment_id: str, request: Request):
+    """「見たくないコメント」タブ内の個別コメントを、実際にYouTube上から削除する。
+    初期設定や自動判定では一切呼ばれず、ユーザーがこのコメント1件を選んで明示的に
+    操作した場合のみ実行される(フロント側でも確認ダイアログを挟む)。元に戻せない。"""
+    credentials, channel_id = _require_session(request)
+    try:
+        delete_comment_on_youtube(credentials, comment_id)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"YouTube上での削除に失敗しました: {e}")
+
+    # 本当にYouTube上から削除できたので、Regskip側のキャッシュからも消す。
+    cache = load_comment_cache(channel_id)
+    cache.pop(comment_id, None)
     save_comment_cache(channel_id, cache)
     return {"ok": True}
 

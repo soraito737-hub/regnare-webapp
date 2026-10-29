@@ -38,6 +38,8 @@ export const api = {
   processVideo: (videoId) => request(`/api/videos/${videoId}/process`, { method: "POST" }),
   markComment: (commentId, body) =>
     request(`/api/comments/${commentId}/mark`, { method: "POST", body: JSON.stringify(body) }),
+  deleteCommentOnYoutube: (commentId) =>
+    request(`/api/comments/${commentId}/delete-youtube`, { method: "POST" }),
   banAuthor: (commentId) => request(`/api/comments/${commentId}/ban`, { method: "POST" }),
   replyToComment: (commentId, text) =>
     request(`/api/comments/${commentId}/reply`, { method: "POST", body: JSON.stringify({ text }) }),
