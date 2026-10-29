@@ -23,6 +23,12 @@ const REASON_LABELS = {
   error: "AI判定でエラーが発生したため、念のため非表示にしています",
 };
 
+// YouTube側のコメントを完全に削除する(元に戻せない)操作だけ、誤クリック防止の確認を挟む。
+const YOUTUBE_DELETE_CONFIRM = "このコメントをYouTube上から完全に削除します。この操作は元に戻せません。よろしいですか?";
+function confirmYoutubeDelete(action) {
+  if (window.confirm(YOUTUBE_DELETE_CONFIRM)) action();
+}
+
 // トップレベルのタブ。プライバシーは「新着」の中に統合して選べるようにする。
 const TABS = [
   { key: "new", label: "視聴者コメント" },
@@ -182,11 +188,11 @@ function OpenCommentCard({ entry, tabKey, urgent, openMenuId, setOpenMenuId, onB
 
 // 「見たくない」に分類したコメントは本文を表示しない。
 // 元の言い方が気になる場合のみ「言い換えて見る」で穏やかな要約を見られるようにする。
-function HiddenCommentCard({ entry, rephrased, onRephrase, onRestore, onBan }) {
+function HiddenCommentCard({ entry, rephrased, onRephrase, onRestore, onBan, onDeleteYoutube }) {
   const c = entry.comment;
-  const judgment = entry.judgment;
   const [showOriginal, setShowOriginal] = useState(false);
   const [restoring, setRestoring] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   // 「視聴者コメントに戻す」は、自分でボタンを押して非表示にした場合だけ出す。
   // AIが過去のマークと自動で一致させた場合は、そのマークの閾値が上がる副作用があるため対象外。
@@ -202,6 +208,19 @@ function HiddenCommentCard({ entry, rephrased, onRephrase, onRestore, onBan }) {
     } finally {
       setRestoring(false);
     }
+  };
+
+  const submitDeleteYoutube = () => {
+    confirmYoutubeDelete(async () => {
+      setDeleting(true);
+      try {
+        await onDeleteYoutube(entry);
+      } catch (err) {
+        alert(err.message);
+      } finally {
+        setDeleting(false);
+      }
+    });
   };
 
   return (
@@ -232,11 +251,6 @@ function HiddenCommentCard({ entry, rephrased, onRephrase, onRestore, onBan }) {
           )}
         </div>
       </div>
-      {judgment && (
-        <div className="category-tag">
-          {judgment.categories.join("・")} / {judgment.tatemae_pattern}
-        </div>
-      )}
       {REASON_LABELS[entry.reason] && (
         <div className="reason-tag">{REASON_LABELS[entry.reason]}</div>
       )}
@@ -247,6 +261,9 @@ function HiddenCommentCard({ entry, rephrased, onRephrase, onRestore, onBan }) {
         </button>
         <button className="btn-secondary" onClick={() => onRephrase(c.comment_id, c.text)}>
           言い換えて見る
+        </button>
+        <button className="btn-primary" disabled={deleting} onClick={submitDeleteYoutube}>
+          {deleting ? "削除しています…" : "YouTube上で削除する"}
         </button>
       </div>
       {rephrased[c.comment_id] && <div className="rephrase-box">{rephrased[c.comment_id]}</div>}
@@ -378,6 +395,19 @@ export default function Comments() {
     setData(next);
   };
 
+  // 「見たくないコメント」タブの個別コメントを、実際にYouTube上から削除する。
+  // 本サイト側の一覧からも、その場で取り除く。
+  const deleteYoutube = async (entry) => {
+    await api.deleteCommentOnYoutube(entry.comment.comment_id);
+    const tabs = { ...data.tabs };
+    tabs.hidden_regskip = tabs.hidden_regskip.filter(
+      (e) => e.comment.comment_id !== entry.comment.comment_id
+    );
+    const next = { ...data, tabs };
+    setProcessed(videoId, next);
+    setData(next);
+  };
+
   const handleBan = async (commentId) => {
     try {
       await api.banAuthor(commentId);
@@ -497,6 +527,7 @@ export default function Comments() {
               rephrased={rephrased}
               onRephrase={handleRephrase}
               onRestore={restoreComment}
+              onDeleteYoutube={deleteYoutube}
               onBan={handleBan}
             />
           ))
