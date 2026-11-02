@@ -3,9 +3,13 @@ Google OAuthまわりのヘルパー。
 webapp/streamlit_app_redesign.py の get_flow() / build_youtube_service() 等と
 同じロジックだが、st.secrets の代わりに config.py の環境変数を使う。
 """
+import base64
+import hashlib
+import json
 import time
 
 import google_auth_httplib2
+from cryptography.fernet import Fernet, InvalidToken
 import httplib2
 from google.auth.transport.requests import Request as GoogleAuthRequest
 from google.oauth2.credentials import Credentials
@@ -13,7 +17,7 @@ from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-from config import GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, REDIRECT_URI, SCOPES
+from config import GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, REDIRECT_URI, SCOPES, SESSION_SECRET
 
 
 def get_flow(code_verifier: str | None = None) -> Flow:
@@ -34,25 +38,31 @@ def get_flow(code_verifier: str | None = None) -> Flow:
     return flow
 
 
-def credentials_to_dict(credentials: Credentials) -> dict:
-    """セッション(署名付きCookie)に保存できる形にシリアライズする。"""
-    return {
+# セッションCookieは署名されるだけで中身は誰でもデコードできるため、
+# トークンはFernet(AES)で暗号化してから入れる。client_secretはCookieに入れない。
+_fernet = Fernet(base64.urlsafe_b64encode(hashlib.sha256(SESSION_SECRET.encode()).digest()))
+
+
+def encrypt_credentials(credentials: Credentials) -> str:
+    payload = {
         "token": credentials.token,
         "refresh_token": credentials.refresh_token,
-        "token_uri": credentials.token_uri,
-        "client_id": credentials.client_id,
-        "client_secret": credentials.client_secret,
         "scopes": credentials.scopes,
     }
+    return _fernet.encrypt(json.dumps(payload).encode()).decode()
 
 
-def credentials_from_dict(data: dict) -> Credentials:
+def decrypt_credentials(encrypted: str) -> Credentials | None:
+    try:
+        data = json.loads(_fernet.decrypt(encrypted.encode()))
+    except InvalidToken:
+        return None
     creds = Credentials(
         token=data["token"],
         refresh_token=data.get("refresh_token"),
-        token_uri=data["token_uri"],
-        client_id=data["client_id"],
-        client_secret=data["client_secret"],
+        token_uri="https://oauth2.googleapis.com/token",
+        client_id=GOOGLE_CLIENT_ID,
+        client_secret=GOOGLE_CLIENT_SECRET,
         scopes=data["scopes"],
     )
     # アクセストークンが切れていればリフレッシュする

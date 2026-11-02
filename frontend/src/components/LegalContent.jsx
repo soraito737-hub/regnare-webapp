@@ -90,8 +90,8 @@ export function PrivacyBody() {
         <h2>1. 取得する情報</h2>
         <p>本サービスは、Googleアカウントによるログイン時に、以下の情報を取得します。</p>
         <ul>
-          <li>Googleアカウントのメールアドレス、表示名</li>
-          <li>YouTubeチャンネルID、チャンネル名</li>
+          <li>Googleが発行するアクセストークン・リフレッシュトークン(YouTubeへのアクセスに使用)</li>
+          <li>YouTubeチャンネルID、チャンネルのアイコン画像</li>
           <li>ユーザーが管理するYouTube動画に投稿されたコメントの本文、投稿者のチャンネルID・表示名(YouTube Data API経由で取得)</li>
           <li>ユーザー自身が設定した「見たくないコメント」の基準・判断記録</li>
         </ul>
@@ -119,7 +119,34 @@ export function PrivacyBody() {
         </p>
       </section>
       <section>
-        <h2>5. データの保存期間</h2>
+        <h2>5. データの保護(セキュリティ対策)</h2>
+        <p>本サービスは、取得した情報を保護するため、以下の対策を行っています。</p>
+        <ul>
+          <li>
+            <strong>通信の暗号化</strong>:本サービスとユーザーのブラウザ間、および本サービスとGoogle(YouTube Data API・Gemini API)間の通信は、すべてHTTPS(TLS)で暗号化しています。
+          </li>
+          <li>
+            <strong>認証情報の暗号化</strong>:Googleのアクセストークン・リフレッシュトークンは、AES方式で暗号化したうえで、ユーザーのブラウザのCookie(HttpOnly・Secure属性付き)にのみ保存し、本サービスのサーバーやデータベースには保存しません。暗号化の鍵はサーバー側だけで管理しており、Cookieの中身を第三者が読み取ったり改ざんしたりすることはできません。
+          </li>
+          <li>
+            <strong>パスワードを扱わない</strong>:ログインはGoogleの認証(OAuth 2.0)で行うため、本サービスがユーザーのGoogleアカウントのパスワードを受け取ったり保存したりすることはありません。
+          </li>
+          <li>
+            <strong>アクセス制限</strong>:サーバーおよび保存データにアクセスできるのは運営者のみです。APIキー等の秘密情報は、ソースコードには含めず、ホスティング事業者(Render)の環境変数として管理しています。
+          </li>
+          <li>
+            <strong>必要最小限の権限と保存</strong>:Googleに要求する権限はYouTubeのコメント操作に必要な範囲(youtube.force-ssl)のみです。YouTube API経由で取得したデータは、後述のとおり30日以内に削除または再取得します。
+          </li>
+          <li>
+            <strong>ユーザーの操作なしに変更しない</strong>:YouTube上のコメントの削除や返信は、ユーザー自身の明示的な操作があった場合にのみ実行します。
+          </li>
+          <li>
+            <strong>情報漏えい時の対応</strong>:万一、情報の漏えい等の事故が発生した場合は、速やかに原因を調査し、被害の拡大を防ぐ措置を講じるとともに、影響を受けるユーザーに通知します。
+          </li>
+        </ul>
+      </section>
+      <section>
+        <h2>6. データの保存期間</h2>
         <p>
           YouTube Data APIを通じて取得したコメント本文・投稿者情報等は、YouTube API Services利用規約に基づき、取得から30日以内にAPIから再取得(リフレッシュ)するか、削除します。
         </p>
@@ -131,13 +158,42 @@ export function PrivacyBody() {
         </p>
       </section>
       <section>
-        <h2>6. ユーザーの権利</h2>
+        <h2>7. ユーザーの権利</h2>
         <p>
-          ユーザーは、いつでも本サービスとの連携を解除できます。また、保存されている「見たくないコメント」の記録等について、個別に削除を求めることができます。
+          ユーザーは、いつでも本サービスとの連携を解除できます。連携の解除は、Googleアカウントのセキュリティ設定ページ(
+          <a href="https://myaccount.google.com/connections" target="_blank" rel="noopener noreferrer">
+            https://myaccount.google.com/connections
+          </a>
+          )から行えます。また、保存されている「見たくないコメント」の記録等について、個別に削除を求めることができます。
         </p>
       </section>
       <section>
-        <h2>7. お問い合わせ窓口</h2>
+        <h2>8. Google APIの利用について</h2>
+        <p>
+          本サービスはYouTube API Servicesを利用しています。本サービスを利用することで、ユーザーは
+          <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener noreferrer">
+            YouTube利用規約
+          </a>
+          に同意したものとみなされます。Googleによるデータの取り扱いについては、
+          <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">
+            Googleプライバシーポリシー
+          </a>
+          をご確認ください。
+        </p>
+        <p>
+          本サービスによるGoogle APIから受け取った情報の利用および他のアプリへの転送は、
+          <a
+            href="https://developers.google.com/terms/api-services-user-data-policy"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Google API Services User Data Policy
+          </a>
+          (Limited Use要件を含む)に準拠します。
+        </p>
+      </section>
+      <section>
+        <h2>9. お問い合わせ窓口</h2>
         <p>個人情報の取り扱いに関するお問い合わせは、以下までご連絡ください。</p>
         <p>sora.ito.737@gmail.com</p>
       </section>
