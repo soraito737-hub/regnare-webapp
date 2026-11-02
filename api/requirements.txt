@@ -2,6 +2,7 @@ fastapi
 uvicorn[standard]
 python-multipart
 itsdangerous
+cryptography
 python-dotenv
 google-auth
 google-auth-oauthlib

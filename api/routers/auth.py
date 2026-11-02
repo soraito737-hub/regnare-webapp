@@ -4,7 +4,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import RedirectResponse
 
 from config import FRONTEND_URL
-from oauth import credentials_from_dict, credentials_to_dict, get_flow
+from oauth import decrypt_credentials, encrypt_credentials, get_flow
 from youtube_service import get_channel_info
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -30,7 +30,7 @@ def callback(request: Request, code: str):
     if info is None:
         return RedirectResponse(f"{FRONTEND_URL}/?error=no_channel")
 
-    request.session["credentials"] = credentials_to_dict(credentials)
+    request.session["credentials"] = encrypt_credentials(credentials)
     request.session["channel_id"] = info["channel_id"]
     request.session["uploads_playlist_id"] = info["uploads_playlist_id"]
     request.session["avatar_url"] = info.get("avatar_url", "")
@@ -40,7 +40,8 @@ def callback(request: Request, code: str):
 @router.get("/me")
 def me(request: Request):
     """ログイン状態の確認。Reactが起動時にこれを呼んで、ログイン画面かホーム画面か決める。"""
-    if "credentials" not in request.session:
+    if not isinstance(request.session.get("credentials"), str):
+        request.session.clear()
         return {"logged_in": False}
     if "avatar_url" not in request.session:
         # avatar_url対応前にログインしたセッション向けのフォールバック。1回だけ取得してキャッシュする。
@@ -63,9 +64,14 @@ def logout(request: Request):
 def get_credentials(request: Request):
     """他のルーターから使う: セッションから認証情報を復元する。"""
     data = request.session.get("credentials")
-    if data is None:
+    # 暗号化前の旧形式(dict)のセッションは平文のトークンを含むため破棄し、再ログインさせる。
+    if not isinstance(data, str):
+        request.session.clear()
         return None
-    creds = credentials_from_dict(data)
+    creds = decrypt_credentials(data)
+    if creds is None:
+        request.session.clear()
+        return None
     # リフレッシュされていたらセッション側も更新する
-    request.session["credentials"] = credentials_to_dict(creds)
+    request.session["credentials"] = encrypt_credentials(creds)
     return creds
