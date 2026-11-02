@@ -111,6 +111,9 @@ export function PrivacyBody() {
           コメントの分類処理のため、コメント本文をGoogleのGemini API(有料APIプラン)に送信します。有料APIプランの利用規約上、送信されたデータはGoogleのAIモデルの学習には使用されません。
         </p>
         <p>上記以外の目的で、取得した情報を第三者に販売・提供することはありません。</p>
+        <p>
+          また、取得した情報を集計・匿名化したデータを作成して利用・提供することはなく、広告(ターゲティング広告を含む)、データブローカーへの提供、与信判断、AIモデルの学習などに利用することもありません。
+        </p>
       </section>
       <section>
         <h2>4. 運営者による閲覧について</h2>
@@ -195,6 +198,131 @@ export function PrivacyBody() {
       <section>
         <h2>9. お問い合わせ窓口</h2>
         <p>個人情報の取り扱いに関するお問い合わせは、以下までご連絡ください。</p>
+        <p>sora.ito.737@gmail.com</p>
+      </section>
+    </>
+  );
+}
+
+// Google審査担当者など日本語を読まない人向けの英語版。Privacy.jsxでのみ表示する
+// (Connect.jsxの同意欄には日本語版だけを出す)。内容はPrivacyBodyと同じに保つこと。
+export function PrivacyBodyEn() {
+  return (
+    <>
+      <section>
+        <h2>1. Google user data we access</h2>
+        <p>When you sign in with Google, Regskip accesses only the following data, using the youtube.force-ssl scope:</p>
+        <ul>
+          <li>The OAuth access token and refresh token issued by Google (used only to call the YouTube Data API)</li>
+          <li>Your YouTube channel ID and channel icon</li>
+          <li>
+            Comments posted on videos of your own channel: comment text, and the author's channel ID and display name
+            (via the YouTube Data API)
+          </li>
+          <li>The settings and decisions you make in Regskip (e.g. which kinds of comments you do not want to see)</li>
+        </ul>
+        <p>We do not access your Google account password, email address, or any other Google service.</p>
+      </section>
+      <section>
+        <h2>2. How we use the data</h2>
+        <ul>
+          <li>To classify comments with AI and sort them into "shown" and "hidden" lists inside Regskip</li>
+          <li>To remember your own settings and decisions so the sorting fits you better (per user only)</li>
+          <li>
+            To remove a comment from YouTube (comments.setModerationStatus) or post a reply (comments.insert) — only
+            when you explicitly press the button for that specific comment. Regskip never does this automatically.
+          </li>
+          <li>To fix bugs and maintain the service</li>
+        </ul>
+      </section>
+      <section>
+        <h2>3. Data sharing and transfer</h2>
+        <p>
+          To classify comments, comment text is sent to Google's Gemini API (paid plan). Under the paid plan's terms,
+          this data is not used to train Google's AI models. Regskip does not share Google user data with any other party.
+        </p>
+        <p>
+          We do not create or share aggregated or anonymized data from Google user data. We never sell or transfer Google
+          user data, and never use it for advertising (including targeted ads), data brokers, credit or lending decisions,
+          or to train AI/ML models.
+        </p>
+      </section>
+      <section>
+        <h2>4. Human access</h2>
+        <p>
+          Regskip is designed so that no person needs to read your comments. The operator accesses data only when
+          necessary to investigate a bug, respond to your request, or comply with the law.
+        </p>
+      </section>
+      <section>
+        <h2>5. Data protection</h2>
+        <ul>
+          <li>All traffic between your browser, Regskip, and Google APIs is encrypted with HTTPS (TLS).</li>
+          <li>
+            Google access and refresh tokens are encrypted with AES and stored only in an HttpOnly, Secure cookie in your
+            browser. They are never stored on our server or in a database. The encryption key exists only on the server.
+          </li>
+          <li>Sign-in uses Google OAuth 2.0, so Regskip never receives or stores your Google password.</li>
+          <li>
+            Only the operator can access the server and stored data. Secrets such as API keys are kept in the hosting
+            provider's (Render) environment variables, not in the source code.
+          </li>
+          <li>We request only the one scope needed (youtube.force-ssl) and keep YouTube data for at most 30 days.</li>
+          <li>
+            If a data breach occurs, we will investigate promptly, take steps to limit the damage, and notify affected
+            users.
+          </li>
+        </ul>
+      </section>
+      <section>
+        <h2>6. Data retention and deletion</h2>
+        <p>
+          Comment text and author information obtained through the YouTube Data API are deleted or refreshed from the
+          API within 30 days of retrieval, as required by the YouTube API Services Terms.
+        </p>
+        <p>
+          Your own settings and decisions (not YouTube API data) are kept while you use the service. You can ask us to
+          delete any stored data at any time from the settings screen or by email, including after you disconnect
+          Regskip.
+        </p>
+      </section>
+      <section>
+        <h2>7. Your rights</h2>
+        <p>
+          You can disconnect Regskip at any time from your Google Account at{" "}
+          <a href="https://myaccount.google.com/connections" target="_blank" rel="noopener noreferrer">
+            https://myaccount.google.com/connections
+          </a>
+          . This revokes Regskip's access immediately.
+        </p>
+      </section>
+      <section>
+        <h2>8. Google API Services</h2>
+        <p>
+          Regskip uses YouTube API Services. By using Regskip, you agree to the{" "}
+          <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener noreferrer">
+            YouTube Terms of Service
+          </a>
+          . See the{" "}
+          <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">
+            Google Privacy Policy
+          </a>{" "}
+          for how Google handles data.
+        </p>
+        <p>
+          Regskip's use and transfer of information received from Google APIs will adhere to the{" "}
+          <a
+            href="https://developers.google.com/terms/api-services-user-data-policy"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Google API Services User Data Policy
+          </a>
+          , including the Limited Use requirements.
+        </p>
+      </section>
+      <section>
+        <h2>9. Contact</h2>
         <p>sora.ito.737@gmail.com</p>
       </section>
     </>
