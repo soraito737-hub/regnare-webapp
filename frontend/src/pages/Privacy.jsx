@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header.jsx";
-import { PrivacyBody } from "../components/LegalContent.jsx";
+import { PrivacyBody, PrivacyBodyEn } from "../components/LegalContent.jsx";
 
 export default function Privacy() {
   const navigate = useNavigate();
@@ -14,6 +14,12 @@ export default function Privacy() {
       </div>
       <div className="card legal-doc">
         <PrivacyBody />
+      </div>
+      <div className="settings-lead" lang="en">
+        <h1>Privacy Policy (English)</h1>
+      </div>
+      <div className="card legal-doc" lang="en">
+        <PrivacyBodyEn />
       </div>
     </div>
   );
