@@ -3,11 +3,15 @@ import json
 from fastapi import APIRouter, Request
 from fastapi.responses import RedirectResponse
 
-from config import FRONTEND_URL
+from config import ALLOWED_CHANNEL_IDS, FRONTEND_URL
 from oauth import decrypt_credentials, encrypt_credentials, get_flow
 from youtube_service import get_channel_info
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
+
+
+def is_allowed_channel(channel_id: str | None) -> bool:
+    return not ALLOWED_CHANNEL_IDS or channel_id in ALLOWED_CHANNEL_IDS
 
 
 @router.get("/login")
@@ -28,7 +32,10 @@ def callback(request: Request, code: str):
 
     info = get_channel_info(credentials)
     if info is None:
-        return RedirectResponse(f"{FRONTEND_URL}/?error=no_channel")
+        return RedirectResponse(f"{FRONTEND_URL}/connect?error=no_channel")
+    if not is_allowed_channel(info["channel_id"]):
+        # 招待していないチャンネルの認証情報はセッションに保存せずに戻す
+        return RedirectResponse(f"{FRONTEND_URL}/connect?error=not_invited")
 
     request.session["credentials"] = encrypt_credentials(credentials)
     request.session["channel_id"] = info["channel_id"]
@@ -40,7 +47,9 @@ def callback(request: Request, code: str):
 @router.get("/me")
 def me(request: Request):
     """ログイン状態の確認。Reactが起動時にこれを呼んで、ログイン画面かホーム画面か決める。"""
-    if not isinstance(request.session.get("credentials"), str):
+    if not isinstance(request.session.get("credentials"), str) or not is_allowed_channel(
+        request.session.get("channel_id")
+    ):
         request.session.clear()
         return {"logged_in": False}
     if "avatar_url" not in request.session:
@@ -66,6 +75,10 @@ def get_credentials(request: Request):
     data = request.session.get("credentials")
     # 暗号化前の旧形式(dict)のセッションは平文のトークンを含むため破棄し、再ログインさせる。
     if not isinstance(data, str):
+        request.session.clear()
+        return None
+    # 許可リストから外したチャンネルは、ログイン済みのセッションもその場で無効にする
+    if not is_allowed_channel(request.session.get("channel_id")):
         request.session.clear()
         return None
     creds = decrypt_credentials(data)
