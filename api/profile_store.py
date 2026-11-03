@@ -31,11 +31,22 @@ def load_profile(user_id: str) -> PersonalProfile:
     with open(path, "r", encoding="utf-8") as f:
         raw = json.load(f)
 
-    attack_action = {Category(k): PersonalAction(v) for k, v in raw.get("attack_action", {}).items()}
+    # カテゴリ体系の改訂で削除・改名された旧値が保存データに残っていても、
+    # 該当分だけ無視して読み込みごと落とさないようにする。
+    attack_action = {}
+    for k, v in raw.get("attack_action", {}).items():
+        try:
+            attack_action[Category(k)] = PersonalAction(v)
+        except ValueError:
+            continue
     pattern_action = {}
     for key, value in raw.get("pattern_action", {}).items():
         cat_value, pat_value = key.split("|", 1)
-        pattern_action[(Category(cat_value), TatemaePattern(pat_value))] = PatternSetting(
+        try:
+            cat_key, pat_key = Category(cat_value), TatemaePattern(pat_value)
+        except ValueError:
+            continue
+        pattern_action[(cat_key, pat_key)] = PatternSetting(
             action=PersonalAction(value["action"]), source=value.get("source", "manual")
         )
     return PersonalProfile(user_id=user_id, attack_action=attack_action, pattern_action=pattern_action)
