@@ -75,7 +75,9 @@ export default function Connect() {
           <p className="error-text">
             {oauthError === "no_channel"
               ? "YouTubeチャンネルが見つかりませんでした。チャンネルを持つアカウントで再度お試しください。"
-              : error}
+              : oauthError === "not_invited"
+                ? "Regskipは現在、招待したチャンネルだけが利用できる検証期間中です。"
+                : error}
           </p>
         )}
       </div>

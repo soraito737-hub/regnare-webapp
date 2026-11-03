@@ -29,3 +29,7 @@ FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:5173")
 IS_PRODUCTION = os.environ.get("ENV", "").lower() == "production"
 
 SCOPES = ["https://www.googleapis.com/auth/youtube.force-ssl"]
+
+# 実地検証中は、ここに列挙したYouTubeチャンネルIDだけログインできる(カンマ区切り)。
+# 未設定なら誰でもログインできる(一般公開)。
+ALLOWED_CHANNEL_IDS = {c.strip() for c in os.environ.get("ALLOWED_CHANNEL_IDS", "").split(",") if c.strip()}
