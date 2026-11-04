@@ -253,7 +253,13 @@ class PersonalJudgmentClassifier:
                 response = self.client.models.generate_content(
                     model=self.model,
                     contents=prompt,
-                    config=types.GenerateContentConfig(temperature=0, response_mime_type="application/json"),
+                    config=types.GenerateContentConfig(
+                        temperature=0,
+                        response_mime_type="application/json",
+                        # 思考を控えめにする(既定より1件あたり約4.5秒→約3秒、思考トークン分の料金も減る)。
+                        # minimalはさらに速いが、会場への押しかけ予告等の安全脅迫を見逃したため使わない
+                        thinking_config=types.ThinkingConfig(thinking_level="low"),
+                    ),
                 )
                 break
             except errors.ClientError as e:
@@ -289,6 +295,11 @@ class PersonalJudgmentClassifier:
                 emergency=EmergencyType.NONE,
                 reasoning="LLM応答の解析に失敗したため安全側で該当なしとしました",
             )
+        # まれにオブジェクトを配列で包んで返すことがあるので、先頭要素を使う
+        if isinstance(data, list) and data and isinstance(data[0], dict):
+            data = data[0]
+        if not isinstance(data, dict):
+            data = {}
 
         categories = self._to_enum_list(Category, data.get("category"), Category.NONE)
         tatemae_pattern = self._to_enum(TatemaePattern, data.get("tatemae_pattern"), TatemaePattern.NONE)
