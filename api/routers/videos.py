@@ -175,6 +175,9 @@ def process_video(video_id: str, request: Request):
     cache = load_comment_cache(channel_id)
     to_process = [c for c in comments if c["comment_id"] not in cache]
 
+    # 判定に失敗したコメント(Gemini APIの残高切れ・障害など)は今回だけ非表示扱いにし、
+    # キャッシュには保存しない。保存すると、復旧後も二度と判定し直されなくなるため。
+    failed: dict[str, dict] = {}
     if to_process:
         with ThreadPoolExecutor(max_workers=20) as executor:
             future_to_comment = {
@@ -185,7 +188,7 @@ def process_video(video_id: str, request: Request):
                 try:
                     cache[c["comment_id"]] = future.result()
                 except Exception:
-                    cache[c["comment_id"]] = {
+                    failed[c["comment_id"]] = {
                         "comment": c,
                         "judgment": None,
                         "similarity_score": 0.0,
@@ -198,7 +201,7 @@ def process_video(video_id: str, request: Request):
 
     tabs: dict[str, list] = {"new": [], "hidden_regskip": [], "privacy": []}
     for c in comments:
-        entry = cache[c["comment_id"]]
+        entry = cache.get(c["comment_id"]) or failed[c["comment_id"]]
         # コメント本文・投稿者名などの表示情報だけは常に最新のものを使う
         # (判定結果自体(tab/reason等)はキャッシュのまま変えない)。
         tabs[entry["tab"]].append({**entry, "comment": c})
