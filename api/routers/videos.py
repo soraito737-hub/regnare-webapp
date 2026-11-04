@@ -32,6 +32,10 @@ from youtube_service import (  # noqa: E402
 
 router = APIRouter(prefix="/api", tags=["videos"])
 
+# AI判定のルール(プロンプト・モデル設定)を変えたら上げる。キャッシュ済みの判定のうち
+# これと違う版のものは、次に動画を開いたときに判定し直す(自分でボタンを押したものは除く)。
+JUDGMENT_VERSION = 2
+
 _classifier: PersonalJudgmentClassifier | None = None
 _similarity_list: PersonalSimilarityList | None = None
 
@@ -90,7 +94,11 @@ def reapply_profile_to_cache(channel_id: str, profile) -> None:
     similarity_list = get_similarity_list()
     changed = False
     for entry in cache.values():
-        if entry.get("reason") in ("manual", "emergency") or entry.get("judgment") is None:
+        if (
+            entry.get("reason") in ("manual", "emergency")
+            or entry.get("user_restored")
+            or entry.get("judgment") is None
+        ):
             continue
         judgment = _judgment_from_dict(entry["judgment"])
         similarity_action = None
@@ -148,6 +156,7 @@ def _process_single_comment(comment: dict, channel_id: str, profile) -> dict:
     return {
         "comment": comment,
         "judgment": _judgment_to_dict(judgment),
+        "judgment_version": JUDGMENT_VERSION,
         "similarity_score": sim_score,
         "tab": tab,
         # なぜ非表示になったか(personal_similarity/personal_pattern/attack_level/emergency/none)。
@@ -170,10 +179,22 @@ def process_video(video_id: str, request: Request):
     profile = load_profile(channel_id)
     comments = fetch_comments(credentials, video_id, max_results=MAX_COMMENTS_PER_VIDEO)
 
+    # 表示ルールや初期設定の変更を、キャッシュ済みの判定にも反映する(LLMは呼ばない)
+    reapply_profile_to_cache(channel_id, profile)
+
     # 一度判定したコメント(comment_id)は結果を丸ごと覚えておき、二度と分類・
-    # 類似度チェックにかけない。新しく届いたコメントだけを判定する。
+    # 類似度チェックにかけない。新しく届いたコメントと、古い版のルールで判定したものだけを判定する。
     cache = load_comment_cache(channel_id)
-    to_process = [c for c in comments if c["comment_id"] not in cache]
+
+    def _needs_judgment(comment_id: str) -> bool:
+        entry = cache.get(comment_id)
+        if entry is None:
+            return True
+        if entry.get("reason") == "manual" or entry.get("user_restored"):
+            return False
+        return entry.get("judgment_version") != JUDGMENT_VERSION
+
+    to_process = [c for c in comments if _needs_judgment(c["comment_id"])]
 
     # 判定に失敗したコメント(Gemini APIの残高切れ・障害など)は今回だけ非表示扱いにし、
     # キャッシュには保存しない。保存すると、復旧後も二度と判定し直されなくなるため。
@@ -311,6 +332,8 @@ def restore_comment(comment_id: str, body: RestoreIn, request: Request):
         "reason": "none",
         "matched_mark_id": None,
         "own_mark_id": None,
+        # 自分で戻したことの目印。設定の再反映や判定のやり直しで隠し直さないために使う。
+        "user_restored": True,
     }
     save_comment_cache(channel_id, cache)
     return {"ok": True}
