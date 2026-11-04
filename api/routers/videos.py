@@ -18,7 +18,7 @@ from personal_classifier import (  # noqa: E402
 )
 from personal_profile import (  # noqa: E402
     DisplayAction, PersonalAction, PersonalSimilarityList,
-    find_flagged_authors, is_emergency, resolve_display_action,
+    is_emergency, resolve_display_action,
 )
 
 from comment_cache_store import load_comment_cache, save_comment_cache  # noqa: E402
@@ -227,16 +227,38 @@ def process_video(video_id: str, request: Request):
         # (判定結果自体(tab/reason等)はキャッシュのまま変えない)。
         tabs[entry["tab"]].append({**entry, "comment": c})
 
-    flagged_authors = [
-        {
-            "author_channel_id": a["author_channel_id"],
-            "count": a["count"],
-            "breakdown": {f"{cat.value}|{pat.value}": count for (cat, pat), count in a["breakdown"].items()},
-        }
-        for a in find_flagged_authors(channel_id, get_similarity_list())
-    ]
+    return {"tabs": tabs, "flagged_authors": _find_flagged_authors(cache)}
 
-    return {"tabs": tabs, "flagged_authors": flagged_authors}
+
+FLAGGED_MIN_COUNT = 3
+
+
+def _find_flagged_authors(cache: dict) -> list[dict]:
+    """要注意ユーザー: これまで開いた全動画のキャッシュから、隠したタブ(AI判定・自分で押したもの)と
+    プライバシーのタブに入ったコメントを投稿者ごとに数え、FLAGGED_MIN_COUNT件以上の人を返す。
+    判定に失敗しただけのコメントはキャッシュに入らないので数えない。"""
+    by_author: dict[str, dict] = {}
+    for entry in cache.values():
+        if entry.get("tab") not in ("hidden_regskip", "privacy"):
+            continue
+        author_id = entry.get("comment", {}).get("author_channel_id")
+        if not author_id:
+            continue
+        a = by_author.setdefault(
+            author_id,
+            {"author_channel_id": author_id, "author": entry["comment"].get("author", ""), "count": 0, "breakdown": {}},
+        )
+        a["count"] += 1
+        judgment = entry.get("judgment")
+        if not judgment:
+            continue
+        if entry["tab"] == "privacy":
+            keys = [f"緊急|{judgment['emergency']}"]
+        else:
+            keys = [f"{cat}|{judgment['tatemae_pattern']}" for cat in judgment["categories"]]
+        for key in keys:
+            a["breakdown"][key] = a["breakdown"].get(key, 0) + 1
+    return [a for a in by_author.values() if a["count"] >= FLAGGED_MIN_COUNT]
 
 
 class MarkIn(BaseModel):
