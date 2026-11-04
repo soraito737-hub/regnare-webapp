@@ -36,7 +36,7 @@ const TABS = [
   { key: "flagged", label: "要注意ユーザー" },
 ];
 
-function OpenCommentCard({ entry, tabKey, urgent, openMenuId, setOpenMenuId, onBan, onMove, onReply }) {
+function OpenCommentCard({ entry, tabKey, urgent, openMenuId, setOpenMenuId, onBan, onMove, onReply, onDeleteYoutube }) {
   const c = entry.comment;
   const judgment = entry.judgment;
   const tier = similarityTier(entry.similarity_score || 0);
@@ -47,6 +47,20 @@ function OpenCommentCard({ entry, tabKey, urgent, openMenuId, setOpenMenuId, onB
   const [pendingHide, setPendingHide] = useState(false);
   const [hideNote, setHideNote] = useState("");
   const [hiding, setHiding] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const submitDeleteYoutube = () => {
+    confirmYoutubeDelete(async () => {
+      setDeleting(true);
+      try {
+        await onDeleteYoutube(entry);
+      } catch (err) {
+        alert(err.message);
+      } finally {
+        setDeleting(false);
+      }
+    });
+  };
 
   const confirmHide = async () => {
     const note = hideNote.trim();
@@ -146,6 +160,9 @@ function OpenCommentCard({ entry, tabKey, urgent, openMenuId, setOpenMenuId, onB
         <div className="comment-actions">
           <button className="btn-secondary" onClick={() => setPendingHide(true)}>
             本サイトで非表示
+          </button>
+          <button className="btn-secondary" disabled={deleting} onClick={submitDeleteYoutube}>
+            {deleting ? "削除しています…" : "YouTube上で削除する"}
           </button>
         </div>
       )}
@@ -395,13 +412,15 @@ export default function Comments() {
     setData(next);
   };
 
-  // 「見たくないコメント」タブの個別コメントを、実際にYouTube上から削除する。
+  // 個別コメントを、実際にYouTube上から削除する(どのタブからでも)。
   // 本サイト側の一覧からも、その場で取り除く。
   const deleteYoutube = async (entry) => {
     await api.deleteCommentOnYoutube(entry.comment.comment_id);
-    const tabs = { ...data.tabs };
-    tabs.hidden_regskip = tabs.hidden_regskip.filter(
-      (e) => e.comment.comment_id !== entry.comment.comment_id
+    const tabs = Object.fromEntries(
+      Object.entries(data.tabs).map(([key, list]) => [
+        key,
+        list.filter((e) => e.comment.comment_id !== entry.comment.comment_id),
+      ])
     );
     const next = { ...data, tabs };
     setProcessed(videoId, next);
@@ -499,6 +518,7 @@ export default function Comments() {
                 onBan={handleBan}
                 onMove={moveComment}
                 onReply={handleReply}
+                onDeleteYoutube={deleteYoutube}
               />
             ))}
             {data.tabs.new.map((entry) => (
@@ -511,6 +531,7 @@ export default function Comments() {
                 onBan={handleBan}
                 onMove={moveComment}
                 onReply={handleReply}
+                onDeleteYoutube={deleteYoutube}
               />
             ))}
           </>
