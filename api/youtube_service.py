@@ -143,7 +143,7 @@ def fetch_comments(credentials: Credentials, video_id: str, max_results: int = M
 
 def delete_comment_on_youtube(credentials: Credentials, comment_id: str) -> None:
     """YouTube上からコメントを削除する(YouTube Studioの「削除」と同じ扱い)。
-    「見たくないコメント」タブ内の個別コメントに対して、ユーザー自身の明示的な
+    視聴者コメント・見たくないコメントのタブ内の個別コメントに対して、ユーザー自身の明示的な
     操作でのみ呼び出される(自動実行は一切しない)。"""
     # comments.delete は投稿者本人のコメントにしか使えない(他人のコメントは
     # processingFailure になる)。動画の持ち主として他人のコメントを消すには

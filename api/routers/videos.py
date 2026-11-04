@@ -309,7 +309,7 @@ def mark_comment(comment_id: str, body: MarkIn, request: Request):
 
 @router.post("/comments/{comment_id}/delete-youtube")
 def delete_comment_youtube(comment_id: str, request: Request):
-    """「見たくないコメント」タブ内の個別コメントを、実際にYouTube上から削除する。
+    """個別コメント(視聴者コメント・見たくないコメントのどちらのタブからでも)を、実際にYouTube上から削除する。
     初期設定や自動判定では一切呼ばれず、ユーザーがこのコメント1件を選んで明示的に
     操作した場合のみ実行される(フロント側でも確認ダイアログを挟む)。元に戻せない。"""
     credentials, channel_id = _require_session(request)
