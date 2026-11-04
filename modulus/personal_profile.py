@@ -40,13 +40,15 @@ class PatternSetting:
 @dataclass
 class PersonalProfile:
     user_id: str
-    # カテゴリごとの「攻撃的な言い方」の扱い(手動設定画面、3択スイッチ)。デフォルトはHIDE_REGSKIP。
+    # カテゴリごとの「攻撃的な言い方」の扱い(手動設定画面、3択スイッチ)。デフォルトはNORMAL。
+    # 診断(カテゴリ×文脈の30項目)はここに書き込まないため、デフォルトを非表示にすると
+    # 診断で「平気」と答えた組み合わせや、何も設定していない利用者の侮蔑語コメントまで隠れてしまう。
     attack_action: dict[Category, PersonalAction] = field(default_factory=dict)
     # カテゴリ×建前パターンごとの扱い。デフォルトはNORMAL(未設定=そのキー自体が辞書にない)。
     pattern_action: dict[tuple[Category, TatemaePattern], PatternSetting] = field(default_factory=dict)
 
     def get_attack_action(self, category: Category) -> PersonalAction:
-        return self.attack_action.get(category, PersonalAction.HIDE_REGSKIP)
+        return self.attack_action.get(category, PersonalAction.NORMAL)
 
     def get_pattern_setting(self, category: Category, pattern: TatemaePattern) -> PatternSetting:
         return self.pattern_action.get((category, pattern), PatternSetting(action=PersonalAction.NORMAL))
