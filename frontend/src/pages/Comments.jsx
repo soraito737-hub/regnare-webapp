@@ -278,12 +278,12 @@ function FlaggedAuthorCard({ author, allEntries, onBan, onDismiss }) {
     return `${cat}×${pat} ${count}件`;
   });
   const matches = allEntries.filter((e) => e.comment.author_channel_id === author.author_channel_id);
-  const displayName = matches[0]?.comment.author ?? author.author_channel_id;
+  const displayName = matches[0]?.comment.author || author.author || author.author_channel_id;
 
   return (
     <div className="card flagged-card">
       <div className="flagged-title">{displayName}</div>
-      <div className="flagged-sub">直近{author.count}回、見たくない/非表示に分類</div>
+      <div className="flagged-sub">これまでに{author.count}件のコメントが非表示・プライバシーに分類</div>
       <div className="flagged-breakdown">{breakdownLines.join("、")}</div>
       <button className="btn-secondary" onClick={() => setRevealed((v) => !v)}>
         コメントを見る
