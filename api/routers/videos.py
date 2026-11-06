@@ -34,7 +34,7 @@ router = APIRouter(prefix="/api", tags=["videos"])
 
 # AI判定のルール(プロンプト・モデル設定)を変えたら上げる。キャッシュ済みの判定のうち
 # これと違う版のものは、次に動画を開いたときに判定し直す(自分でボタンを押したものは除く)。
-JUDGMENT_VERSION = 2
+JUDGMENT_VERSION = 3
 
 _classifier: PersonalJudgmentClassifier | None = None
 _similarity_list: PersonalSimilarityList | None = None
@@ -100,7 +100,11 @@ def reapply_profile_to_cache(channel_id: str, profile) -> None:
             or entry.get("judgment") is None
         ):
             continue
-        judgment = _judgment_from_dict(entry["judgment"])
+        try:
+            judgment = _judgment_from_dict(entry["judgment"])
+        except ValueError:
+            # カテゴリ名の変更前に保存された判定。次に動画を開いたとき判定し直される
+            continue
         similarity_action = None
         mark_id = entry.get("matched_mark_id")
         if mark_id:
