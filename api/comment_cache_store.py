@@ -14,24 +14,31 @@
 
 【YouTube API Services利用規約への対応】YouTube Data API経由で取得した
 コメント本文・投稿者情報は、取得から30日以内にAPIから再取得するか削除する
-必要がある。ここでは「30日経過したエントリをキャッシュから削除し、次回
-アクセス時にAPIから再取得・再判定させる」方式でこれを満たす。
+必要がある。動画を開くたびにAPIから取り直した本文で上書きしてrefreshed_atを
+更新し(videos.pyのprocess_video参照)、30日間一度も取り直せなかったエントリ
+(YouTube上で消えたコメント、長く開いていない動画のコメント)だけを削除する。
 """
-import json
+import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-DATA_DIR = Path(__file__).parent.parent / "data"
+sys.path.insert(0, str(Path(__file__).parent.parent / "modulus"))
+
+from json_store import load_json, safe_name, save_json  # noqa: E402
+
 CACHE_TTL_DAYS = 30
 
 
-def _path(user_id: str) -> Path:
-    safe_id = "".join(c if c.isalnum() else "_" for c in user_id)
-    return DATA_DIR / f"comment_cache_{safe_id}.json"
+def _name(user_id: str) -> str:
+    return safe_name("comment_cache", user_id)
+
+
+def mark_refreshed(entry: dict) -> None:
+    entry["refreshed_at"] = datetime.now(timezone.utc).isoformat()
 
 
 def _is_expired(entry: dict) -> bool:
-    cached_at = entry.get("cached_at")
+    cached_at = entry.get("refreshed_at") or entry.get("cached_at")
     if not cached_at:
         # タイムスタンプがない旧形式のデータは、次回save時に付与されるまで
         # 一旦保持する(いきなり全削除して不具合に見えるのを避けるため)。
@@ -44,11 +51,7 @@ def _is_expired(entry: dict) -> bool:
 
 
 def load_comment_cache(user_id: str) -> dict:
-    path = _path(user_id)
-    if not path.exists():
-        return {}
-    with open(path, "r", encoding="utf-8") as f:
-        cache = json.load(f)
+    cache = load_json(_name(user_id), {})
     expired_keys = [k for k, v in cache.items() if _is_expired(v)]
     if expired_keys:
         for k in expired_keys:
@@ -58,11 +61,10 @@ def load_comment_cache(user_id: str) -> dict:
 
 
 def save_comment_cache(user_id: str, cache: dict) -> None:
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
     now = datetime.now(timezone.utc).isoformat()
     for entry in cache.values():
         # 既存のタイムスタンプは上書きしない(=「最初にAPIから取得した時刻」を保持する。
         # マーク変更等、内容に関係ない更新のたびに期限が延長されてしまうことを防ぐ)。
         entry.setdefault("cached_at", now)
-    with open(_path(user_id), "w", encoding="utf-8") as f:
-        json.dump(cache, f, ensure_ascii=False, indent=2)
+        entry.setdefault("refreshed_at", now)
+    save_json(_name(user_id), cache)
