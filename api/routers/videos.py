@@ -5,6 +5,7 @@ FastAPI用に「リクエスト単位」で呼び出せる形にしたもの。
 判定ロジック(personal_classifier / personal_profile)自体は一切変更していない。
 """
 import sys
+import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
@@ -224,6 +225,9 @@ def process_video(video_id: str, request: Request):
                 try:
                     cache[c["comment_id"]] = future.result()
                 except Exception:
+                    # 原因をRenderのLogsで確かめられるように残す(コメント本文は出さない)
+                    print(f"[process_video] 判定失敗 comment_id={c['comment_id']}", flush=True)
+                    traceback.print_exc()
                     failed[c["comment_id"]] = {
                         "comment": c,
                         "judgment": None,
