@@ -6,16 +6,15 @@ personal_classifier.py の CommentJudgment を受け取り、
 個人の設定・過去の判断履歴に基づいて実際に非表示にするかどうかを決める。
 """
 
-import json
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
-from pathlib import Path
 from typing import Optional
 
 from sklearn.metrics.pairwise import cosine_similarity
 
 from gemini_client import make_client, embed_text
+from json_store import load_json, safe_name, save_json
 from personal_classifier import Category, CommentJudgment, EmergencyType, SurfaceLevel, TatemaePattern
 
 # ============ 4節: 個人プロファイル ============
@@ -145,9 +144,8 @@ class SimilarityMark:
     id: str = field(default_factory=lambda: uuid.uuid4().hex)
 
 
-def _similarity_store_path(user_id: str) -> Path:
-    safe_id = "".join(c if c.isalnum() else "_" for c in user_id)
-    return Path(__file__).parent.parent / "data" / f"personal_similarity_{safe_id}.json"
+def _similarity_store_name(user_id: str) -> str:
+    return safe_name("personal_similarity", user_id)
 
 
 class PersonalSimilarityList:
@@ -160,11 +158,9 @@ class PersonalSimilarityList:
     def _load(self, user_id: str) -> list[SimilarityMark]:
         if user_id in self._marks:
             return self._marks[user_id]
-        path = _similarity_store_path(user_id)
         marks: list[SimilarityMark] = []
-        if path.exists():
-            with open(path, "r", encoding="utf-8") as f:
-                raw = json.load(f)
+        raw = load_json(_similarity_store_name(user_id))
+        if raw is not None:
             for r in raw:
                 # 旧形式(単一の"category")で保存された既存データも読めるように救済する。
                 raw_categories = r.get("categories")
@@ -205,8 +201,6 @@ class PersonalSimilarityList:
         return marks
 
     def _save(self, user_id: str) -> None:
-        path = _similarity_store_path(user_id)
-        path.parent.mkdir(parents=True, exist_ok=True)
         raw = [
             {
                 "comment": m.comment,
@@ -223,8 +217,7 @@ class PersonalSimilarityList:
             }
             for m in self._marks.get(user_id, [])
         ]
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(raw, f, ensure_ascii=False, indent=2)
+        save_json(_similarity_store_name(user_id), raw)
 
     def mark_comment(
         self,

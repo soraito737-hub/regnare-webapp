@@ -21,7 +21,7 @@ from personal_profile import (  # noqa: E402
     is_emergency, resolve_display_action,
 )
 
-from comment_cache_store import load_comment_cache, save_comment_cache  # noqa: E402
+from comment_cache_store import load_comment_cache, mark_refreshed, save_comment_cache  # noqa: E402
 from config import GEMINI_API_KEY  # noqa: E402
 from profile_store import load_profile  # noqa: E402
 from routers.auth import get_credentials  # noqa: E402
@@ -190,15 +190,26 @@ def process_video(video_id: str, request: Request):
     # 類似度チェックにかけない。新しく届いたコメントと、古い版のルールで判定したものだけを判定する。
     cache = load_comment_cache(channel_id)
 
-    def _needs_judgment(comment_id: str) -> bool:
-        entry = cache.get(comment_id)
+    def _needs_judgment(c: dict) -> bool:
+        entry = cache.get(c["comment_id"])
         if entry is None:
             return True
         if entry.get("reason") == "manual" or entry.get("user_restored"):
             return False
+        # 視聴者が本文を書き換えていたら、新しい本文で判定し直す
+        if entry["comment"].get("text") != c["text"]:
+            return True
         return entry.get("judgment_version") != JUDGMENT_VERSION
 
-    to_process = [c for c in comments if _needs_judgment(c["comment_id"])]
+    to_process = [c for c in comments if _needs_judgment(c)]
+
+    # YouTube API利用規約の30日ルール: 今YouTubeから取れたコメントは本文を最新に
+    # 上書きし、取り直した時刻を記録する(30日間取り直せなかったものだけが消える)
+    for c in comments:
+        entry = cache.get(c["comment_id"])
+        if entry is not None:
+            entry["comment"] = c
+            mark_refreshed(entry)
 
     # 判定に失敗したコメント(Gemini APIの残高切れ・障害など)は今回だけ非表示扱いにし、
     # キャッシュには保存しない。保存すると、復旧後も二度と判定し直されなくなるため。
@@ -222,7 +233,7 @@ def process_video(video_id: str, request: Request):
                         "matched_mark_id": None,
                         "own_mark_id": None,
                     }
-        save_comment_cache(channel_id, cache)
+    save_comment_cache(channel_id, cache)
 
     tabs: dict[str, list] = {"new": [], "hidden_regskip": [], "privacy": []}
     for c in comments:
