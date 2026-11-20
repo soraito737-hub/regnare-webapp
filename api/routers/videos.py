@@ -206,11 +206,15 @@ def process_video(video_id: str, request: Request):
 
     # YouTube API利用規約の30日ルール: 今YouTubeから取れたコメントは本文を最新に
     # 上書きし、取り直した時刻を記録する(30日間取り直せなかったものだけが消える)
+    refreshed_mark_texts: dict[str, str] = {}
     for c in comments:
         entry = cache.get(c["comment_id"])
         if entry is not None:
             entry["comment"] = c
             mark_refreshed(entry)
+            if entry.get("own_mark_id"):
+                refreshed_mark_texts[entry["own_mark_id"]] = c["text"]
+    get_similarity_list().refresh_marks(channel_id, refreshed_mark_texts)
 
     # 判定に失敗したコメント(Gemini APIの残高切れ・障害など)は今回だけ非表示扱いにし、
     # キャッシュには保存しない。保存すると、復旧後も二度と判定し直されなくなるため。

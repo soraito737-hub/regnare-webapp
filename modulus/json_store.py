@@ -63,6 +63,14 @@ def load_json(name: str, default=None):
         return json.load(f)
 
 
+def list_names(prefix: str) -> list[str]:
+    if _database_url():
+        with _get_pool().connection() as conn:
+            rows = conn.execute("SELECT name FROM json_store WHERE starts_with(name, %s)", (prefix,)).fetchall()
+        return [r[0] for r in rows]
+    return [p.stem for p in DATA_DIR.glob(f"{prefix}*.json")]
+
+
 def save_json(name: str, data) -> None:
     if _database_url():
         from psycopg.types.json import Jsonb

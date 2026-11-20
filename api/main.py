@@ -9,9 +9,16 @@ from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from starlette.middleware.sessions import SessionMiddleware  # noqa: E402
 
 from config import FRONTEND_URL, IS_PRODUCTION, SESSION_SECRET  # noqa: E402
+from retention import start_cleanup_thread  # noqa: E402
 from routers import auth, profile, videos  # noqa: E402
 
 app = FastAPI(title="Regskip API")
+
+
+@app.on_event("startup")
+def _start_retention_cleanup():
+    # YouTubeのデータの30日ルール。Regskipを開かない利用者の分も消えるよう、起動時と毎日点検する
+    start_cleanup_thread()
 
 app.add_middleware(
     SessionMiddleware,
