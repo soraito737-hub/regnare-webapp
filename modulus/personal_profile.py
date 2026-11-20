@@ -15,6 +15,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 from gemini_client import make_client, embed_text
 from json_store import load_json, safe_name, save_json
+from retention import is_expired, now_iso
 from personal_classifier import Category, CommentJudgment, EmergencyType, SurfaceLevel, TatemaePattern
 
 # ============ 4節: 個人プロファイル ============
@@ -142,6 +143,8 @@ class SimilarityMark:
     # マークを長期間参照し続けるため、他のマークを削除してもindexがずれて指し先を
     # 誤ることがないようにするため。
     id: str = field(default_factory=lambda: uuid.uuid4().hex)
+    # 元のコメントをYouTubeから最後に取り直した時刻。30日たつとマークごと消える(retention.py参照)
+    refreshed_at: str = field(default_factory=now_iso)
 
 
 def _similarity_store_name(user_id: str) -> str:
@@ -157,6 +160,12 @@ class PersonalSimilarityList:
 
     def _load(self, user_id: str) -> list[SimilarityMark]:
         if user_id in self._marks:
+            marks = self._marks[user_id]
+            # 動き続けているサーバーのメモリ上にも、期限切れのマークを残さない
+            kept = [m for m in marks if not is_expired(m.refreshed_at)]
+            if len(kept) != len(marks):
+                self._marks[user_id] = kept
+                self._save(user_id)
             return self._marks[user_id]
         marks: list[SimilarityMark] = []
         raw = load_json(_similarity_store_name(user_id))
@@ -196,7 +205,9 @@ class PersonalSimilarityList:
                     video_id=r.get("video_id"),
                     threshold=r.get("threshold", MID_SIMILARITY_THRESHOLD),
                     id=r.get("id") or uuid.uuid4().hex,
+                    refreshed_at=r.get("refreshed_at") or now_iso(),
                 ))
+            marks = [m for m in marks if not is_expired(m.refreshed_at)]
         self._marks[user_id] = marks
         return marks
 
@@ -214,6 +225,7 @@ class PersonalSimilarityList:
                 "video_id": m.video_id,
                 "threshold": m.threshold,
                 "id": m.id,
+                "refreshed_at": m.refreshed_at,
             }
             for m in self._marks.get(user_id, [])
         ]
@@ -267,6 +279,17 @@ class PersonalSimilarityList:
         """指定idのマークを取得する(初期設定変更時の再判定で、エンベディングを
         呼ばずにマークの現在のactionだけを再利用するために使う)。"""
         return self._find(user_id, mark_id)
+
+    def refresh_marks(self, user_id: str, texts_by_mark_id: dict[str, str]) -> None:
+        """元のコメントをYouTubeから取り直せたマークの本文と取り直し時刻を更新する。"""
+        if not texts_by_mark_id:
+            return
+        now = now_iso()
+        for m in self._load(user_id):
+            if m.id in texts_by_mark_id:
+                m.comment = texts_by_mark_id[m.id]
+                m.refreshed_at = now
+        self._save(user_id)
 
     def delete_mark(self, user_id: str, mark_id: str) -> None:
         marks = self._load(user_id)
