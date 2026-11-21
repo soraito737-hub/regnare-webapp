@@ -41,11 +41,11 @@ function bulkDeleteTargets(entries, keepCriticism) {
 }
 
 // 見たくないコメントをまとめてYouTubeから削除する確認画面。YouTubeの開発者ポリシー(利用者が知った
-// うえで同意し、最終的な権限を持つこと)に沿うよう、元に戻せないことを明示し、消える対象を
-// 開いて確かめられるようにする。件数は出さない(何件来ているか自体が気になってしまうため)。
+// うえで同意し、最終的な権限を持つこと)に沿うよう、元に戻せないことを明示する。消える対象は
+// 「見たくないコメント」のタブに並んでいるもので、押す前にタブ内の「本文を見る」で確かめられる。
+// 件数は出さない(何件来ているか自体が気になってしまうため)。
 function BulkDeleteDialog({ entries, onCancel, onConfirm }) {
   const [keepCriticism, setKeepCriticism] = useState(true);
-  const [showTargets, setShowTargets] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const targets = bulkDeleteTargets(entries, keepCriticism);
 
@@ -83,19 +83,6 @@ function BulkDeleteDialog({ entries, onCancel, onConfirm }) {
             <small>動画を良くするヒントになる指摘を、うっかり消さないためのものです。自分で隠したコメントは削除されます。</small>
           </span>
         </label>
-        <button type="button" className="dialog-link" onClick={() => setShowTargets((v) => !v)}>
-          {showTargets ? "削除されるコメントを隠す" : "削除されるコメントを確認する"}
-        </button>
-        {showTargets && (
-          <ul className="dialog-targets">
-            {targets.map((e) => (
-              <li key={e.comment.comment_id}>
-                <span className="dialog-target-author">{e.comment.author}</span>
-                {e.comment.text}
-              </li>
-            ))}
-          </ul>
-        )}
         {targets.length === 0 && <p className="dialog-note">この条件で削除されるコメントはありません。</p>}
         <div className="dialog-actions">
           <button type="button" className="btn-secondary" disabled={deleting} onClick={onCancel}>
