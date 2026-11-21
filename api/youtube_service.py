@@ -154,6 +154,40 @@ def delete_comment_on_youtube(credentials: Credentials, comment_id: str) -> None
     )
 
 
+# setModerationStatusは1回の呼び出しで最大50件まで指定できる(料金は呼び出し1回につき50ユニット)
+MODERATION_BATCH_SIZE = 50
+
+
+def delete_comments_on_youtube(credentials: Credentials, comment_ids: list[str]) -> tuple[list[str], list[str]]:
+    """複数のコメントをまとめてYouTube上から削除する。(削除できたid, できなかったid)を返す。
+    ユーザーが一括削除ボタンを押し、確認画面でもう一度同意した場合にのみ呼び出される
+    (AIの判定だけで自動実行は一切しない)。rejectedにしたコメントは公開に戻せない。
+    投稿者がすでに消したコメントが1件でも混ざると、その50件の呼び出しごと失敗するため、
+    失敗したまとまりだけ1件ずつやり直す。"""
+    service = build_youtube_service(credentials)
+    deleted: list[str] = []
+    failed: list[str] = []
+    for i in range(0, len(comment_ids), MODERATION_BATCH_SIZE):
+        chunk = comment_ids[i : i + MODERATION_BATCH_SIZE]
+        try:
+            execute_with_retry(
+                service.comments().setModerationStatus(id=",".join(chunk), moderationStatus="rejected")
+            )
+            deleted.extend(chunk)
+            continue
+        except Exception:
+            print(f"[delete_bulk] {len(chunk)}件まとめての削除に失敗。1件ずつやり直す", flush=True)
+        for comment_id in chunk:
+            try:
+                execute_with_retry(
+                    service.comments().setModerationStatus(id=comment_id, moderationStatus="rejected")
+                )
+                deleted.append(comment_id)
+            except Exception:
+                failed.append(comment_id)
+    return deleted, failed
+
+
 def reply_to_comment(credentials: Credentials, comment_id: str, text: str) -> dict:
     """トップレベルコメントに返信する。parentIdには返信先のトップレベルコメントIDを渡す
     (YouTube Data APIの仕様上、返信は常にスレッドの最上位コメントにぶら下がる)。
