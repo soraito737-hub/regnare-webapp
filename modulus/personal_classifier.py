@@ -232,6 +232,69 @@ emergency=該当なしとし、tatemae_pattern=脅迫と対象のカテゴリで
 {{"category": ["...", "..."], "surface_level": 1または2, "tatemae_pattern": "...", "emergency": "...", "reasoning": "簡潔な判定理由"}}"""
 
 
+# ============ まとめて判定するときのプロンプト ============
+# 判定ルール(SYSTEM_PROMPTの前半)は1件ずつのときと全く同じ。答えの書き方だけを番号にする。
+# AIは答えを1文字ずつ書くので、書く量が待ち時間と料金をほぼ決める。日本語の値や判定理由を
+# 書かせず番号にすると、200件(25件×8回を同時)で約34秒→約4秒、料金は約1/16になった
+# (テスト用200件で、1件ずつの判定どうしのぶれ(17.5%)と同程度の一致、緊急の見逃し0件)。
+# 10件・5件ずつに細かくすると、ほぼ速くならないのに緊急の見逃しが出たため25件にしている。
+BATCH_SIZE = 25
+
+_CATEGORY_CODES = {str(i + 1): c for i, c in enumerate(Category)}
+_PATTERN_CODES = {str(i + 1): p for i, p in enumerate(TatemaePattern)}
+_EMERGENCY_CODES = {str(i + 1): e for i, e in enumerate(EmergencyType)}
+
+
+def _code_table(name: str, codes: dict) -> str:
+    return f"{name}: " + " / ".join(f"{k}={v.value}" for k, v in codes.items())
+
+
+BATCH_SYSTEM_PROMPT = SYSTEM_PROMPT.split("必ず以下のJSON形式のみで回答してください")[0] + f"""【出力形式】入力は番号付きの複数コメントです。各コメントを他のコメントに影響されず独立に判定し、
+1コメントにつき1要素の配列 [番号, "カテゴリ番号(複数なら連結。例 12)", surface_level, 文脈番号, 緊急番号] を、
+全件分まとめた配列で返すこと。1件も省略しないこと。説明文は不要。
+{_code_table("カテゴリ番号", _CATEGORY_CODES)}
+{_code_table("文脈番号", _PATTERN_CODES)}
+{_code_table("緊急番号", _EMERGENCY_CODES)}
+例: [[0,"1",2,2,5],[1,"6",1,7,5]]"""
+
+
+def _parse_compact(raw_text: str, n: int) -> list["CommentJudgment | None"]:
+    """番号の答えを判定結果に戻す。少しでも読めない値があるコメントはNone(1件ずつでやり直す)。"""
+    import json
+
+    results: list[CommentJudgment | None] = [None] * n
+    try:
+        data = json.loads(raw_text)
+    except (json.JSONDecodeError, TypeError):
+        return results
+    if not isinstance(data, list):
+        return results
+    for item in data:
+        try:
+            idx, cats, level, pattern, emergency = item
+            idx = int(idx)
+            if not 0 <= idx < n or int(level) not in (1, 2):
+                continue
+            categories = []
+            for ch in str(cats):
+                cat = _CATEGORY_CODES[ch]  # 知らない番号ならKeyErrorで、このコメントを捨てる
+                if cat not in categories:
+                    categories.append(cat)
+            if not categories:
+                continue
+            results[idx] = CommentJudgment(
+                comment_id=str(idx),
+                categories=categories,
+                surface_level=SurfaceLevel(int(level)),
+                tatemae_pattern=_PATTERN_CODES[str(pattern)],
+                emergency=_EMERGENCY_CODES[str(emergency)],
+                reasoning="",
+            )
+        except (ValueError, TypeError, KeyError):
+            continue
+    return results
+
+
 class PersonalJudgmentClassifier:
     """4次元(category/surface_level/tatemae_pattern/emergency)を1回のAPI呼び出しで判定する。"""
 
@@ -240,20 +303,30 @@ class PersonalJudgmentClassifier:
         self.model = model
 
     def classify(self, comment: str, comment_id: str = "", max_retries: int = 5) -> CommentJudgment:
+        prompt = f"{SYSTEM_PROMPT}\n\n【入力コメント】\n{comment}"
+        response = self._generate(prompt, max_retries=max_retries)
+        return self._parse(comment_id, comment, response.text)
+
+    def classify_many(self, comments: list[str], max_retries: int = 5) -> list[CommentJudgment | None]:
+        """最大BATCH_SIZE件を1回の呼び出しでまとめて判定する(番号で答えさせる)。
+        読み取れなかったコメントはNoneにするので、呼び出し側でclassifyでやり直すこと。"""
+        body = "【入力コメント】\n" + "\n".join(f"{i}: {c}" for i, c in enumerate(comments))
+        response = self._generate(body, system_instruction=BATCH_SYSTEM_PROMPT, max_retries=max_retries)
+        return _parse_compact(response.text, len(comments))
+
+    def _generate(self, contents: str, system_instruction: str | None = None, max_retries: int = 5):
         import time
 
         import httpx
         from google.genai import errors
 
-        prompt = f"{SYSTEM_PROMPT}\n\n【入力コメント】\n{comment}"
-
-        response = None
         for attempt in range(max_retries):
             try:
-                response = self.client.models.generate_content(
+                return self.client.models.generate_content(
                     model=self.model,
-                    contents=prompt,
+                    contents=contents,
                     config=types.GenerateContentConfig(
+                        system_instruction=system_instruction,
                         temperature=0,
                         response_mime_type="application/json",
                         # 思考を控えめにする(既定より1件あたり約4.5秒→約3秒、思考トークン分の料金も減る)。
@@ -261,7 +334,6 @@ class PersonalJudgmentClassifier:
                         thinking_config=types.ThinkingConfig(thinking_level="low"),
                     ),
                 )
-                break
             except errors.ClientError as e:
                 if e.code == 429 and attempt < max_retries - 1:
                     time.sleep(15 * (attempt + 1))
@@ -277,8 +349,6 @@ class PersonalJudgmentClassifier:
                     time.sleep(5 * (attempt + 1))
                     continue
                 raise
-
-        return self._parse(comment_id, comment, response.text)
 
     def _parse(self, comment_id: str, comment: str, raw_text: str) -> CommentJudgment:
         import json

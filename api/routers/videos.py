@@ -6,7 +6,7 @@ FastAPI用に「リクエスト単位」で呼び出せる形にしたもの。
 """
 import sys
 import traceback
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "modulus"))
@@ -15,7 +15,7 @@ from fastapi import APIRouter, HTTPException, Request  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
 from personal_classifier import (  # noqa: E402
-    Category, CommentJudgment, EmergencyType, PersonalJudgmentClassifier, SurfaceLevel, TatemaePattern,
+    BATCH_SIZE, Category, CommentJudgment, EmergencyType, PersonalJudgmentClassifier, SurfaceLevel, TatemaePattern,
 )
 from personal_profile import (  # noqa: E402
     DisplayAction, PersonalAction, PersonalSimilarityList,
@@ -144,17 +144,55 @@ def get_videos(request: Request, page_token: str | None = None):
     return {"videos": videos, "next_page_token": next_token}
 
 
-def _process_single_comment(comment: dict, channel_id: str, profile) -> dict:
-    judgment = get_classifier().classify(comment["text"])
+def _judge_comments(texts: list[str]) -> list[CommentJudgment | None]:
+    """AI判定。BATCH_SIZE件ずつまとめて全部を同時に送り、まとめた答えから読み取れなかった
+    コメントだけ1件ずつ判定し直す。それでも失敗したコメントはNone。"""
+    classifier = get_classifier()
+    batches = [list(range(i, min(i + BATCH_SIZE, len(texts)))) for i in range(0, len(texts), BATCH_SIZE)]
+    results: list[CommentJudgment | None] = [None] * len(texts)
+    if not batches:
+        return results
 
+    def _run_batch(idxs: list[int]) -> list[CommentJudgment | None]:
+        try:
+            return classifier.classify_many([texts[i] for i in idxs])
+        except Exception:
+            print(f"[process_video] まとめた判定に失敗({len(idxs)}件)。1件ずつやり直す", flush=True)
+            traceback.print_exc()
+            return [None] * len(idxs)
+
+    with ThreadPoolExecutor(max_workers=min(len(batches), 20)) as executor:
+        for idxs, judged in zip(batches, executor.map(_run_batch, batches)):
+            for i, j in zip(idxs, judged):
+                results[i] = j
+
+    retry = [i for i, j in enumerate(results) if j is None]
+    if retry:
+        print(f"[process_video] まとめた判定で読み取れなかった{len(retry)}件を1件ずつ判定", flush=True)
+
+        def _run_single(i: int) -> CommentJudgment | None:
+            try:
+                return classifier.classify(texts[i])
+            except Exception:
+                print(f"[process_video] 判定失敗 index={i}", flush=True)
+                traceback.print_exc()
+                return None
+
+        with ThreadPoolExecutor(max_workers=min(len(retry), 20)) as executor:
+            for i, j in zip(retry, executor.map(_run_single, retry)):
+                results[i] = j
+    return results
+
+
+def _build_entry(comment: dict, judgment: CommentJudgment, similarity, profile) -> dict:
+    """similarityは (一致したマークのaction, 一致度, マークid)。緊急のコメントでは使わない。"""
     matched_mark_id = None
     if is_emergency(judgment):
         display = DisplayAction(hide=True, reason="emergency")
         sim_score = 0.0
         tab = "privacy"
     else:
-        similarity_list = get_similarity_list()
-        matched_action, sim_score, matched_mark_id = similarity_list.check_similarity(channel_id, comment["text"])
+        matched_action, sim_score, matched_mark_id = similarity
         display = resolve_display_action(judgment, profile, similarity_action=matched_action)
         tab = "hidden_regskip" if display.hide else "new"
 
@@ -219,28 +257,39 @@ def process_video(video_id: str, request: Request):
     # 判定に失敗したコメント(Gemini APIの残高切れ・障害など)は今回だけ非表示扱いにし、
     # キャッシュには保存しない。保存すると、復旧後も二度と判定し直されなくなるため。
     failed: dict[str, dict] = {}
+
+    def _mark_failed(c: dict) -> None:
+        # 原因はRenderのLogsで確かめられるように残してある(コメント本文は出さない)
+        failed[c["comment_id"]] = {
+            "comment": c,
+            "judgment": None,
+            "similarity_score": 0.0,
+            "tab": "hidden_regskip",
+            "reason": "error",
+            "matched_mark_id": None,
+            "own_mark_id": None,
+        }
+
     if to_process:
-        with ThreadPoolExecutor(max_workers=20) as executor:
-            future_to_comment = {
-                executor.submit(_process_single_comment, c, channel_id, profile): c for c in to_process
-            }
-            for future in as_completed(future_to_comment):
-                c = future_to_comment[future]
-                try:
-                    cache[c["comment_id"]] = future.result()
-                except Exception:
-                    # 原因をRenderのLogsで確かめられるように残す(コメント本文は出さない)
-                    print(f"[process_video] 判定失敗 comment_id={c['comment_id']}", flush=True)
-                    traceback.print_exc()
-                    failed[c["comment_id"]] = {
-                        "comment": c,
-                        "judgment": None,
-                        "similarity_score": 0.0,
-                        "tab": "hidden_regskip",
-                        "reason": "error",
-                        "matched_mark_id": None,
-                        "own_mark_id": None,
-                    }
+        texts = [c["text"] for c in to_process]
+        # AI判定と、過去のマークとの類似度は互いの結果を使わないので、同時に走らせて
+        # 待ち時間を長い方の1つ分にする(類似度は緊急のコメントでは使わないが、待たないために全件調べる)
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            similarity_future = executor.submit(get_similarity_list().check_similarity_many, channel_id, texts)
+            judgments = _judge_comments(texts)
+            try:
+                similarities = similarity_future.result()
+            except Exception:
+                print(f"[process_video] 類似度の確認に失敗({len(texts)}件)", flush=True)
+                traceback.print_exc()
+                similarities = None
+
+        for i, (c, j) in enumerate(zip(to_process, judgments)):
+            if j is None or (similarities is None and not is_emergency(j)):
+                _mark_failed(c)
+                continue
+            similarity = similarities[i] if similarities is not None else None
+            cache[c["comment_id"]] = _build_entry(c, j, similarity, profile)
     save_comment_cache(channel_id, cache)
 
     tabs: dict[str, list] = {"new": [], "hidden_regskip": [], "privacy": []}
