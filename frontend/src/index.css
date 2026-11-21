@@ -1923,40 +1923,6 @@ p {
   font-size: 0.8rem;
   line-height: 1.5;
 }
-.dialog-link {
-  align-self: flex-start;
-  background: none;
-  border: none;
-  padding: 0;
-  color: var(--accent);
-  font-size: 0.85rem;
-  text-decoration: underline;
-  cursor: pointer;
-}
-.dialog-targets {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  max-height: 240px;
-  overflow-y: auto;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-}
-.dialog-targets li {
-  padding: 0.55rem 0.75rem;
-  font-size: 0.82rem;
-  line-height: 1.5;
-  border-bottom: 1px solid var(--border-soft);
-  overflow-wrap: anywhere;
-}
-.dialog-targets li:last-child {
-  border-bottom: none;
-}
-.dialog-target-author {
-  display: block;
-  font-size: 0.75rem;
-  color: var(--text-faint);
-}
 .dialog-note {
   margin: 0;
   font-size: 0.85rem;
