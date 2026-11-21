@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import { wasConnected } from "../api.js";
 import Header from "../components/Header.jsx";
 import diagnosticData from "../diagnosticData.json";
 import { CATEGORIES } from "../patternData.js";
@@ -441,7 +442,7 @@ export function DiagnosisResultPage() {
           <p>まだ診断結果がありません。</p>
         </div>
         <div className="footer-bar">
-          <button className="btn-primary" style={{ width: "100%" }} onClick={() => navigate("/")}>
+          <button className="btn-primary" style={{ width: "100%" }} onClick={() => navigate("/", { state: { restart: true } })}>
             診断をはじめる
           </button>
         </div>
@@ -452,7 +453,7 @@ export function DiagnosisResultPage() {
   return (
     <DiagnosisResults
       itemResults={itemResults}
-      onNext={() => navigate("/")}
+      onNext={() => navigate("/", { state: { restart: true } })}
       footerLabel="もう一度診断する"
       showBackHeader
     />
@@ -461,6 +462,9 @@ export function DiagnosisResultPage() {
 
 export default function Diagnosis() {
   const navigate = useNavigate();
+  const location = useLocation();
+  // 接続済みの人は動画一覧から始める(「もう一度診断する」から来たときだけ診断を見せる)
+  const skipToHome = !location.state?.restart && wasConnected();
   const [stage, setStage] = useState("splash"); // splash | explain | start | step1 | quiz | results
   const [selectedStep1, setSelectedStep1] = useState(() => new Set());
   const [queue, setQueue] = useState([]); // 選んだ STEP1_ITEMS の配列(1項目=1問)
@@ -570,6 +574,10 @@ export default function Diagnosis() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  if (skipToHome) {
+    return <Navigate to="/home" replace />;
+  }
 
   if (stage === "splash") {
     return <Splash onDone={() => setStage("explain")} />;

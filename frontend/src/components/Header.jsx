@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api } from "../api.js";
+import { api, setConnected } from "../api.js";
 
 // アカウントアイコンは、ページごとに出たり出なかったりしないよう、
 // Header自身がログイン状態を見て「ログイン中なら常に表示する」ようにする。
@@ -37,6 +37,7 @@ export default function Header({ showBack = false, onBack, showMenu = false, onM
 
   const handleLogout = async () => {
     setMenuOpen(false);
+    setConnected(false);
     try {
       await api.logout();
     } finally {
