@@ -115,7 +115,7 @@ export function PrivacyBody() {
         </p>
         <p>上記以外の目的で、取得した情報を第三者に販売・提供することはありません。</p>
         <p>
-          また、本サービス自身の機能の改善以外の目的で、取得した情報を集計・匿名化したデータを作成することはなく、それを第三者に提供することもありません。広告(ターゲティング広告を含む)、データブローカーへの提供、与信判断、AIモデルの学習などに利用することもありません。
+          また、取得した情報を集計・匿名化したデータを作成して利用・提供することはなく、広告(ターゲティング広告を含む)、データブローカーへの提供、与信判断、AIモデルの学習などに利用することもありません。
         </p>
       </section>
       <section>
@@ -127,7 +127,6 @@ export function PrivacyBody() {
         <ul>
           <li>不具合の調査や、ユーザーからのお問い合わせへの対応に必要な場合(必要な範囲に限ります)</li>
           <li>法令に基づく要請があった場合</li>
-          <li>ユーザーが事前に個別に同意した分析(例:試験利用におけるAIの判定精度の確認)を行う場合</li>
         </ul>
       </section>
       <section>
@@ -259,10 +258,9 @@ export function PrivacyBodyEn() {
           data with any other party.
         </p>
         <p>
-          We do not create aggregated or anonymized data from Google user data for any purpose other than improving
-          Regskip's own features, and we never share such data. We never sell or transfer Google user data, and never use
-          it for advertising (including targeted ads), data brokers, credit or lending decisions, or to train AI/ML
-          models.
+          We do not create or share aggregated or anonymized data from Google user data. We never sell or transfer Google
+          user data, and never use it for advertising (including targeted ads), data brokers, credit or lending decisions,
+          or to train AI/ML models.
         </p>
       </section>
       <section>
@@ -275,10 +273,6 @@ export function PrivacyBodyEn() {
         <ul>
           <li>To investigate a bug or respond to your request (limited to what is necessary)</li>
           <li>To comply with the law</li>
-          <li>
-            For an analysis you have explicitly agreed to in advance (e.g. checking AI classification accuracy during a
-            trial)
-          </li>
         </ul>
       </section>
       <section>
