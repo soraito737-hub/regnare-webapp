@@ -5,7 +5,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 sys.path.insert(0, str(Path(__file__).parent.parent / "modulus"))
 
-from fastapi import FastAPI  # noqa: E402
+from fastapi import FastAPI, Request  # noqa: E402
+from fastapi.responses import JSONResponse  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from starlette.middleware.sessions import SessionMiddleware  # noqa: E402
 
@@ -26,6 +27,22 @@ app = FastAPI(title="Regskip API")
 def _start_retention_cleanup():
     # YouTubeのデータの30日ルール。Regskipを開かない利用者の分も消えるよう、起動時と毎日点検する
     start_cleanup_thread()
+
+_SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
+_ALLOWED_ORIGIN = FRONTEND_URL.rstrip("/")
+
+
+@app.middleware("http")
+async def _reject_cross_site_writes(request: Request, call_next):
+    """CSRF対策。ほかのサイトがログイン中の利用者のブラウザを使って、削除・返信・ブロックなどを
+    勝手に送らせるのを防ぐ。ブラウザはサイトをまたぐPOST等に必ずOriginを付けるので、
+    Regskipの画面以外のOriginなら断る(Originのないcurl等は利用者のCookieを持たないので通す)。"""
+    if request.method not in _SAFE_METHODS:
+        origin = request.headers.get("origin")
+        if origin is not None and origin.rstrip("/") != _ALLOWED_ORIGIN:
+            return JSONResponse({"detail": "許可されていない送信元です"}, status_code=403)
+    return await call_next(request)
+
 
 app.add_middleware(
     SessionMiddleware,
