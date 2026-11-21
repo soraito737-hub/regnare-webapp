@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { wasConnected } from "../api.js";
 import Header from "../components/Header.jsx";
 import diagnosticData from "../diagnosticData.json";
@@ -575,12 +575,11 @@ export default function Diagnosis() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (skipToHome) {
-    return <Navigate to="/home" replace />;
-  }
-
   if (stage === "splash") {
-    return <Splash onDone={() => setStage("explain")} />;
+    // 接続済みの人も起動の表紙(Regskipのロゴ)は見せてから、動画一覧へ進む
+    return (
+      <Splash onDone={() => (skipToHome ? navigate("/home", { replace: true }) : setStage("explain"))} />
+    );
   }
 
   if (stage === "explain") {
