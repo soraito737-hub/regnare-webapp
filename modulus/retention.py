@@ -15,7 +15,7 @@ import time
 import traceback
 from datetime import datetime, timedelta, timezone
 
-from json_store import list_names, load_json, save_json
+from json_store import encrypt_plaintext_rows, list_names, load_json, save_json
 
 RETENTION_DAYS = 30
 CLEANUP_INTERVAL_SECONDS = 24 * 60 * 60
@@ -67,6 +67,13 @@ def cleanup_expired() -> None:
 
 
 def _loop() -> None:
+    try:
+        n = encrypt_plaintext_rows()
+        if n:
+            print(f"[encryption] 平文で保存されていた{n}件を暗号化", flush=True)
+    except Exception:
+        print("[encryption] 平文データの暗号化に失敗", flush=True)
+        traceback.print_exc()
     while True:
         try:
             cleanup_expired()

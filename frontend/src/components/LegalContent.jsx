@@ -110,16 +110,25 @@ export function PrivacyBody() {
         <p>
           コメントの分類処理のため、コメント本文をGoogleのGemini API(有料APIプラン)に送信します。有料APIプランの利用規約上、送信されたデータはGoogleのAIモデルの学習には使用されません。
         </p>
+        <p>
+          保存するデータ(コメント本文、判定結果、設定など)は、データベースサービスのNeon(Neon, Inc.)に、暗号化したうえで保管します。Neonは保管のためだけに使い、Neonが内容を読むことはできません。
+        </p>
         <p>上記以外の目的で、取得した情報を第三者に販売・提供することはありません。</p>
         <p>
-          また、取得した情報を集計・匿名化したデータを作成して利用・提供することはなく、広告(ターゲティング広告を含む)、データブローカーへの提供、与信判断、AIモデルの学習などに利用することもありません。
+          また、本サービス自身の機能の改善以外の目的で、取得した情報を集計・匿名化したデータを作成することはなく、それを第三者に提供することもありません。広告(ターゲティング広告を含む)、データブローカーへの提供、与信判断、AIモデルの学習などに利用することもありません。
         </p>
       </section>
       <section>
         <h2>4. 運営者による閲覧について</h2>
         <p>
-          本サービスは、通常の運用において運営者(人間)がコメント内容を個別に閲覧する必要がない設計になっています。ただし、不具合の調査、お問い合わせへの対応、法令に基づく要請があった場合など、やむを得ない事情がある場合には、必要な範囲でデータにアクセスすることがあります。
+          本サービスは、通常の運用において運営者(人間)がコメント内容を個別に閲覧する必要がない設計になっています。保存されたコメント本文・判定結果は暗号化されており、データベースを直接開いても内容は読めません。
         </p>
+        <p>運営者がデータを復号して内容を確認するのは、以下の場合に限ります。</p>
+        <ul>
+          <li>不具合の調査や、ユーザーからのお問い合わせへの対応に必要な場合(必要な範囲に限ります)</li>
+          <li>法令に基づく要請があった場合</li>
+          <li>ユーザーが事前に個別に同意した分析(例:試験利用におけるAIの判定精度の確認)を行う場合</li>
+        </ul>
       </section>
       <section>
         <h2>5. データの保護(セキュリティ対策)</h2>
@@ -130,6 +139,9 @@ export function PrivacyBody() {
           </li>
           <li>
             <strong>認証情報の暗号化</strong>:Googleのアクセストークン・リフレッシュトークンは、AES方式で暗号化したうえで、ユーザーのブラウザのCookie(HttpOnly・Secure属性付き)にのみ保存し、本サービスのサーバーやデータベースには保存しません。暗号化の鍵はサーバー側だけで管理しており、Cookieの中身を第三者が読み取ったり改ざんしたりすることはできません。
+          </li>
+          <li>
+            <strong>保存データの暗号化</strong>:コメント本文・投稿者情報・判定結果・設定などの保存データは、AES方式で暗号化してからデータベースに保存します。暗号化の鍵はデータベースとは別に、サーバー側(ホスティング事業者Renderの環境変数)だけで管理しています。
           </li>
           <li>
             <strong>パスワードを扱わない</strong>:ログインはGoogleの認証(OAuth 2.0)で行うため、本サービスがユーザーのGoogleアカウントのパスワードを受け取ったり保存したりすることはありません。
@@ -151,7 +163,7 @@ export function PrivacyBody() {
       <section>
         <h2>6. データの保存期間</h2>
         <p>
-          YouTube Data APIを通じて取得したコメント本文・投稿者情報等は、YouTube API Services利用規約に基づき、取得から30日以内にAPIから再取得(リフレッシュ)するか、削除します。
+          YouTube Data APIを通じて取得したコメント本文・投稿者情報等は、YouTube API Services利用規約に基づき、取得から30日以内にAPIから再取得(リフレッシュ)するか、削除します。30日間再取得されなかったデータ(それに基づく判定結果を含みます)は、自動的に削除されます。
         </p>
         <p>
           一方、ユーザー自身が設定した「見たくないコメント」の基準・判断記録など、YouTube API由来ではない情報については、本サービスの利用を継続する間保存されます。
@@ -239,20 +251,35 @@ export function PrivacyBodyEn() {
         <h2>3. Data sharing and transfer</h2>
         <p>
           To classify comments, comment text is sent to Google's Gemini API (paid plan). Under the paid plan's terms,
-          this data is not used to train Google's AI models. Regskip does not share Google user data with any other party.
+          this data is not used to train Google's AI models.
         </p>
         <p>
-          We do not create or share aggregated or anonymized data from Google user data. We never sell or transfer Google
-          user data, and never use it for advertising (including targeted ads), data brokers, credit or lending decisions,
-          or to train AI/ML models.
+          Stored data (comment text, classification results, settings) is kept encrypted in the database service Neon
+          (Neon, Inc.). Neon is used only for storage and cannot read the contents. Regskip does not share Google user
+          data with any other party.
+        </p>
+        <p>
+          We do not create aggregated or anonymized data from Google user data for any purpose other than improving
+          Regskip's own features, and we never share such data. We never sell or transfer Google user data, and never use
+          it for advertising (including targeted ads), data brokers, credit or lending decisions, or to train AI/ML
+          models.
         </p>
       </section>
       <section>
         <h2>4. Human access</h2>
         <p>
-          Regskip is designed so that no person needs to read your comments. The operator accesses data only when
-          necessary to investigate a bug, respond to your request, or comply with the law.
+          Regskip is designed so that no person needs to read your comments. Stored comment text and classification
+          results are encrypted, so they cannot be read by opening the database directly.
         </p>
+        <p>The operator decrypts and reads data only in the following cases:</p>
+        <ul>
+          <li>To investigate a bug or respond to your request (limited to what is necessary)</li>
+          <li>To comply with the law</li>
+          <li>
+            For an analysis you have explicitly agreed to in advance (e.g. checking AI classification accuracy during a
+            trial)
+          </li>
+        </ul>
       </section>
       <section>
         <h2>5. Data protection</h2>
@@ -261,6 +288,11 @@ export function PrivacyBodyEn() {
           <li>
             Google access and refresh tokens are encrypted with AES and stored only in an HttpOnly, Secure cookie in your
             browser. They are never stored on our server or in a database. The encryption key exists only on the server.
+          </li>
+          <li>
+            Stored data such as comment text, author information, classification results, and settings is encrypted with
+            AES before it is saved to the database. The encryption key is kept separately from the database, only on the
+            server (in the hosting provider's (Render) environment variables).
           </li>
           <li>Sign-in uses Google OAuth 2.0, so Regskip never receives or stores your Google password.</li>
           <li>
@@ -278,7 +310,8 @@ export function PrivacyBodyEn() {
         <h2>6. Data retention and deletion</h2>
         <p>
           Comment text and author information obtained through the YouTube Data API are deleted or refreshed from the
-          API within 30 days of retrieval, as required by the YouTube API Services Terms.
+          API within 30 days of retrieval, as required by the YouTube API Services Terms. Data that has not been refreshed
+          for 30 days (including classification results based on it) is deleted automatically.
         </p>
         <p>
           Your own settings and decisions (not YouTube API data) are kept while you use the service. You can ask us to
