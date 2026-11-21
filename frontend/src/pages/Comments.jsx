@@ -487,7 +487,7 @@ export default function Comments() {
           let count = null;
           if (tab.key === "flagged") count = data.flagged_authors.length;
           else if (tab.key === "new") count = data.tabs.new.length + data.tabs.privacy.length;
-          else if (tab.key === "hidden") count = data.tabs.hidden_regskip.length;
+          // 見たくないコメントは件数も見せない(「何件来ているか」自体が気になってしまうため)
           return (
             <button
               key={tab.key}

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header.jsx";
-import { api } from "../api.js";
+import { api, setConnected } from "../api.js";
 import { formatCount, formatDate } from "../format.js";
 import { getSeenCount, hasSeenRecord, markSeen } from "../videoCache.js";
 
@@ -28,9 +28,11 @@ export default function Home() {
       try {
         const me = await api.getMe();
         if (!me.logged_in) {
+          setConnected(false);
           navigate("/settings");
           return;
         }
+        setConnected(true);
 
         const pending = localStorage.getItem("pendingProfile");
         if (pending) {

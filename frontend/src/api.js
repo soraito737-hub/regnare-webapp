@@ -54,3 +54,26 @@ export const api = {
   restoreComment: (commentId, note = "") =>
     request(`/api/comments/${commentId}/restore`, { method: "POST", body: JSON.stringify({ note }) }),
 };
+
+// 一度YouTubeと接続した人は、次からツール説明(Diagnosis)を飛ばして動画一覧から始める。
+// ログイン状態の確認(getMe)はRenderの起動待ちで数十秒かかることがあるので、
+// 最初の画面ではブラウザに残した印だけで判断する。本当にログイン中かはHome側で確かめ、
+// 切れていればそこで印を消して初期設定に戻す。
+const CONNECTED_KEY = "regskipConnected";
+
+export function setConnected(connected) {
+  try {
+    if (connected) localStorage.setItem(CONNECTED_KEY, "1");
+    else localStorage.removeItem(CONNECTED_KEY);
+  } catch {
+    // ブラウザの保存領域が使えないときは、毎回ツール説明から始めるだけ
+  }
+}
+
+export function wasConnected() {
+  try {
+    return localStorage.getItem(CONNECTED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
