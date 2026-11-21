@@ -29,6 +29,92 @@ function confirmYoutubeDelete(action) {
   if (window.confirm(YOUTUBE_DELETE_CONFIRM)) action();
 }
 
+// 一括削除の対象。AI判定に失敗したもの(中身が分からない)は含めない。
+// keepCriticism=trueなら、AIが「批判」(侮蔑語・命令形を含まない、レベル1)とした分は残す。
+// 自分でボタンを押して隠したもの(manual)は、本人がすでに選んだので常に対象にする。
+function bulkDeleteTargets(entries, keepCriticism) {
+  return entries.filter((e) => {
+    if (e.reason === "error" || !e.judgment) return e.reason === "manual";
+    if (e.reason === "manual") return true;
+    return !keepCriticism || e.judgment.surface_level === 2;
+  });
+}
+
+// 見たくないコメントをまとめてYouTubeから削除する確認画面。YouTubeの開発者ポリシー(利用者が知った
+// うえで同意し、最終的な権限を持つこと)に沿うよう、元に戻せないことを明示し、消える対象を
+// 開いて確かめられるようにする。件数は出さない(何件来ているか自体が気になってしまうため)。
+function BulkDeleteDialog({ entries, onCancel, onConfirm }) {
+  const [keepCriticism, setKeepCriticism] = useState(true);
+  const [showTargets, setShowTargets] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const targets = bulkDeleteTargets(entries, keepCriticism);
+
+  const submit = async () => {
+    setDeleting(true);
+    try {
+      await onConfirm(targets);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <div className="dialog-backdrop" role="presentation" onClick={deleting ? undefined : onCancel}>
+      <div
+        className="card dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="bulk-delete-title"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 id="bulk-delete-title">見たくないコメントをYouTubeから削除</h2>
+        <p className="dialog-warning">
+          YouTube上からコメントを削除します。<strong>削除したコメントは元に戻せません。</strong>
+        </p>
+        <label className="dialog-check" htmlFor="bulk-keep-criticism">
+          <input
+            id="bulk-keep-criticism"
+            type="checkbox"
+            checked={keepCriticism}
+            onChange={(e) => setKeepCriticism(e.target.checked)}
+          />
+          <span>
+            強い言葉を含まない「批判」は残す
+            <small>動画を良くするヒントになる指摘を、うっかり消さないためのものです。自分で隠したコメントは削除されます。</small>
+          </span>
+        </label>
+        <button type="button" className="dialog-link" onClick={() => setShowTargets((v) => !v)}>
+          {showTargets ? "削除されるコメントを隠す" : "削除されるコメントを確認する"}
+        </button>
+        {showTargets && (
+          <ul className="dialog-targets">
+            {targets.map((e) => (
+              <li key={e.comment.comment_id}>
+                <span className="dialog-target-author">{e.comment.author}</span>
+                {e.comment.text}
+              </li>
+            ))}
+          </ul>
+        )}
+        {targets.length === 0 && <p className="dialog-note">この条件で削除されるコメントはありません。</p>}
+        <div className="dialog-actions">
+          <button type="button" className="btn-secondary" disabled={deleting} onClick={onCancel}>
+            やめる
+          </button>
+          <button
+            type="button"
+            className="btn-primary btn-danger"
+            disabled={deleting || targets.length === 0}
+            onClick={submit}
+          >
+            {deleting ? "削除しています…" : "削除する"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // トップレベルのタブ。プライバシーは「新着」の中に統合して選べるようにする。
 const TABS = [
   { key: "new", label: "視聴者コメント" },
@@ -342,6 +428,8 @@ export default function Comments() {
   const [dismissed, setDismissed] = useState(() => new Set(dismissedAuthors));
   const [rephrased, setRephrased] = useState({});
   const [openMenuId, setOpenMenuId] = useState(null);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkNotice, setBulkNotice] = useState("");
 
   useEffect(() => {
     if (!video) {
@@ -425,6 +513,29 @@ export default function Comments() {
     const next = { ...data, tabs };
     setProcessed(videoId, next);
     setData(next);
+  };
+
+  const deleteYoutubeBulk = async (targets) => {
+    let result;
+    try {
+      result = await api.deleteCommentsOnYoutubeBulk(targets.map((e) => e.comment.comment_id));
+    } catch (err) {
+      alert(err.message);
+      return;
+    }
+    const deleted = new Set(result.deleted);
+    const tabs = Object.fromEntries(
+      Object.entries(data.tabs).map(([key, list]) => [key, list.filter((e) => !deleted.has(e.comment.comment_id))])
+    );
+    const next = { ...data, tabs };
+    setProcessed(videoId, next);
+    setData(next);
+    setBulkOpen(false);
+    setBulkNotice(
+      result.failed.length
+        ? "一部のコメントは削除できませんでした(投稿者がすでに消した可能性があります)。残ったコメントは一覧に表示しています。"
+        : "YouTubeから削除しました。"
+    );
   };
 
   const handleBan = async (commentId) => {
@@ -539,22 +650,37 @@ export default function Comments() {
           <div className="empty-state">視聴者コメントはありません</div>
         ))}
 
+      {activeTab === "hidden" && bulkNotice && <div className="new-tab-note">{bulkNotice}</div>}
       {activeTab === "hidden" &&
         (data.tabs.hidden_regskip.length ? (
-          data.tabs.hidden_regskip.map((entry) => (
-            <HiddenCommentCard
-              key={entry.comment.comment_id}
-              entry={entry}
-              rephrased={rephrased}
-              onRephrase={handleRephrase}
-              onRestore={restoreComment}
-              onDeleteYoutube={deleteYoutube}
-              onBan={handleBan}
-            />
-          ))
+          <>
+            <div className="bulk-delete-row">
+              <button type="button" className="btn-secondary" onClick={() => setBulkOpen(true)}>
+                まとめてYouTubeから削除する
+              </button>
+            </div>
+            {data.tabs.hidden_regskip.map((entry) => (
+              <HiddenCommentCard
+                key={entry.comment.comment_id}
+                entry={entry}
+                rephrased={rephrased}
+                onRephrase={handleRephrase}
+                onRestore={restoreComment}
+                onDeleteYoutube={deleteYoutube}
+                onBan={handleBan}
+              />
+            ))}
+          </>
         ) : (
           <div className="empty-state">見たくないコメントはありません</div>
         ))}
+      {bulkOpen && (
+        <BulkDeleteDialog
+          entries={data.tabs.hidden_regskip}
+          onCancel={() => setBulkOpen(false)}
+          onConfirm={deleteYoutubeBulk}
+        />
+      )}
 
       {activeTab === "flagged" &&
         (visibleFlagged.length ? (

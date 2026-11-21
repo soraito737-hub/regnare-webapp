@@ -40,6 +40,11 @@ export const api = {
     request(`/api/comments/${commentId}/mark`, { method: "POST", body: JSON.stringify(body) }),
   deleteCommentOnYoutube: (commentId) =>
     request(`/api/comments/${commentId}/delete-youtube`, { method: "POST" }),
+  deleteCommentsOnYoutubeBulk: (commentIds) =>
+    request("/api/comments/delete-youtube-bulk", {
+      method: "POST",
+      body: JSON.stringify({ comment_ids: commentIds }),
+    }),
   banAuthor: (commentId) => request(`/api/comments/${commentId}/ban`, { method: "POST" }),
   replyToComment: (commentId, text) =>
     request(`/api/comments/${commentId}/reply`, { method: "POST", body: JSON.stringify({ text }) }),

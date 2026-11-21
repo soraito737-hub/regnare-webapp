@@ -1852,3 +1852,119 @@ p {
     transform: translateY(0) scale(1);
   }
 }
+
+/* ===== 見たくないコメントの一括削除 ===== */
+.bulk-delete-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 1rem;
+}
+.btn-primary.btn-danger {
+  background: var(--warm);
+}
+.btn-primary.btn-danger:hover {
+  background: #8f3022;
+}
+.btn-primary.btn-danger:disabled {
+  background: var(--text-faint);
+}
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(20, 30, 25, 0.45);
+}
+.dialog {
+  width: 100%;
+  max-width: 480px;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  padding: 1.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  background: var(--surface);
+}
+.dialog h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  text-wrap: balance;
+}
+.dialog-warning {
+  margin: 0;
+  background: var(--warm-soft);
+  color: var(--warm);
+  border-radius: var(--radius-sm);
+  padding: 0.7rem 0.9rem;
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+.dialog-check {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.dialog-check input {
+  margin-top: 0.25rem;
+  accent-color: var(--accent);
+}
+.dialog-check small {
+  display: block;
+  margin-top: 0.2rem;
+  font-weight: 400;
+  color: var(--text-soft);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+.dialog-link {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent);
+  font-size: 0.85rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.dialog-targets {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 240px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.dialog-targets li {
+  padding: 0.55rem 0.75rem;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  border-bottom: 1px solid var(--border-soft);
+  overflow-wrap: anywhere;
+}
+.dialog-targets li:last-child {
+  border-bottom: none;
+}
+.dialog-target-author {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-faint);
+}
+.dialog-note {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-soft);
+}
+.dialog-actions {
+  display: flex;
+  gap: 0.6rem;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}

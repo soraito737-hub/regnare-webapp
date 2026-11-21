@@ -27,7 +27,7 @@ from config import GEMINI_API_KEY  # noqa: E402
 from profile_store import load_profile  # noqa: E402
 from routers.auth import get_credentials  # noqa: E402
 from youtube_service import (  # noqa: E402
-    MAX_COMMENTS_PER_VIDEO, ban_author_on_youtube, delete_comment_on_youtube,
+    MAX_COMMENTS_PER_VIDEO, ban_author_on_youtube, delete_comment_on_youtube, delete_comments_on_youtube,
     fetch_comments, get_video_details, list_channel_videos, reply_to_comment,
 )
 
@@ -395,6 +395,35 @@ def delete_comment_youtube(comment_id: str, request: Request):
     cache.pop(comment_id, None)
     save_comment_cache(channel_id, cache)
     return {"ok": True}
+
+
+MAX_BULK_DELETE = 500
+
+
+class BulkDeleteIn(BaseModel):
+    comment_ids: list[str]
+
+
+@router.post("/comments/delete-youtube-bulk")
+def delete_comments_youtube_bulk(body: BulkDeleteIn, request: Request):
+    """『見たくないコメント』をまとめてYouTube上から削除する。ユーザーが一括削除ボタンを押し、
+    確認画面(元に戻せないこと・対象を見られること)でもう一度同意した場合にのみ呼ばれる。
+    どのコメントを消すかはフロントでユーザーが確認した一覧をそのまま受け取り、AIの判定だけで
+    自動的に消すことはしない。"""
+    credentials, channel_id = _require_session(request)
+    ids = list(dict.fromkeys(body.comment_ids))  # 重複を除く(順番は保つ)
+    if not ids:
+        return {"deleted": [], "failed": []}
+    if len(ids) > MAX_BULK_DELETE:
+        raise HTTPException(status_code=400, detail=f"一度に削除できるのは{MAX_BULK_DELETE}件までです")
+    deleted, failed = delete_comments_on_youtube(credentials, ids)
+
+    if deleted:
+        cache = load_comment_cache(channel_id)
+        for comment_id in deleted:
+            cache.pop(comment_id, None)
+        save_comment_cache(channel_id, cache)
+    return {"deleted": deleted, "failed": failed}
 
 
 class RestoreIn(BaseModel):

@@ -22,7 +22,7 @@ export function TermsBody() {
           本サービスは、ユーザーが管理するYouTubeチャンネルに投稿されたコメントを取得し、AI(Gemini API)による自動分類と、ユーザー自身が設定した基準に基づいて、コメントの表示・非表示の整理を補助するものです。
         </p>
         <p>
-          YouTube上から実際にコメントを削除する操作は、ユーザー自身の明示的な操作(個別の「実行する」ボタンの押下および確認)によってのみ実行され、本サービスが自動的に削除を行うことはありません。
+          YouTube上から実際にコメントを削除する操作は、ユーザー自身の明示的な操作(コメントごとの削除ボタン、または「見たくないコメント」をまとめて削除するボタンの押下と、確認画面での同意)によってのみ実行され、本サービスがAIの判定だけで自動的に削除を行うことはありません。まとめて削除する場合も、削除前に対象のコメントを確認できます。
         </p>
       </section>
       <section>
@@ -240,8 +240,10 @@ export function PrivacyBodyEn() {
           <li>To classify comments with AI and sort them into "shown" and "hidden" lists inside Regskip</li>
           <li>To remember your own settings and decisions so the sorting fits you better (per user only)</li>
           <li>
-            To remove a comment from YouTube (comments.setModerationStatus) or post a reply (comments.insert) — only
-            when you explicitly press the button for that specific comment. Regskip never does this automatically.
+            To remove comments from YouTube (comments.setModerationStatus) or post a reply (comments.insert) — only
+            when you explicitly press the button (for a single comment, or to remove your "hidden" comments at once) and
+            confirm it. Before removing comments at once, you can review exactly which comments will be removed. Regskip
+            never does this automatically based on AI classification alone.
           </li>
           <li>To fix bugs and maintain the service</li>
         </ul>
