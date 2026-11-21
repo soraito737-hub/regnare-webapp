@@ -13,7 +13,7 @@ from typing import Optional
 
 from sklearn.metrics.pairwise import cosine_similarity
 
-from gemini_client import make_client, embed_text
+from gemini_client import embed_text, embed_texts, make_client
 from json_store import load_json, safe_name, save_json
 from retention import is_expired, now_iso
 from personal_classifier import Category, CommentJudgment, EmergencyType, SurfaceLevel, TatemaePattern
@@ -306,16 +306,26 @@ class PersonalSimilarityList:
         """一致した場合、原因のマークのidも返す(「元に戻す」で該当マークを育てるのに使う)。
         マークごとに必要な一致度(threshold)が違うことがあるため、まず各マーク自身の
         thresholdを満たしているかで絞り込み、満たしたものの中で一番近いものを採用する。"""
+        return self.check_similarity_many(user_id, [new_comment])[0]
+
+    def check_similarity_many(
+        self, user_id: str, new_comments: list[str]
+    ) -> list[tuple[Optional[PersonalAction], float, Optional[str]]]:
+        """check_similarityを複数件まとめて行う(埋め込みを1回の呼び出しで取る)。順番は入力と同じ。"""
         marks = self._load(user_id)
-        if not marks:
-            return None, 0.0, None
-        vec = embed_text(self._client, new_comment)
-        sims = cosine_similarity([vec], [m.embedding for m in marks])[0]
-        qualifying = [(i, float(s)) for i, s in enumerate(sims) if s >= marks[i].threshold]
-        if not qualifying:
-            return None, 0.0, None
-        idx, best_score = max(qualifying, key=lambda pair: pair[1])
-        return marks[idx].action, best_score, marks[idx].id
+        if not marks or not new_comments:
+            return [(None, 0.0, None)] * len(new_comments)
+        vecs = embed_texts(self._client, new_comments)
+        all_sims = cosine_similarity(vecs, [m.embedding for m in marks])
+        results = []
+        for sims in all_sims:
+            qualifying = [(i, float(s)) for i, s in enumerate(sims) if s >= marks[i].threshold]
+            if not qualifying:
+                results.append((None, 0.0, None))
+                continue
+            idx, best_score = max(qualifying, key=lambda pair: pair[1])
+            results.append((marks[idx].action, best_score, marks[idx].id))
+        return results
 
     # 「視聴者コメントに戻す」を押すたびに、このマークの必要一致度を段階的に上げる。
     # HIGH_SIMILARITY_THRESHOLDを上限にする(これを超えると本当の言い換えすら
