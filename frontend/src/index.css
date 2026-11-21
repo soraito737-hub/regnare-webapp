@@ -33,6 +33,9 @@ body,
 }
 
 body {
+  /* .headerの100vwはWindowsでは縦スクロールバーの幅も含むため、その分だけ横にはみ出して
+     横スクロールバーが出ていた。はみ出した分を切り落とす(clipはstickyを壊さない) */
+  overflow-x: clip;
   background: var(--bg);
   color: var(--text);
   font-family: "Zen Kaku Gothic New", "Hiragino Kaku Gothic ProN", sans-serif;
@@ -1856,8 +1859,13 @@ p {
 /* ===== 見たくないコメントの一括削除 ===== */
 .bulk-delete-row {
   display: flex;
-  justify-content: flex-end;
+  justify-content: flex-start;
   margin-bottom: 1rem;
+}
+.bulk-delete-row .btn-secondary {
+  border-color: var(--warm);
+  color: var(--warm);
+  font-weight: 600;
 }
 .btn-primary.btn-danger {
   background: var(--warm);
