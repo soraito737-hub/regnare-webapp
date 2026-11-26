@@ -13,7 +13,7 @@ from starlette.middleware.sessions import SessionMiddleware  # noqa: E402
 from config import FRONTEND_URL, IS_PRODUCTION, SESSION_SECRET  # noqa: E402
 from json_store import encryption_enabled  # noqa: E402
 from retention import start_cleanup_thread  # noqa: E402
-from routers import auth, profile, videos  # noqa: E402
+from routers import auth, profile, support, videos  # noqa: E402
 
 # データベースに保存するなら、必ず暗号化する(運営者がデータベースを開いても本文を読めないように)。
 # 鍵がないまま平文で保存してしまわないよう、起動させない。
@@ -61,6 +61,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(profile.router)
 app.include_router(videos.router)
+app.include_router(support.router)
 
 
 @app.get("/api/health")

@@ -95,6 +95,9 @@ export function PrivacyBody() {
           <li>ユーザーが管理するYouTube動画に投稿されたコメントの本文、投稿者のチャンネルID・表示名(YouTube Data API経由で取得)</li>
           <li>ユーザー自身が設定した「見たくないコメント」の基準・判断記録</li>
         </ul>
+        <p>
+          また、画面右下の吹き出しからお問い合わせを送った場合は、その内容と、YouTubeチャンネル名・チャンネルID、入力した場合は返信先のメールアドレスを取得します。
+        </p>
       </section>
       <section>
         <h2>2. 利用目的</h2>
@@ -112,6 +115,9 @@ export function PrivacyBody() {
         </p>
         <p>
           保存するデータ(コメント本文、判定結果、設定など)は、データベースサービスのNeon(Neon, Inc.)に、暗号化したうえで保管します。Neonは保管のためだけに使い、Neonが内容を読むことはできません。
+        </p>
+        <p>
+          お問い合わせの内容は、返信と不具合対応のため、Googleのメールサービス(Gmail)を通じて運営者のメールアドレスに送ります。本サービスのデータベースには保存しません。
         </p>
         <p>上記以外の目的で、取得した情報を第三者に販売・提供することはありません。</p>
         <p>
@@ -233,6 +239,10 @@ export function PrivacyBodyEn() {
           <li>The settings and decisions you make in Regskip (e.g. which kinds of comments you do not want to see)</li>
         </ul>
         <p>We do not access your Google account password, email address, or any other Google service.</p>
+        <p>
+          If you send an inquiry from the chat bubble at the bottom right, we also receive its text, your YouTube
+          channel name and channel ID, and the reply email address if you enter one.
+        </p>
       </section>
       <section>
         <h2>2. How we use the data</h2>
@@ -258,6 +268,10 @@ export function PrivacyBodyEn() {
           Stored data (comment text, classification results, settings) is kept encrypted in the database service Neon
           (Neon, Inc.). Neon is used only for storage and cannot read the contents. Regskip does not share Google user
           data with any other party.
+        </p>
+        <p>
+          Inquiries are delivered to the operator's email address through Google's email service (Gmail) so that we can
+          reply and fix problems. They are not stored in Regskip's database.
         </p>
         <p>
           We do not create or share aggregated or anonymized data from Google user data. We never sell or transfer Google
