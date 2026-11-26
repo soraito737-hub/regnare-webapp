@@ -23,19 +23,32 @@ def login(request: Request):
     return {"url": auth_url}
 
 
-@router.get("/callback")
-def callback(request: Request, code: str):
-    """Googleからのリダイレクトを受け取り、認証情報をセッションに保存してReact側へ戻す。"""
-    flow = get_flow(code_verifier=request.session.get("code_verifier"))
-    flow.fetch_token(code=code)
-    credentials = flow.credentials
+def _connect_error(reason: str) -> RedirectResponse:
+    # 連携に失敗したときは、利用規約の画面ではなく、理由と次にすることを説明する画面に戻す
+    return RedirectResponse(f"{FRONTEND_URL}/connect/error?reason={reason}")
 
-    info = get_channel_info(credentials)
+
+@router.get("/callback")
+def callback(request: Request, code: str | None = None, error: str | None = None):
+    """Googleからのリダイレクトを受け取り、認証情報をセッションに保存してReact側へ戻す。"""
+    # Googleの画面で「キャンセル」を押した・許可しなかった場合は、codeが付かずerrorが付いて戻ってくる
+    if error or not code:
+        return _connect_error("denied")
+    try:
+        flow = get_flow(code_verifier=request.session.get("code_verifier"))
+        flow.fetch_token(code=code)
+        credentials = flow.credentials
+        info = get_channel_info(credentials)
+    except Exception as e:
+        # 原因はRenderのLogsで確かめられるように残す(トークン等の中身は出さない)
+        print(f"[auth] 連携に失敗: {type(e).__name__}", flush=True)
+        return _connect_error("failed")
+
     if info is None:
-        return RedirectResponse(f"{FRONTEND_URL}/connect?error=no_channel")
+        return _connect_error("no_channel")
     if not is_allowed_channel(info["channel_id"]):
         # 招待していないチャンネルの認証情報はセッションに保存せずに戻す
-        return RedirectResponse(f"{FRONTEND_URL}/connect?error=not_invited")
+        return _connect_error("not_invited")
 
     request.session["credentials"] = encrypt_credentials(credentials)
     request.session["channel_id"] = info["channel_id"]
