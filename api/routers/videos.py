@@ -591,8 +591,9 @@ def rephrase_comment(body: RephraseIn, request: Request):
         model="gemini-3.6-flash",
         contents=prompt,
         config=genai_types.GenerateContentConfig(
-            # 料金の大半は「考える」分と長い答えなので、どちらも控えめにする
-            thinking_config=genai_types.ThinkingConfig(thinking_level="low"),
+            # 料金と待ち時間の大半は「考える」分と長い答えなので、どちらも最小限にする
+            # (low=平均3.5秒、minimal=平均1.9秒で、言い換えの質はほぼ同じだった)
+            thinking_config=genai_types.ThinkingConfig(thinking_level="minimal"),
             max_output_tokens=1024,
         ),
     )

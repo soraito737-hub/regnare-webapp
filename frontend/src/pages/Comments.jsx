@@ -283,6 +283,7 @@ function HiddenCommentCard({ entry, rephrased, onRephrase, onRestore, onBan, onD
   const [showOriginal, setShowOriginal] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [rephrasing, setRephrasing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   // 「アンチではない」と思ったら、どの理由で隠されたものでも視聴者コメントに戻せる。
   // AI判定のエラーで念のため隠したものは、判定結果が保存されておらず戻す先が無いので対象外
@@ -350,8 +351,19 @@ function HiddenCommentCard({ entry, rephrased, onRephrase, onRestore, onBan, onD
         <button className="btn-secondary" onClick={() => setShowOriginal((v) => !v)}>
           {showOriginal ? "本文を隠す" : "本文を見る"}
         </button>
-        <button className="btn-secondary" onClick={() => onRephrase(c.comment_id, c.text)}>
-          言い換えて見る
+        <button
+          className="btn-secondary"
+          disabled={rephrasing}
+          onClick={async () => {
+            setRephrasing(true);
+            try {
+              await onRephrase(c.comment_id, c.text);
+            } finally {
+              setRephrasing(false);
+            }
+          }}
+        >
+          {rephrasing ? "言い換えています…" : "言い換えて見る"}
         </button>
         <button className="btn-primary" disabled={deleting} onClick={submitDeleteYoutube}>
           {deleting ? "削除しています…" : "YouTube上で削除する"}
