@@ -2044,3 +2044,44 @@ p {
 body.has-support-widget {
   padding-bottom: 88px;
 }
+
+/* ---- 連携に失敗したときの画面 ---- */
+.connect-error-card {
+  text-align: left;
+}
+@media (max-width: 480px) {
+  .connect-error-card {
+    padding: 2rem 1.25rem;
+  }
+}
+.connect-error-card h1 {
+  color: var(--warm);
+}
+.connect-error-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1.6rem;
+}
+.connect-error-step {
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+}
+.connect-error-step h2 {
+  margin: 0 0 0.3rem;
+  font-size: 0.92rem;
+  color: var(--text);
+}
+.connect-error-card .connect-error-step p {
+  margin: 0;
+}
+.connect-error-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+.connect-error-actions button {
+  flex: 1 1 200px;
+}

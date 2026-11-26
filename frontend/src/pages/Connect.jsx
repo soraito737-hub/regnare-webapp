@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Navigate, useSearchParams } from "react-router-dom";
 import Header from "../components/Header.jsx";
 import { api } from "../api.js";
 import { TermsBody, PrivacyBody } from "../components/LegalContent.jsx";
@@ -10,6 +10,7 @@ export default function Connect() {
   const [agreed, setAgreed] = useState(false);
   const [hasScrolledToEnd, setHasScrolledToEnd] = useState(false);
   const [searchParams] = useSearchParams();
+  // 古い形(/connect?error=...)で戻ってきた場合も、理由を説明する画面に回す
   const oauthError = searchParams.get("error");
 
   const handleConnect = async () => {
@@ -35,22 +36,18 @@ export default function Connect() {
     }
   };
 
+  if (oauthError) {
+    return <Navigate to={`/connect/error?reason=${encodeURIComponent(oauthError)}`} replace />;
+  }
+
   return (
     <div className="page">
       <Header showBack />
       <div className="card connect-card">
         <h1>Googleアカウントと連携する</h1>
-        {/* 連携に失敗して戻ってきたとき、長い規約の下に理由が隠れて「規約に戻された」ように
-            見えないよう、見出しのすぐ下に出す */}
-        {(error || oauthError) && (
+        {error && (
           <p className="error-text" role="alert">
-            {oauthError === "no_channel"
-              ? "このGoogleアカウントにはYouTubeチャンネルがありませんでした。チャンネルを持つアカウントを選んで、もう一度連携してください。"
-              : oauthError === "not_invited"
-                ? "このチャンネルは、まだRegskipを利用できません(招待したチャンネルだけが使える期間中です)。"
-                : oauthError
-                  ? "連携できませんでした。もう一度お試しください。"
-                  : error}
+            {error}
           </p>
         )}
         <p>
