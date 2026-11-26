@@ -537,8 +537,9 @@ export default function Comments() {
   const handleReply = (commentId, text) => api.replyToComment(commentId, text);
 
   const handleRephrase = async (commentId, text) => {
+    if (rephrased[commentId]) return; // もう言い換え済みなら、AIに送り直さない
     try {
-      const { rephrased: r } = await api.rephrase(text);
+      const { rephrased: r } = await api.rephrase(text, commentId);
       setRephrased((prev) => ({ ...prev, [commentId]: r }));
     } catch (err) {
       alert(err.message);
