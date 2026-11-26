@@ -2085,3 +2085,61 @@ body.has-support-widget {
 .connect-error-actions button {
   flex: 1 1 200px;
 }
+
+/* 利用状況(運営のみ) */
+.admin-stats-card h2 {
+  font-size: 1rem;
+  margin: 1.6rem 0 0.6rem;
+}
+.admin-stats-note {
+  color: var(--text-soft);
+  font-size: 0.85rem;
+}
+.admin-stats-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+.admin-stats-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+.admin-stats-value {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--accent-strong);
+  font-variant-numeric: tabular-nums;
+}
+.admin-stats-label {
+  font-size: 0.8rem;
+  color: var(--text-soft);
+}
+.admin-stats-table-wrap {
+  overflow-x: auto;
+}
+.admin-stats-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.admin-stats-table th,
+.admin-stats-table td {
+  padding: 0.45rem 0.6rem;
+  border-bottom: 1px solid var(--border-soft);
+  text-align: right;
+}
+.admin-stats-table th:first-child,
+.admin-stats-table td:first-child {
+  text-align: left;
+}
+.admin-stats-table th {
+  font-size: 0.8rem;
+  color: var(--text-soft);
+  font-weight: 600;
+}
