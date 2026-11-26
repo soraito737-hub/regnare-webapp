@@ -524,7 +524,7 @@ def refine_similarity_mark(mark_id: str, body: RefineMarkIn, request: Request):
 
 @router.post("/similarity-marks/{mark_id}/reset-threshold")
 def reset_similarity_mark_threshold(mark_id: str, request: Request):
-    """個別に上げた必要一致度を、初期値(見たくない=0.85、アンチではない=0.95)に戻す。"""
+    """個別に上げた必要一致度を、初期値(0.95)に戻す。"""
     _, channel_id = _require_session(request)
     get_similarity_list().reset_threshold(channel_id, mark_id)
     return {"ok": True}

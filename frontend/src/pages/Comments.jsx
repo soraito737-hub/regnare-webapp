@@ -5,8 +5,8 @@ import { api } from "../api.js";
 import { formatCount, formatDate } from "../format.js";
 import { dismissedAuthors, getProcessed, setProcessed } from "../videoCache.js";
 
-const HIGH_SIMILARITY_THRESHOLD = 0.93;
-const MID_SIMILARITY_THRESHOLD = 0.85;
+const HIGH_SIMILARITY_THRESHOLD = 0.97;
+const MID_SIMILARITY_THRESHOLD = 0.95;
 
 function similarityTier(score) {
   if (score >= HIGH_SIMILARITY_THRESHOLD) return "high";

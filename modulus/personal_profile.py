@@ -114,8 +114,8 @@ def is_emergency(judgment: CommentJudgment) -> bool:
 # 重要: この仕組みはembedding_classifier.pyの共有カテゴリベクトルには一切書き込まない。
 # 利用者ごとに完全に独立したベクトル集合として実装する。共有モデルの学習ループに混ぜないこと。
 
-HIGH_SIMILARITY_THRESHOLD = 0.93
-MID_SIMILARITY_THRESHOLD = 0.85
+HIGH_SIMILARITY_THRESHOLD = 0.97
+MID_SIMILARITY_THRESHOLD = 0.95
 # 「アンチではない」(通常表示)のマークだけは、ほぼ同じ内容(言い換えの上の方)でしか一致させない。
 # 間違って一致すると本物のアンチコメントを見せてしまい、「見たくない」側の間違いより負担が大きいため。
 NOT_ANTI_SIMILARITY_THRESHOLD = 0.95
@@ -353,7 +353,7 @@ class PersonalSimilarityList:
         mark.note = exception_note if not mark.note else f"{mark.note}\n(例外: {exception_note})"
         text_for_embedding = f"{mark.comment}\n(見たくない理由: {mark.note})"
         mark.embedding = embed_text(self._client, text_for_embedding)
-        # 上限(0.93)より高く始まる「アンチではない」のマークを、ここで下げてしまわないようにする
+        # 上限より高い値で保存されたマークを、ここで下げてしまわないようにする
         mark.threshold = max(mark.threshold, min(mark.threshold + self.THRESHOLD_STEP, HIGH_SIMILARITY_THRESHOLD))
         self._save(user_id)
 
