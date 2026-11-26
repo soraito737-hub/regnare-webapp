@@ -31,7 +31,7 @@ export default function AdminStats() {
       <div className="card admin-stats-card">
         <h1>利用状況</h1>
         <p className="admin-stats-note">
-          記録はこの機能を入れた日から始まっています。同じ人が何回ログインしても1人と数えます。運営チーム自身も含みます。
+          記録はこの機能を入れた日から始まっています。同じ人が何回ログインしても1人と数えます。運営チーム自身も含みます。30日以上ログインしなかった人がまた来たときは、初めての人として数えます。
         </p>
         {error && <p className="error-text" role="alert">{error}</p>}
         {!stats && !error && <p>読み込んでいます…</p>}
