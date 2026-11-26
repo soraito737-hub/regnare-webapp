@@ -9,6 +9,7 @@ import Comments from "./pages/Comments.jsx";
 import SimilarityMarks from "./pages/SimilarityMarks.jsx";
 import Privacy from "./pages/Privacy.jsx";
 import Terms from "./pages/Terms.jsx";
+import AdminStats from "./pages/AdminStats.jsx";
 import SupportWidget from "./components/SupportWidget.jsx";
 
 function App() {
@@ -27,6 +28,7 @@ function App() {
       <Route path="/learned-marks" element={<SimilarityMarks />} />
       <Route path="/privacy" element={<Privacy />} />
       <Route path="/terms" element={<Terms />} />
+      <Route path="/admin/stats" element={<AdminStats />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
     </>

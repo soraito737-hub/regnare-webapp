@@ -64,6 +64,7 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ message, reply_email: replyEmail, page }),
     }),
+  getAdminStats: () => request("/api/admin/stats"),
   restoreComment: (commentId, note = "") =>
     request(`/api/comments/${commentId}/restore`, { method: "POST", body: JSON.stringify({ note }) }),
 };

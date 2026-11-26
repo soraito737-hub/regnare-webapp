@@ -94,6 +94,7 @@ export function PrivacyBody() {
           <li>YouTubeチャンネルID、チャンネルのアイコン画像</li>
           <li>ユーザーが管理するYouTube動画に投稿されたコメントの本文、投稿者のチャンネルID・表示名(YouTube Data API経由で取得)</li>
           <li>ユーザー自身が設定した「見たくないコメント」の基準・判断記録</li>
+          <li>ログインした日時と回数(利用者数を把握するため)</li>
         </ul>
         <p>
           また、画面右下の吹き出しからお問い合わせを送った場合は、その内容と、YouTubeチャンネル名・チャンネルID、入力した場合は返信先のメールアドレスを取得します。
@@ -237,6 +238,7 @@ export function PrivacyBodyEn() {
             (via the YouTube Data API)
           </li>
           <li>The settings and decisions you make in Regskip (e.g. which kinds of comments you do not want to see)</li>
+          <li>When and how many times you log in (to know how many people use Regskip)</li>
         </ul>
         <p>We do not access your Google account password, email address, or any other Google service.</p>
         <p>

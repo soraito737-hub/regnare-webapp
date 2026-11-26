@@ -8,6 +8,7 @@ export default function Header({ showBack = false, onBack, showMenu = false, onM
   const navigate = useNavigate();
   const [avatarUrl, setAvatarUrl] = useState("");
   const [loggedIn, setLoggedIn] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
 
@@ -35,6 +36,11 @@ export default function Header({ showBack = false, onBack, showMenu = false, onM
     navigate("/learned-marks");
   };
 
+  const goAdminStats = () => {
+    setMenuOpen(false);
+    navigate("/admin/stats");
+  };
+
   const handleLogout = async () => {
     setMenuOpen(false);
     setConnected(false);
@@ -55,6 +61,7 @@ export default function Header({ showBack = false, onBack, showMenu = false, onM
         if (cancelled) return;
         setLoggedIn(!!me.logged_in);
         setAvatarUrl(me.avatar_url || "");
+        setIsAdmin(!!me.is_admin);
       } catch {
         // 未ログイン、またはAPI未起動。アイコンを出さないだけ。
       }
@@ -94,6 +101,7 @@ export default function Header({ showBack = false, onBack, showMenu = false, onM
                 <button onClick={goSettings}>初期設定</button>
                 <button onClick={goDiagnosisResult}>診断結果</button>
                 <button onClick={goLearnedMarks}>本サイトのコメント管理</button>
+                {isAdmin && <button onClick={goAdminStats}>利用状況(運営のみ)</button>}
                 <button onClick={handleLogout}>ログアウト</button>
               </div>
             )}

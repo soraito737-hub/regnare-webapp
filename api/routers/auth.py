@@ -3,11 +3,18 @@ import json
 from fastapi import APIRouter, Request
 from fastapi.responses import RedirectResponse
 
+import os
+
 from config import ALLOWED_CHANNEL_IDS, FRONTEND_URL
+from login_log import record_login
 from oauth import decrypt_credentials, encrypt_credentials, get_flow
 from youtube_service import get_channel_info
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
+
+
+def _admin_channel_ids() -> set[str]:
+    return {c.strip() for c in os.environ.get("ADMIN_CHANNEL_IDS", "").split(",") if c.strip()}
 
 
 def is_allowed_channel(channel_id: str | None) -> bool:
@@ -54,6 +61,11 @@ def callback(request: Request, code: str | None = None, error: str | None = None
     request.session["channel_id"] = info["channel_id"]
     request.session["uploads_playlist_id"] = info["uploads_playlist_id"]
     request.session["avatar_url"] = info.get("avatar_url", "")
+    try:
+        record_login(info["channel_id"])
+    except Exception as e:
+        # 記録に失敗しても、ログイン自体は止めない
+        print(f"[auth] ログインの記録に失敗: {type(e).__name__}", flush=True)
     return RedirectResponse(f"{FRONTEND_URL}/home")
 
 
@@ -74,6 +86,7 @@ def me(request: Request):
         "logged_in": True,
         "channel_id": request.session.get("channel_id"),
         "avatar_url": request.session.get("avatar_url", ""),
+        "is_admin": request.session.get("channel_id") in _admin_channel_ids(),
     }
 
 
