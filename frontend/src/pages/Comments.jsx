@@ -284,9 +284,10 @@ function HiddenCommentCard({ entry, rephrased, onRephrase, onRestore, onBan, onD
   const [restoring, setRestoring] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  // 「視聴者コメントに戻す」は、自分でボタンを押して非表示にした場合だけ出す。
-  // AIが過去のマークと自動で一致させた場合は、そのマークの閾値が上がる副作用があるため対象外。
-  const canRestore = entry.reason === "manual";
+  // 「アンチではない」と思ったら、どの理由で隠されたものでも視聴者コメントに戻せる。
+  // AI判定のエラーで念のため隠したものは、判定結果が保存されておらず戻す先が無いので対象外
+  // (次に動画を開いたときに判定し直される)。
+  const canRestore = entry.reason !== "error";
 
   const submitRestore = async () => {
     setMenuOpen(false);
@@ -323,11 +324,6 @@ function HiddenCommentCard({ entry, rephrased, onRephrase, onRestore, onBan, onD
           </button>
           {menuOpen && (
             <div className="card comment-menu-dropdown">
-              {canRestore && (
-                <button disabled={restoring} onClick={submitRestore}>
-                  {restoring ? "戻しています…" : "視聴者コメントに戻す"}
-                </button>
-              )}
               <button
                 className="menu-item-danger"
                 onClick={() => {
@@ -346,6 +342,11 @@ function HiddenCommentCard({ entry, rephrased, onRephrase, onRestore, onBan, onD
       )}
       {showOriginal && <div className="comment-text">{c.text}</div>}
       <div className="comment-actions">
+        {canRestore && (
+          <button className="btn-secondary" disabled={restoring} onClick={submitRestore}>
+            {restoring ? "戻しています…" : "アンチではない（視聴者コメントに戻す）"}
+          </button>
+        )}
         <button className="btn-secondary" onClick={() => setShowOriginal((v) => !v)}>
           {showOriginal ? "本文を隠す" : "本文を見る"}
         </button>

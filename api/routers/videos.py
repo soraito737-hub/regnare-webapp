@@ -435,7 +435,7 @@ def restore_comment(comment_id: str, body: RestoreIn, request: Request):
     """『視聴者コメントに戻す』。原因(reason)によって対応が変わる。
     - manual(自分でボタンを押した): そのとき作られたマーク自体を削除する(完全に元通り)
     - personal_similarity(過去のマークと一致): そのマークに例外を追記して育てる(部分的な改善)
-    - それ以外(ルールのみ・マーク無し): マークは無いので、キャッシュの表示だけ書き換える
+    - それ以外(初期設定のルールでAIが隠した): 「アンチではない」として通常表示のマークを作る
     どの場合も、このコメント自身は次から「新着」として永続的に扱われる。"""
     _, channel_id = _require_session(request)
     cache = load_comment_cache(channel_id)
@@ -448,6 +448,21 @@ def restore_comment(comment_id: str, body: RestoreIn, request: Request):
         similarity_list.delete_mark(channel_id, entry["own_mark_id"])
     elif entry.get("reason") == "personal_similarity" and entry.get("matched_mark_id"):
         similarity_list.refine_mark(channel_id, entry["matched_mark_id"], body.note or "この一致は間違いだった")
+    elif entry.get("judgment") and entry.get("comment", {}).get("text"):
+        # 初期設定のルール(personal_pattern/attack_level)でAIが隠したもの。「アンチではない」
+        # という本人の判断を「通常表示」のマークとして覚え、次から似たコメントも隠さないようにする
+        # (緊急のコメントは_build_entryで類似度より先に扱うので、このマークでは表示に戻らない)。
+        judgment = _judgment_from_dict(entry["judgment"])
+        similarity_list.mark_comment(
+            user_id=channel_id,
+            comment=entry["comment"]["text"],
+            action=PersonalAction.NORMAL,
+            categories=judgment.categories,
+            tatemae_pattern=judgment.tatemae_pattern,
+            surface_level=judgment.surface_level,
+            author_channel_id=entry["comment"].get("author_channel_id"),
+            note=body.note or None,
+        )
 
     cache[comment_id] = {
         **entry,
