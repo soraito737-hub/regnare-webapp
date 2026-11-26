@@ -42,6 +42,7 @@ def get_channel_info(credentials: Credentials) -> dict | None:
     avatar = thumbs.get("high") or thumbs.get("medium") or thumbs.get("default") or {}
     return {
         "channel_id": items[0]["id"],
+        "title": items[0].get("snippet", {}).get("title", ""),
         "uploads_playlist_id": items[0]["contentDetails"]["relatedPlaylists"]["uploads"],
         "avatar_url": avatar.get("url", ""),
     }

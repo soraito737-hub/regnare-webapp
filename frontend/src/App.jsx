@@ -8,9 +8,12 @@ import Comments from "./pages/Comments.jsx";
 import SimilarityMarks from "./pages/SimilarityMarks.jsx";
 import Privacy from "./pages/Privacy.jsx";
 import Terms from "./pages/Terms.jsx";
+import SupportWidget from "./components/SupportWidget.jsx";
 
 function App() {
   return (
+    <>
+    <SupportWidget />
     <Routes>
       <Route path="/" element={<Diagnosis />} />
       <Route path="/diagnosis-result" element={<DiagnosisResultPage />} />
@@ -24,6 +27,7 @@ function App() {
       <Route path="/terms" element={<Terms />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </>
   );
 }
 
