@@ -12,7 +12,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "modulus"))
 
 from fastapi import APIRouter, HTTPException, Request  # noqa: E402
-from pydantic import BaseModel  # noqa: E402
+from google.genai import types as genai_types  # noqa: E402
+from pydantic import BaseModel, Field  # noqa: E402
 
 from personal_classifier import (  # noqa: E402
     BATCH_SIZE, Category, CommentJudgment, EmergencyType, PersonalJudgmentClassifier, SurfaceLevel, TatemaePattern,
@@ -564,16 +565,43 @@ def reply_comment(comment_id: str, body: ReplyIn, request: Request):
 
 
 class RephraseIn(BaseModel):
-    text: str
+    text: str = Field(max_length=2000)
+    comment_id: str | None = None
 
 
 @router.post("/comments/rephrase")
-def rephrase_comment(body: RephraseIn):
+def rephrase_comment(body: RephraseIn, request: Request):
+    # 誰でも呼べるとAIの費用を使われてしまうので、ログインした人だけにする
+    _, channel_id = _require_session(request)
+
+    # 同じコメントを何度押しても、AIに送るのは最初の1回だけにする(結果はキャッシュに暗号化して保存)
+    cache = load_comment_cache(channel_id) if body.comment_id else {}
+    entry = cache.get(body.comment_id) if body.comment_id else None
+    if entry and entry.get("rephrased") and entry.get("rephrased_source") == body.text:
+        return {"rephrased": entry["rephrased"]}
+
     client = get_classifier().client
     prompt = (
-        "このコメントの言いたいことを、攻撃的な言葉を使わずに伝えてください。"
-        "伝えるべき内容が特になければ、その旨を伝えてください。\n\n"
+        "このコメントの言いたいことを、攻撃的な言葉を使わずに、1〜2文の短い日本語で伝えてください。"
+        "前置きや説明は書かず、言い換えた文だけを答えてください。"
+        "伝えるべき内容が特になければ「特に伝えたい内容はないコメントです」とだけ答えてください。\n\n"
         f"コメント:「{body.text}」"
     )
-    response = client.models.generate_content(model="gemini-3.6-flash", contents=prompt)
-    return {"rephrased": response.text.strip()}
+    response = client.models.generate_content(
+        model="gemini-3.6-flash",
+        contents=prompt,
+        config=genai_types.GenerateContentConfig(
+            # 料金の大半は「考える」分と長い答えなので、どちらも控えめにする
+            thinking_config=genai_types.ThinkingConfig(thinking_level="low"),
+            max_output_tokens=1024,
+        ),
+    )
+    rephrased = (response.text or "").strip()
+    if not rephrased:
+        raise HTTPException(status_code=502, detail="言い換えに失敗しました。もう一度お試しください")
+
+    if entry is not None:
+        entry["rephrased"] = rephrased
+        entry["rephrased_source"] = body.text
+        save_comment_cache(channel_id, cache)
+    return {"rephrased": rephrased}

@@ -48,8 +48,11 @@ export const api = {
   banAuthor: (commentId) => request(`/api/comments/${commentId}/ban`, { method: "POST" }),
   replyToComment: (commentId, text) =>
     request(`/api/comments/${commentId}/reply`, { method: "POST", body: JSON.stringify({ text }) }),
-  rephrase: (text) =>
-    request("/api/comments/rephrase", { method: "POST", body: JSON.stringify({ text }) }),
+  rephrase: (text, commentId) =>
+    request("/api/comments/rephrase", {
+      method: "POST",
+      body: JSON.stringify({ text, comment_id: commentId }),
+    }),
   getSimilarityMarks: () => request("/api/similarity-marks"),
   resetSimilarityMarks: () => request("/api/similarity-marks", { method: "DELETE" }),
   deleteSimilarityMark: (markId) =>
