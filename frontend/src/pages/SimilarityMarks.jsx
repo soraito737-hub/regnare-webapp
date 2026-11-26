@@ -5,7 +5,7 @@ import { clearProcessed } from "../videoCache.js";
 
 const ACTION_LABEL = { normal: "非表示にしない", hide_regskip: "本サイトで非表示" };
 
-const DEFAULT_THRESHOLD = 0.85;
+const DEFAULT_THRESHOLD = 0.95;
 
 function MarkCard({ mark, onRestore, onResetThreshold }) {
   const [restoring, setRestoring] = useState(false);
