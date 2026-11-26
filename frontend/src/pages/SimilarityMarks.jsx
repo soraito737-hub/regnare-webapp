@@ -10,7 +10,7 @@ const DEFAULT_THRESHOLD = 0.85;
 function MarkCard({ mark, onRestore, onResetThreshold }) {
   const [restoring, setRestoring] = useState(false);
   const [resettingThreshold, setResettingThreshold] = useState(false);
-  const isStricter = mark.threshold > DEFAULT_THRESHOLD;
+  const isStricter = mark.threshold > (mark.default_threshold ?? DEFAULT_THRESHOLD);
 
   const submitRestore = async () => {
     setRestoring(true);

@@ -18,7 +18,7 @@ from personal_classifier import (  # noqa: E402
     BATCH_SIZE, Category, CommentJudgment, EmergencyType, PersonalJudgmentClassifier, SurfaceLevel, TatemaePattern,
 )
 from personal_profile import (  # noqa: E402
-    DisplayAction, PersonalAction, PersonalSimilarityList,
+    DisplayAction, PersonalAction, PersonalSimilarityList, default_threshold,
     is_emergency, resolve_display_action,
 )
 
@@ -494,6 +494,7 @@ def list_similarity_marks(request: Request):
                 "author_channel_id": m.author_channel_id,
                 "video_id": m.video_id,
                 "threshold": m.threshold,
+                "default_threshold": default_threshold(m.action),
             }
             for m in marks
         ]
@@ -523,7 +524,7 @@ def refine_similarity_mark(mark_id: str, body: RefineMarkIn, request: Request):
 
 @router.post("/similarity-marks/{mark_id}/reset-threshold")
 def reset_similarity_mark_threshold(mark_id: str, request: Request):
-    """個別に上げた必要一致度を、共通の初期値(0.85)に戻す。"""
+    """個別に上げた必要一致度を、初期値(見たくない=0.85、アンチではない=0.95)に戻す。"""
     _, channel_id = _require_session(request)
     get_similarity_list().reset_threshold(channel_id, mark_id)
     return {"ok": True}

@@ -116,6 +116,13 @@ def is_emergency(judgment: CommentJudgment) -> bool:
 
 HIGH_SIMILARITY_THRESHOLD = 0.93
 MID_SIMILARITY_THRESHOLD = 0.85
+# 「アンチではない」(通常表示)のマークだけは、ほぼ同じ内容(言い換えの上の方)でしか一致させない。
+# 間違って一致すると本物のアンチコメントを見せてしまい、「見たくない」側の間違いより負担が大きいため。
+NOT_ANTI_SIMILARITY_THRESHOLD = 0.95
+
+
+def default_threshold(action: "PersonalAction") -> float:
+    return NOT_ANTI_SIMILARITY_THRESHOLD if action == PersonalAction.NORMAL else MID_SIMILARITY_THRESHOLD
 # 【実測による調整】仕様書の暫定値(0.85/0.60)を、実際のコメントで検証したところ、
 # 無関係なコメント同士でも0.69〜0.78程度のコサイン類似度が出ることが判明した
 # (例:「才能なさすぎ、動画作るのやめたら?」を見たくないとマークした状態で、
@@ -203,7 +210,10 @@ class PersonalSimilarityList:
                     author_channel_id=r.get("author_channel_id"),
                     note=r.get("note"),
                     video_id=r.get("video_id"),
-                    threshold=r.get("threshold", MID_SIMILARITY_THRESHOLD),
+                    # 「アンチではない」のマークは、基準を決める前に作られたものも0.95以上にそろえる
+                    threshold=max(
+                        r.get("threshold", MID_SIMILARITY_THRESHOLD), default_threshold(PersonalAction(r["action"]))
+                    ),
                     id=r.get("id") or uuid.uuid4().hex,
                     refreshed_at=r.get("refreshed_at") or now_iso(),
                 ))
@@ -263,6 +273,7 @@ class PersonalSimilarityList:
             author_channel_id=author_channel_id,
             note=note,
             video_id=video_id,
+            threshold=default_threshold(action),
         )
         marks.append(mark)
         self._save(user_id)
@@ -342,7 +353,8 @@ class PersonalSimilarityList:
         mark.note = exception_note if not mark.note else f"{mark.note}\n(例外: {exception_note})"
         text_for_embedding = f"{mark.comment}\n(見たくない理由: {mark.note})"
         mark.embedding = embed_text(self._client, text_for_embedding)
-        mark.threshold = min(mark.threshold + self.THRESHOLD_STEP, HIGH_SIMILARITY_THRESHOLD)
+        # 上限(0.93)より高く始まる「アンチではない」のマークを、ここで下げてしまわないようにする
+        mark.threshold = max(mark.threshold, min(mark.threshold + self.THRESHOLD_STEP, HIGH_SIMILARITY_THRESHOLD))
         self._save(user_id)
 
     def reset_threshold(self, user_id: str, mark_id: str) -> None:
@@ -350,7 +362,7 @@ class PersonalSimilarityList:
         mark = self._find(user_id, mark_id)
         if mark is None:
             return
-        mark.threshold = MID_SIMILARITY_THRESHOLD
+        mark.threshold = default_threshold(mark.action)
         self._save(user_id)
 
 
