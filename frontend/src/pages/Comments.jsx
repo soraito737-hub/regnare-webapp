@@ -324,6 +324,11 @@ function HiddenCommentCard({ entry, rephrased, onRephrase, onRestore, onBan, onD
           </button>
           {menuOpen && (
             <div className="card comment-menu-dropdown">
+              {canRestore && (
+                <button disabled={restoring} onClick={submitRestore}>
+                  {restoring ? "戻しています…" : "アンチではない（視聴者コメントに戻す）"}
+                </button>
+              )}
               <button
                 className="menu-item-danger"
                 onClick={() => {
@@ -342,11 +347,6 @@ function HiddenCommentCard({ entry, rephrased, onRephrase, onRestore, onBan, onD
       )}
       {showOriginal && <div className="comment-text">{c.text}</div>}
       <div className="comment-actions">
-        {canRestore && (
-          <button className="btn-secondary" disabled={restoring} onClick={submitRestore}>
-            {restoring ? "戻しています…" : "アンチではない（視聴者コメントに戻す）"}
-          </button>
-        )}
         <button className="btn-secondary" onClick={() => setShowOriginal((v) => !v)}>
           {showOriginal ? "本文を隠す" : "本文を見る"}
         </button>
