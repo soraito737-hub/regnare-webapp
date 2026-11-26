@@ -133,6 +133,14 @@ def save_json(name: str, data) -> None:
         json.dump(_encode(data), f, ensure_ascii=False, indent=2)
 
 
+def delete_json(name: str) -> None:
+    if _database_url():
+        with _get_pool().connection() as conn:
+            conn.execute("DELETE FROM json_store WHERE name = %s", (name,))
+        return
+    (DATA_DIR / f"{name}.json").unlink(missing_ok=True)
+
+
 def encrypt_plaintext_rows() -> int:
     """暗号化前に保存された平文の行を暗号化し直す。鍵がなければ何もしない。直した件数を返す。"""
     if not encryption_enabled() or not _database_url():

@@ -15,7 +15,7 @@ import time
 import traceback
 from datetime import datetime, timedelta, timezone
 
-from json_store import encrypt_plaintext_rows, list_names, load_json, save_json
+from json_store import delete_json, encrypt_plaintext_rows, list_names, load_json, save_json
 
 RETENTION_DAYS = 30
 CLEANUP_INTERVAL_SECONDS = 24 * 60 * 60
@@ -64,6 +64,17 @@ def cleanup_expired() -> None:
             save_json(name, kept)
             if len(kept) != len(marks):
                 print(f"[retention] {name}: マーク{len(marks) - len(kept)}件削除", flush=True)
+
+    # ログインの記録はチャンネルID(YouTubeから受け取ったデータ)を含むので、
+    # 最後のログイン(=YouTubeから取り直した時)から30日たったら消す。人数だけの集計は残る。
+    removed = 0
+    for name in list_names("login_log_"):
+        log = load_json(name, None) or {}
+        if not log.get("last_login") or is_expired(log["last_login"]):
+            delete_json(name)
+            removed += 1
+    if removed:
+        print(f"[retention] ログインの記録{removed}件削除", flush=True)
 
 
 def _loop() -> None:
