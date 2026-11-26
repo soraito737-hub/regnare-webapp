@@ -40,6 +40,19 @@ export default function Connect() {
       <Header showBack />
       <div className="card connect-card">
         <h1>Googleアカウントと連携する</h1>
+        {/* 連携に失敗して戻ってきたとき、長い規約の下に理由が隠れて「規約に戻された」ように
+            見えないよう、見出しのすぐ下に出す */}
+        {(error || oauthError) && (
+          <p className="error-text" role="alert">
+            {oauthError === "no_channel"
+              ? "このGoogleアカウントにはYouTubeチャンネルがありませんでした。チャンネルを持つアカウントを選んで、もう一度連携してください。"
+              : oauthError === "not_invited"
+                ? "このチャンネルは、まだRegskipを利用できません(招待したチャンネルだけが使える期間中です)。"
+                : oauthError
+                  ? "連携できませんでした。もう一度お試しください。"
+                  : error}
+          </p>
+        )}
         <p>
           コメントを取得・整理するために、YouTubeチャンネルへのアクセスを許可してください。
           設定した内容はこのあと自動的に反映されます。
@@ -71,15 +84,6 @@ export default function Connect() {
         <button className="btn-primary" style={{ width: "100%" }} disabled={connecting || !agreed} onClick={handleConnect}>
           {connecting ? "接続しています…" : "Googleで連携する"}
         </button>
-        {(error || oauthError) && (
-          <p className="error-text">
-            {oauthError === "no_channel"
-              ? "YouTubeチャンネルが見つかりませんでした。チャンネルを持つアカウントで再度お試しください。"
-              : oauthError === "not_invited"
-                ? "Regskipは現在、招待したチャンネルだけが利用できる検証期間中です。"
-                : error}
-          </p>
-        )}
       </div>
     </div>
   );
